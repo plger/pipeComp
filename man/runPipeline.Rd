@@ -12,27 +12,22 @@ runPipeline(datasets, alternatives, pipelineDef, eg = NULL,
 
 \item{alternatives}{The (named) list of alternative values for each parameters.}
 
-\item{eg}{An optional matrix of indexes indicating the combination to run. Each column should correspond 
-to an element of `alternatives`, and contain indexes relative to this element. If omitted, all combinations
-will be performed.}
+\item{pipelineDef}{An object of class `PipelineDefinition`.}
+
+\item{eg}{An optional matrix of indexes indicating the combination to run. 
+Each column should correspond to an element of `alternatives`, and contain 
+indexes relative to this element. If omitted, all combinations will be 
+performed.}
 
 \item{output.prefix}{An optional prefix for the output files.}
 
 \item{nthreads}{Number of threads, default 6.}
 
-\item{debug}{Logical (default FALSE). When enabled, disables multithreading and prints extra information.}
-
-\item{pipelineDefinition}{The pipeline definition. See `defaultPipelineDef()` for indications about how to build one.}
-
-\item{summarization}{A function for the evaluation and summarization of the results. If clustering, omit to
-use the internal solution (`summarizeFlattenedResults`). Set to `NA` to execute nothing.}
-
-\item{addMeta}{Logical; whether to add metadata to the object before running (default TRUE).
-Disable only if you know the object already contain the needed metadata.}
+\item{debug}{Logical (default FALSE). When enabled, disables multithreading 
+and prints extra information.}
 }
 \value{
-If using the default pipeline, returns a data.frame of summarized results. Otherwise returns a 
-list of results per dataset.
+
 }
 \description{
 This function runs a pipeline with combinations of parameter variations on nested steps.

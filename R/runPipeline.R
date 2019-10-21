@@ -6,28 +6,26 @@
 #'
 #' @param datasets A named vector of initial objects or paths to rds files.
 #' @param alternatives The (named) list of alternative values for each parameters.
-#' @param pipelineDefinition The pipeline definition. See `defaultPipelineDef()` for indications about how to build one.
-#' @param eg An optional matrix of indexes indicating the combination to run. Each column should correspond 
-#' to an element of `alternatives`, and contain indexes relative to this element. If omitted, all combinations
-#' will be performed.
-#' @param summarization A function for the evaluation and summarization of the results. If clustering, omit to
-#'  use the internal solution (`summarizeFlattenedResults`). Set to `NA` to execute nothing.
+#' @param pipelineDef An object of class `PipelineDefinition`.
+#' @param eg An optional matrix of indexes indicating the combination to run. 
+#' Each column should correspond to an element of `alternatives`, and contain 
+#' indexes relative to this element. If omitted, all combinations will be 
+#' performed.
 #' @param output.prefix An optional prefix for the output files.
-#' @param addMeta Logical; whether to add metadata to the object before running (default TRUE).
-#' Disable only if you know the object already contain the needed metadata.
 #' @param nthreads Number of threads, default 6.
-#' @param debug Logical (default FALSE). When enabled, disables multithreading and prints extra information.
+#' @param debug Logical (default FALSE). When enabled, disables multithreading 
+#' and prints extra information.
 #'
-#' @return If using the default pipeline, returns a data.frame of summarized results. Otherwise returns a 
-#' list of results per dataset.
+#' @return 
 #' 
 #' @import methods BiocParallel data.table
 #' @export
 runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL,
                          output.prefix="", nthreads=6, debug=FALSE){
-  if(!is(pipelineDef,"pipelineDefinition")) 
-    pipelineDef <- pipelineDefinition(pipDef)
-  pipDef <- as.list(pipelineDef)
+  mcall <- match.call()
+  if(!is(pipelineDef,"PipelineDefinition")) 
+    pipelineDef <- PipelineDefinition(pipelineDef)
+  pipDef <- pipelineDef@functions
   .checkPipArgs(alternatives, pipDef)
   
   if(is.null(names(datasets)))
@@ -104,9 +102,12 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL,
                        error=function(e){
   ## error report
    if(debug) save(x, step, pipDef, fcall, newPar, file="runPipeline_error_TMPdump.RData")
-   stop("Error in dataset `", names(datasets)[dsi], "` with parameters:\n", aa, 
-        "\nin step `", step, "`, evaluating command:\n`", fcall, "`\nError:\n", 
-        e, "\n", ifelse(debug, paste("Current variables dumped in", paste0(output.prefix,"runPipeline_error_TMPdump.RData")), "") )
+   msg <- paste0("Error in dataset `", names(datasets)[dsi], "` with parameters:\n", aa, 
+                "\nin step `", step, "`, evaluating command:\n`", fcall, "`\nError:\n", 
+                e, "\n", ifelse(debug, paste("Current variables dumped in", 
+                                             paste0(output.prefix,"runPipeline_error_TMPdump.RData")), ""))
+   if(!debug || nthreads>1) print(msg)
+   stop( msg )
   ## end error report
                        })
 
@@ -119,6 +120,10 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL,
         if(is.list(x) && all(c("x","intermediate_return") %in% names(x))){
           intermediate_return_objects[[step]][[ename]] <- x$intermediate_return
           x <- x$x
+        }else{
+          if(!is.null(pipelineDef@evaluation[[step]])){
+            intermediate_return_objects[[step]][[ename]] <- pipelineDef@evaluation[[step]](x)
+          }
         }
         objects[[step]] <- x
       }
@@ -168,6 +173,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL,
     stopCluster(cl)
   }else{
     nthreads <- 1
+    if(debug) message("Running in debug mode (single thread)")
     res <- lapply( dsnames, FUN=.runPipelineF)
   }
   
@@ -196,7 +202,9 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL,
                          return(x)
                        }
                      })
-                   })
+                   }),
+                   sessionInfo=sessionInfo(),
+                   call=mcall
   )
   saveRDS(pipinfo, file=paste0(output.prefix,"pipelineInfo.rds"))
   

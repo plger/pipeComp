@@ -39,8 +39,7 @@
       w <- grep(paste0("^",f,"\\."),colnames(x))
       x[[paste0("min_",f)]] <- matrixStats::rowMins(as.matrix(x[,w,drop=FALSE]))
     }
-    x <- x[,grep("\\.",colnames(x),invert=TRUE)]
-    cbind(df, x)
+    as.data.frame(x[,grep("\\.",colnames(x),invert=TRUE)])
   })
   as.data.frame(data.table::rbindlist(res, idcol="dataset"))
 }
@@ -72,7 +71,18 @@
 #' explained by the clusters (i.e. R-squared of a linear model).
 #' 
 #' @export
-evaluateDimRed <- function(x, clusters, n=c(10,20,50), covars=list()){
+evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
+  if(is(x,"Seurat")){
+    if(is.null(covars)) covars <- x@meta.data[,c("log10_total_features", "log10_total_counts", "total_features")]
+    if(is.null(clusters)) clusters <- x$phenoid
+    x <- x@reductions$pca@cell.embeddings
+  }else if(is(x, "SingleCellExperiment")){
+    if(is.null(covars)) covars <- as.data.frame(colData(x[,c("log10_total_features", "log10_total_counts", "total_features")]))
+    if(is.null(clusters)) clusters <- x$phenoid
+    x <- reducedDim(x, "PCA")
+  }else{
+    if(is.null(clusters)) stop("`clusters` must be given!")
+  }
   library(cluster)
   clusters <- as.factor(clusters)
   n <- sapply(n, y=ncol(x), FUN=function(x,y) min(x,y))
@@ -139,7 +149,7 @@ evaluateDimRed <- function(x, clusters, n=c(10,20,50), covars=list()){
       ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
     }
     sw <- lapply(unique(ll), FUN=function(topX){
-      sapply(x, FUN=function(x) as.data.frame(x$clust.avg.silwidth)[topX,])
+      sapply(x, FUN=function(x) unlist(as.data.frame(x$clust.avg.silwidth)[topX,]))
     })
     names(sw) <- unique(ll)
     list( clust.avg.silwidth=sw,
@@ -309,3 +319,29 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
               mean_re = mean_re, 
               mean_F1 = mean_F1))
 }
+
+
+evaluateNorm <- function(x, clusters=NULL, covars=NULL){
+  if(is(x,"Seurat")){
+    if(is.null(covars)) covars <- x@meta.data[,c("log10_total_counts", "total_features")]
+    if(is.null(clusters)) clusters <- x$phenoid
+    x <- x@assays$RNA@data
+  }else if(is(x, "SingleCellExperiment")){
+    if(is.null(covars)) covars <- as.data.frame(colData(x)[,c("log10_total_counts", "total_features")])
+    if(is.null(clusters)) clusters <- x$phenoid
+    x <- logcounts(x)
+  }
+  x <- as.matrix(x)
+  res <- data.frame( row.names=row.names(x),
+            varExpByCluster=as.numeric(apply(x, 1, cl=clusters, FUN=.getVE)) ) 
+  if(!is.null(covars) && length(covars)>0){
+    resid <- t(apply(x,1,FUN=function(x){
+      lm(x~clusters)$residuals
+    }))
+    for( f in names(covars) ){
+      res[[f]] <- suppressWarnings(as.numeric(cor(t(x),as.numeric(covars[[f]]))))
+    }
+  }
+  return(res)
+}
+

@@ -4,7 +4,11 @@
 \alias{scrna_seurat_pipeline}
 \title{scrna_seurat_pipeline}
 \usage{
-scrna_seurat_pipeline(saveDimRed = FALSE, addMeta = TRUE)
+scrna_seurat_pipeline(saveDimRed = FALSE)
+}
+\arguments{
+\item{saveDimRed}{Logical; whether to save the dimensionality reduction for 
+each analysis (default FALSE)}
 }
 \description{
 The default SC clustering pipeline, with steps for filtering, normalization, feature selection,

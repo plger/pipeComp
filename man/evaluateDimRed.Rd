@@ -4,7 +4,7 @@
 \alias{evaluateDimRed}
 \title{evaluateDimRed}
 \usage{
-evaluateDimRed(x, clusters, n = c(10, 20, 50), covars = list())
+evaluateDimRed(x, clusters = NULL, n = c(10, 20, 50), covars = NULL)
 }
 \arguments{
 \item{x}{The matrix of the reduced space, with cells as rows and components 

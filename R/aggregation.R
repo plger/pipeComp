@@ -11,7 +11,7 @@
 #' method, or (if no aggregation method available) a list of the 
 #' `stepIntermediateReturnObjects` of `runPipeline`
 #' @export
-aggregateResults <- function(path, pipDef=NULL){
+aggregateResults <- function(path="./", pipDef=NULL){
   elapsed <- list.files(path, "elapsed\\.rds$",full.names=TRUE)
   if(length(elapsed)==0 || length(elapsed)>1 && 
      file.exists(paste0(path,"elapsed.rds"))){
@@ -19,9 +19,13 @@ aggregateResults <- function(path, pipDef=NULL){
       res <- list.files( dirname(path), full.names=TRUE, 
                          pattern=paste0(gsub("\\.","\\\\.",basename(path)),
                                 ".*\\.stepIntermediateReturnObjects\\.rds$") )
+      pi <- list.files( dirname(path), full.names=TRUE, 
+                       pattern=paste0(gsub("\\.","\\\\.",basename(path)),
+                                     "pipelineInfo\\.rds$") )
   }else{
     res <- list.files( path, full.names=TRUE, 
                        pattern="\\.stepIntermediateReturnObjects\\.rds$" )
+    pi <- list.files( path, full.names=TRUE, pattern="pipelineInfo\\.rds$")
   }
   if(length(elapsed)==0) stop("`path` does not appear to contain the results of
 a `runPipeline`")
@@ -32,7 +36,9 @@ one `runPipeline` run; please append a prefix to the `path`.")
   names(res) <- sapply( strsplit(basename(res),".",fixed=T), 
                         FUN=function(x){ x[length(x)-2] } )
   res <- lapply(res, readRDS)
+  if(is.null(pipDef)) pipDef <- readRDS(pi)$pipDef
   if(is.null(pipDef)) return(list(res=res, elapsed=elapsed))
+  
   isn <- sapply(pipDef@aggregation, is.null)
   if(all(isn)){
     warning("No aggregation defined in the pipelineDefinition; 

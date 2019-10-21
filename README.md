@@ -1,13 +1,13 @@
 # pipeComp
 
-`pipeComp` is a simple framework to facilitate the comparison of pipelines involving various steps and parameters. Given a `pipelineDefinition`, a set of alternative parameters (which might include different subroutines) and benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly to avoid storing potentially large intermediate data.
+`pipeComp` is a simple framework to facilitate the comparison of pipelines involving various steps and parameters. Given a `PipelineDefinition`, a set of alternative parameters (which might include different subroutines) and benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly to avoid storing potentially large intermediate data.
 
 ## pipelineDefinition
 
-The `pipelineDefinition` S4 class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. As simple pipeline can be constructed as follows:
+The `PipelineDefinition` S4 class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. As simple pipeline can be constructed as follows:
 
 ```{r, eval=FALSE}
-my_pip <- pipelineDefinition( list( step1=function(x, param1){
+my_pip <- PipelineDefinition( list( step1=function(x, param1){
                                       # do something with x and param1
                                       x
                                     },
@@ -24,7 +24,7 @@ my_pip <- pipelineDefinition( list( step1=function(x, param1){
                                   ))
 ```
 
-The pipelineDefinition can also include descriptions of each step (`descriptions` argument) or aggregation functions (`aggregation`). See the `scrna_seurat_pipeline` for a more complex example:
+The pipelineDefinition can also include descriptions of each step or evaluation and aggregation functions. See the `?PipelineDefinition` for more information, or `scrna_seurat_pipeline` for a more complex example:
 
 ```{r}
 pipDef <- scrna_seurat_pipeline()

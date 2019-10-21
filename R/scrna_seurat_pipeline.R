@@ -1,11 +1,9 @@
 #' scrna_seurat_pipeline
 #' 
-#' The default SC clustering pipeline, with steps for filtering, normalization, feature selection,
+#' The `PipelineDefinition` for the default scRNAseq clustering pipeline, with 
+#' steps for doublet identification, filtering, normalization, feature selection,
 #' dimensionality reduction, and clustering.
-#' A pipeline definition is a named list of functions in the order in which they should be run. The
-#' first argument of each function should be `x`, which refers to the output of the previous function
-#' (or the initial object for the first step). Any other arguments will be arguments 
-#' that can be varied in the pipeline comparison: they can be character, numeric or logical vectors of
+#' Alternative arguments should be character, numeric or logical vectors of
 #' length 1 (e.g. the function name for a method, the number of dimensions, etc).
 #' The default pipeline has the following steps and arguments:
 #' * doublet: `doubletmethod` (name of the doublet removal function)
@@ -20,9 +18,12 @@
 #'  walk, if applicable), `resolution` (resolution, if applicable), `min.size` (minimum cluster size,
 #'  if applicable)
 #' 
+#' @param saveDimRed Logical; whether to save the dimensionality reduction for 
+#' each analysis (default FALSE)
+#' 
 #' @importFrom mclust adjustedRandIndex
 #' @export
-scrna_seurat_pipeline <- function(saveDimRed=FALSE, addMeta=TRUE){
+scrna_seurat_pipeline <- function(saveDimRed=FALSE){
   # description for each step
   desc <- list( 
     doublet=
@@ -46,40 +47,35 @@ using the `dr` function.",
   # we prepare the functions for each step
   if(saveDimRed){
     DRfun <- function(x, dr, maxdim){ 
-      x <- .runf(dr, x, dims=maxdim)
-      covars <- x@meta.data[,c("log10_total_features", "log10_total_counts", "total_features")]
+      x <- get(dr)(x, dims=maxdim)
       list( x=x, intermediate_return=list( cell.embeddings=x@reductions$pca@cell.embeddings,
-                                           evaluation=evaluateDimRed(x@reductions$pca@cell.embeddings, x$phenoid, covars=covars) ) )
+                                           evaluation=evaluateDimRed(x) ) )
     }
   }else{
     DRfun <- function(x, dr, maxdim){ 
-      x <- .runf(dr, x, dims=maxdim)
-      covars <- x@meta.data[,c("log10_total_features", "log10_total_counts", "total_features")]
-      list( x=x, intermediate_return=evaluateDimRed(x@reductions$pca@cell.embeddings, x$phenoid, covars=covars) )
-    }   
+      get(dr)(x, dims=maxdim)
+    }
   }
   f <- list(
         doublet=function(x, doubletmethod){ 
-          x2 <- .runf(doubletmethod, x)
-          list( x=x2, intermediate_return=pipComp:::.compileExcludedCells(x,x2) )
+          x2 <- pipeComp:::.runf(doubletmethod, x)
+          list( x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2) )
         },
         filtering=function(x, filt){
-          x2 <- .runf(filt, x, alt=applyFilterString)
-          list( x=x2, intermediate_return=pipComp:::.compileExcludedCells(x,x2) )
+          x2 <- pipeComp::.runf(filt, x, alt=applyFilterString)
+          list( x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2) )
         },
         normalization=function(x, norm){ 
-          x <- .runf(norm, x)
-          r2 <- apply(as.matrix(x@assays$RNA@data), 1, cl=x$phenoid, FUN=pipComp:::.getVE)
-          list( x=x, intermediate_return=r2 )
+          get(norm)(x)
         },
         selection=function(x, sel, selnb){ 
           x <- .runf(sel, x, n=selnb, alt=applySelString)
-          list( x=x, intermediate_return=Seurat::VariableFeatures(x))
+          list( x=x, intermediate_return=Seurat::VariableFeatures(x) )
         },
         dimreduction=DRfun,
         clustering=function(x, clustmethod, dims, k, steps, resolution, min.size){
           tl <- x$phenoid
-          x <- .runf(clustmethod, x, dims=dims, resolution=resolution, k=k, steps=steps, min.size=min.size)
+          x <- get(clustmethod)(x, dims=dims, resolution=resolution, k=k, steps=steps, min.size=min.size)
           e <- match_evaluate_multiple(x, tl)
           unmatched <- length(x)-sum(e$n_cells_matched)
           e <- c( unlist(e), unmatched.cells=unmatched, 
@@ -87,12 +83,9 @@ using the `dr` function.",
           list( x=x, intermediate_return=e )
         }
   )
-  if(addMeta) f$filtering <- function(x, filt){
-    x <- add_meta(x)
-    x2 <- .runf(filt, x, alt=applyFilterString)
-    list( x=x2, intermediate_return=pipComp:::.compileExcludedCells(x,x2) )
-  }
   
+  eva <- list( doublet=NULL, filtering=NULL, normalization=evaluateNorm,
+               selection=NULL, dimreduction=evaluateDimRed , clustering=NULL )
   # functions to aggregate the intermediate_return of the different steps
   agg <- list( doublet=.aggregateExcludedCells,
                filtering=.aggregateExcludedCells,
@@ -101,5 +94,6 @@ using the `dr` function.",
                dimreduction=.aggregateDR,
                clustering=.aggregateClusterEvaluation )
   
-  new("pipelineDefinition", functions=f, descriptions=desc, aggregation=agg)
+  PipelineDefinition(functions=f, descriptions=desc, evaluation=eva,
+                            aggregation=agg, verbose=FALSE)
 }
