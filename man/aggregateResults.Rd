@@ -4,7 +4,7 @@
 \alias{aggregateResults}
 \title{aggregateResults}
 \usage{
-aggregateResults(path, pipDef = NULL)
+aggregateResults(path = "./", pipDef = NULL)
 }
 \arguments{
 \item{path}{Path to the folder containing the output of runPipeline}

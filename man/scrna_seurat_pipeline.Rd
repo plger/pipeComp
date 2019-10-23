@@ -11,12 +11,10 @@ scrna_seurat_pipeline(saveDimRed = FALSE)
 each analysis (default FALSE)}
 }
 \description{
-The default SC clustering pipeline, with steps for filtering, normalization, feature selection,
+The `PipelineDefinition` for the default scRNAseq clustering pipeline, with 
+steps for doublet identification, filtering, normalization, feature selection,
 dimensionality reduction, and clustering.
-A pipeline definition is a named list of functions in the order in which they should be run. The
-first argument of each function should be `x`, which refers to the output of the previous function
-(or the initial object for the first step). Any other arguments will be arguments 
-that can be varied in the pipeline comparison: they can be character, numeric or logical vectors of
+Alternative arguments should be character, numeric or logical vectors of
 length 1 (e.g. the function name for a method, the number of dimensions, etc).
 The default pipeline has the following steps and arguments:
 * doublet: `doubletmethod` (name of the doublet removal function)

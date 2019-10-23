@@ -25,8 +25,9 @@
   if(length(e) == 0) TRUE else e
 }
 
+#' PipelineDefinition-class
 #' @import methods
-#' @describeIn PipelineDefinition
+#' @describeIn PipelineDefinition PipelineDefinition class
 #' @export
 setClass( "PipelineDefinition", 
           slots=representation( functions="list", descriptions="list", 
