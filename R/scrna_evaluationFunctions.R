@@ -29,9 +29,9 @@
 }
 
 #' @importFrom matrixStats rowMins
-#' @import data.table
+#' @importFrom dplyr bind_cols
 .aggregateClusterEvaluation <- function(res){
-  df <- parsePipNames(names(res[[1]]))
+  rn <- names(res[[1]])
   res <- lapply(res, FUN=function(x){
     x <- lapply(x, FUN=function(x) as.data.frame(t(x)))
     x <- as.data.frame(data.table::rbindlist(x))
@@ -39,9 +39,10 @@
       w <- grep(paste0("^",f,"\\."),colnames(x))
       x[[paste0("min_",f)]] <- matrixStats::rowMins(as.matrix(x[,w,drop=FALSE]))
     }
-    as.data.frame(x[,grep("\\.",colnames(x),invert=TRUE)])
+    as.data.frame(x[,grep("\\.",colnames(x),invert=TRUE)], row.names=rn)
   })
-  as.data.frame(data.table::rbindlist(res, idcol="dataset"))
+  for(i in names(res)) colnames(res[[i]]) <- paste(i, colnames(res[[i]]))
+  bind_cols(res)
 }
 
 .getVE <- function(x, cl){
