@@ -2,7 +2,7 @@
 
 `pipeComp` is a simple framework to facilitate the comparison of pipelines involving various steps and parameters. Given a `PipelineDefinition`, a set of alternative parameters (which might include different subroutines) and benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly to avoid storing potentially large intermediate data.
 
-## pipelineDefinition
+## PipelineDefinition
 
 The `PipelineDefinition` S4 class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. As simple pipeline can be constructed as follows:
 
@@ -24,14 +24,14 @@ my_pip <- PipelineDefinition( list( step1=function(x, param1){
                                   ))
 ```
 
-The pipelineDefinition can also include descriptions of each step or evaluation and aggregation functions. See the `?PipelineDefinition` for more information, or `scrna_seurat_pipeline` for a more complex example:
+The PipelineDefinition can also include descriptions of each step or evaluation and aggregation functions. See the `?PipelineDefinition` for more information, or `scrna_seurat_pipeline` for a more complex example:
 
 ```{r}
 pipDef <- scrna_seurat_pipeline()
 pipDef
 ```
 ```
-A pipelineDefinition object with the following steps:
+A PipelineDefinition object with the following steps:
   - doublet(x, doubletmethod) *
 Takes a SCE object with the `phenoid` colData column, passes it through the 
 function `doubletmethod`, and outputs a filtered SCE.
