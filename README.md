@@ -87,3 +87,17 @@ res <- runPipeline( datasets, alternatives, pipDef, nthreads=3,
 ```
 
 ### Exploring the metrics
+
+Data can be explored manually or plotted using wrapper functions designed for each step at which benchmark data is gathered. For example:
+
+```{r}
+scrna_evalPlot_DR(res, scale=FALSE)
+```
+
+<img src="inst/docs/dr_stats_example.png"/>
+
+```{r}
+scrna_evalPlot_clust(res)
+```
+
+<img src="inst/docs/clust_stats_example.png"/>
