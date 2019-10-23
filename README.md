@@ -24,7 +24,15 @@ my_pip <- PipelineDefinition( list( step1=function(x, param1){
                                   ))
 ```
 
-The PipelineDefinition can also include descriptions of each step or evaluation and aggregation functions. See the `?PipelineDefinition` for more information, or `scrna_seurat_pipeline` for a more complex example:
+The PipelineDefinition can also include descriptions of each step or evaluation and aggregation functions. For example:
+```{r, eval=FALSE}
+my_pip <- PipelineDefinition( list( step1=function(x, meth1){ get(meth1)(x) },
+                                    step2=function(x, meth2){ get(meth2)(x) } ),
+                              evaluation=list( step2=function(x){ sum(x) }) )
+```
+
+
+See the `?PipelineDefinition` for more information, or `scrna_seurat_pipeline` for a more complex example:
 
 ```{r}
 pipDef <- scrna_seurat_pipeline()
