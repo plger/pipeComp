@@ -73,8 +73,17 @@ using the `dr` function.",
           list( x=x, intermediate_return=Seurat::VariableFeatures(x) )
         },
         dimreduction=DRfun,
+        # dimensionality=function(x, dims){
+        #   if(!is.na(suppressWarnings(as.numeric(dims)))){
+        #     dims <- as.integer(dims)
+        #   }else{
+        #     dims <- getDimensionality(x, dims)
+        #   }
+        #   x@reductions$pca@cell.embeddings <- x@reductions$pca@cell.embeddings[,seq_len(dims)]
+        # },
         clustering=function(x, clustmethod, dims, k, steps, resolution, min.size){
           tl <- x$phenoid
+          dims <- .parseDims(.parseDims)
           x <- get(clustmethod)(x, dims=dims, resolution=resolution, k=k, steps=steps, min.size=min.size)
           e <- match_evaluate_multiple(x, tl)
           unmatched <- length(x)-sum(e$n_cells_matched)
@@ -96,4 +105,9 @@ using the `dr` function.",
   
   PipelineDefinition(functions=f, descriptions=desc, evaluation=eva,
                             aggregation=agg, verbose=FALSE)
+}
+
+.parseDims <- function(x, dims){
+  if(!is.na(suppressWarnings(as.numeric(dims)))) return(as.integer(dims))
+  getDimensionality(x, dims)
 }

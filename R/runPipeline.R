@@ -102,7 +102,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL,
                        error=function(e){
   ## error report
    if(debug) save(x, step, pipDef, fcall, newPar, file="runPipeline_error_TMPdump.RData")
-   msg <- paste0("Error in dataset `", names(datasets)[dsi], "` with parameters:\n", aa, 
+   msg <- paste0("Error in dataset `", dsi, "` with parameters:\n", aa, 
                 "\nin step `", step, "`, evaluating command:\n`", fcall, "`\nError:\n", 
                 e, "\n", ifelse(debug, paste("Current variables dumped in", 
                                              paste0(output.prefix,"runPipeline_error_TMPdump.RData")), ""))

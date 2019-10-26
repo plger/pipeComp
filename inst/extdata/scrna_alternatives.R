@@ -122,3 +122,21 @@ subsetFeatureByType <- function(g, classes=c("Mt","conding","ribo")){
   }
   go[which(!(g %in% unlist(cg)))]
 }
+
+
+getDimensionality <- function(se, method, maxDims=50){
+  x <- se@reductions$pca@cell.embeddings
+  switch(method,
+         essLocal.a=essLocalDimEst(x),
+         essLocal.b=essLocalDimEst(x, ver="b"),
+         pcaLocal.FO=pcaLocalDimEst(x,ver="FO"),
+         pcaLocal.fan=pcaLocalDimEst(x, ver="fan"),
+         pcaLocal.maxgap=pcaLocalDimEst(x, ver="maxgap"),
+         maxLikGlobal=maxLikGlobalDimEst(x, k=20, unbiased=TRUE),
+         pcaOtpmPointwise.max=pcaOtpmPointwiseDimEst(x,N=10),
+         elbow=farthestPoint(se@reductions$pca@stdev)-1,
+         fisherSeparability=FisherSeparability(x),
+         scran.denoisePCA=scran.ndims.wrapper(se),
+         jackstraw.elbow=js.wrapper(se,n.dims=ncol(x)-1,ret="ndims")
+  )
+}
