@@ -182,6 +182,8 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
 #'
 #' @param sces A character vector of paths to SCE rds files, or a list of SCEs
 #' @param ridges Logical; whether to plot ridges
+#' @param nbcells.labels Logical; whether to write the number of cells per 
+#' subpopulation
 #'
 #' @return A plot_grid output
 #'
@@ -189,8 +191,7 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
 #' @import SingleCellExperiment scran ggplot2 ggridges
 #' @importFrom scater plotReducedDim logNormCounts
 #' @importFrom cowplot plot_grid
-describeDatasets <- function(sces, ridges=TRUE){
-  options(scipen=10000)
+describeDatasets_old <- function(sces, ridges=TRUE, nbcells.labels=TRUE){
   if(is.null(names(sces))) names(sces) <- paste0("dataset",seq_along(sces))
   if(is.character(sces)){
     sces <- lapply(sces, FUN=function(x){
@@ -225,11 +226,12 @@ describeDatasets <- function(sces, ridges=TRUE){
     lapply(names(cd), FUN=function(x){
       tmp <- as.data.frame(table(cd[[x]]$phenoid))
       tmp$label <- paste0(tmp$Var1, " (", tmp$Freq, ")")
-      ggplot(cd[[x]], aes(phenoid, fill=phenoid)) + geom_histogram(stat="count", show.legend=FALSE) + 
+      p <- ggplot(cd[[x]], aes(phenoid, fill=phenoid)) + geom_histogram(stat="count", show.legend=FALSE) + 
         scale_y_log10() + coord_flip() + scale_fill_manual(values=cols[[x]]) + ylab("Number of cells") + 
-        xlab(x) + geom_text(data=tmp, mapping=aes(Var1, y=1, label=label), inherit.aes = FALSE, nudge_y = 1) + 
-        theme(axis.text.y = element_blank(), axis.line.y = element_blank(), axis.ticks.y = element_blank(), 
+        xlab(x) + theme(axis.text.y = element_blank(), axis.line.y = element_blank(), axis.ticks.y = element_blank(), 
               axis.line.x = element_blank(), axis.title.y=element_text(size=12,face="bold"))
+      if(nbcells.labels) p <- p + geom_text(data=tmp, mapping=aes(Var1, y=1, label=label), inherit.aes = FALSE, nudge_y = 1)
+      p
     }),
     lapply(names(cd), FUN=function(x) pf(x, "total_counts")),
     lapply(names(cd), FUN=function(x) pf(x, "total_features")),
@@ -239,4 +241,70 @@ describeDatasets <- function(sces, ridges=TRUE){
   pl <- pl[as.numeric(sapply(seq_along(cd), FUN=function(x) 1:nplots*length(cd)-length(cd)+x))]
   pl <- lapply(pl, FUN=function(x) x + theme(legend.position = "none", aspect.ratio=1, axis.text=element_text(size=10), axis.title=element_text(size=11)))
   suppressMessages(plot_grid(plotlist=pl, nrow = length(cd), ncol=nplots))
+}
+
+#' describeDatasets
+#' 
+#' Plots descriptive information about the datasets
+#'
+#' @param sces A character vector of paths to SCE rds files, or a list of SCEs
+#' @param pt.size Point size (for reduced dims)
+#' @param ... Passed to geom_point()
+#'
+#' @return A plot_grid output
+#'
+#' @export
+#' @import SummarizedExperiment SingleCellExperiment scran ggplot2 scales
+#' @importFrom scater logNormCounts
+#' @importFrom cowplot plot_grid
+describeDatasets <- function(sces, pt.size=0.3, ...){
+  if(is.null(names(sces))) names(sces) <- paste0("dataset",seq_along(sces))
+  if(is.character(sces)){
+    sces <- lapply(sces, FUN=function(x){
+      sce <- readRDS(x)
+      sce <- scater::logNormCounts(sce)
+      var.stats <- modelGeneVar(sce)
+      sce <- denoisePCA(sce, technical=var.stats)
+      reducedDim(sce, "tSNE") <- Rtsne::Rtsne(reducedDim(sce))$Y
+      reducedDim(sce, "umap") <- uwot::umap(reducedDim(sce))
+      sce
+    })
+  }
+  tt <- lapply(sces, FUN=function(x) table(x$phenoid))
+  cols <- lapply(tt, FUN=function(x){
+    y <- GTscripts::getQualitativePalette(length(x))
+    names(y) <- names(x)
+    y
+  })
+  for(i in seq_along(sces)) sces[[i]]$cluster <- cols[[i]][as.character(sces[[i]]$phenoid)]
+  cd <- lapply(sces, FUN=function(x) as.data.frame(colData(x)))
+  names(cols2) <- cols2 <- unique(unlist(cols))
+  noy <- theme( axis.line=element_blank(),axis.text.y=element_blank(),
+                  axis.ticks.y=element_blank(), axis.title.y=element_blank(),
+                  strip.background = element_blank(), legend.position = "none",
+                  aspect.ratio = 1, axis.text=element_text(size=10))
+  cs <- scale_fill_manual(values=cols2)
+  d <- data.frame(dataset=rep(names(sces),sapply(tt,length)), cluster=unlist(cols), nb=unlist(tt))
+  p1 <- ggplot(d, aes(x=cluster, y=nb, fill=cluster)) + geom_bar(stat = "identity") + scale_y_log10() + facet_wrap(~dataset, scales="free_y", ncol=1, strip.position = "left") + coord_flip() + ylab("Number of cells") + xlab("") +  noy + cs
+  for(x in names(sces)) sces[[x]]$cluster <- unlist(cols)[paste(x, sces[[x]]$phenoid,sep=".")]
+  d <- suppressWarnings(dplyr::bind_rows(lapply(cd, FUN=function(x) x[,c("total_counts","total_features","cluster")])))
+  d$dataset <- rep(names(cd),sapply(cd,nrow))
+  pf <- function(d, x) ggplot(d, aes_string(x="cluster", y=x, fill="cluster")) + geom_violin() + xlab("") + coord_flip() + noy + facet_wrap(~dataset, scales="free_y", ncol=1) + cs +
+    theme(strip.text.x = element_blank(), panel.grid.major.x=element_line(color="grey", linetype="dashed")) + 
+    scale_y_continuous(trans = 'log10', breaks=10^pretty(log10(d[[x]]),n=3), labels=trans_format('log10', math_format(10^.x)))
+  rd <- function(dimred,...){
+    d2 <- cbind(d, do.call(rbind, lapply(sces, FUN=function(x) reducedDim(x,dimred) )))
+    colnames(d2)[5:6] <- c("x","y")
+    ggplot(d2, aes(x,y,col=cluster)) + geom_point(...) + facet_wrap(~dataset, scales="free", ncol=1) + 
+      scale_color_manual(values=cols2) + xlab(paste0("\n",dimred)) +
+      theme(axis.line=element_blank(), axis.text=element_blank(),
+            axis.ticks=element_blank(), axis.title.y=element_blank(),
+            strip.background = element_blank(), strip.text.x=element_blank(),
+            legend.position = "none", aspect.ratio = 1)
+  }
+  p4 <- 
+  p5 <- rd("umap", size=pt.size, ...)
+  plot_grid( p1, pf(d,"total_counts"), pf(d,"total_features"), 
+             rd("tSNE", size=pt.size, ...), rd("umap", size=pt.size, ...),
+             nrow=1 )
 }
