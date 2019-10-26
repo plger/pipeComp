@@ -83,7 +83,7 @@ using the `dr` function.",
         # },
         clustering=function(x, clustmethod, dims, k, steps, resolution, min.size){
           tl <- x$phenoid
-          dims <- .parseDims(.parseDims)
+          dims <- .parseDims(dims)
           x <- get(clustmethod)(x, dims=dims, resolution=resolution, k=k, steps=steps, min.size=min.size)
           e <- match_evaluate_multiple(x, tl)
           unmatched <- length(x)-sum(e$n_cells_matched)
