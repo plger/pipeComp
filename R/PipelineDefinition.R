@@ -110,7 +110,6 @@ PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
 
 #' @export
 setMethod("show", signature("PipelineDefinition"), function(object){
-  blue("test")
   fns <- sapply(names(object@functions), FUN=function(x){ 
     y <- paste0("  - \033[1m",x,"\033[22m(",paste(names(formals(object@functions[[x]])),collapse=", "),")")
     if(!is.null(object@evaluation[[x]]) || !is.null(object@aggregation[[x]])) 

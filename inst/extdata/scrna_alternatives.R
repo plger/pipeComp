@@ -140,3 +140,42 @@ getDimensionality <- function(se, method, maxDims=50){
          jackstraw.elbow=js.wrapper(se,n.dims=ncol(x)-1,ret="ndims")
   )
 }
+
+#' applyFilterString
+#'
+#' @param sce A SingleCellExperiment object.
+#' @param filterstring A filtering string.
+#'
+#' @return A Seurat object.
+#' @export
+applyFilterString <- function(sce, filterstring){
+  x <- strsplit(filterstring,"_",fixed=T)[[1]]
+  mads <- as.numeric(x[[2]])
+  vars <- .translateFilterVars(strsplit(x,";",fixed=T)[[1]])
+  otimes <- ifelse(is.null(x[[3]]),1,as.numeric(x[[3]]))
+  filt.mad(sce, nmads=mads, vars=vars, outlier.times=otimes)
+}
+
+.tmads <- function(x, nbmads=2.5){
+  x2 <- nbmads*median(abs(x-median(x)))
+  median(x)+c(-x2,x2)
+}
+
+filt.stringent <- function(x){
+  filt.default(x,1)
+}
+
+.translateFilterVars <- function(x){
+  vars=c(  "mt"="pct_counts_Mt", 
+           "feat"="total_features",
+           "counts"="total_counts",
+           "lfeat"="log10_total_features", 
+           "lcounts"="log10_total_counts", 
+           "top50"="pct_counts_in_top_50_features",
+           "ratiodist"="featcount_dist"
+  )
+  x <- strsplit(x,".",fixed=T)
+  y <- sapply(x,FUN=function(x){ if(length(x)==1) return("both"); x[[2]] })
+  names(y) <- sapply(x,vars=vars,FUN=function(x, vars) vars[x[[1]]])
+  y
+}
