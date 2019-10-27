@@ -1,3 +1,24 @@
+#' evaluateClustering
+#'
+#' Evaluates a clustering using 'true' labels
+#'
+#' @param x The clustering labels
+#' @param tl The true labels
+#'
+#' @return A numeric vector.
+#' @importFrom aricode ARI MI NMI NID
+#' @export
+evaluateClustering <- function(x, tl){
+  e <- match_evaluate_multiple(x, tl)
+  x <- as.character(x)
+  unmatched <- length(x)-sum(e$n_cells_matched)
+  c( unlist(e), unmatched.cells=unmatched, 
+     ARI=aricode::ARI(x,tl),
+     MI=aricode::MI(x,tl),
+     NMI=aricode::NMI(x,tl),
+     NID=aricode::NID(x,tl) )
+}
+
 .compileExcludedCells <- function(before, after){
   tt <- table(before$phenoid)
   tt <- rbind( tt, table(after$phenoid)[names(tt)])
@@ -140,6 +161,15 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
     if("evaluation" %in% names(x[[1]])) x <- lapply(x, FUN=function(x) x$evaluation)
     x
   })
+  allsi <- lapply(res, FUN=function(x){
+    si <- lapply(x,FUN=function(y) y$silhouettes[,3])
+    pp <- parsePipNames(names(x))
+    pp <- pp[rep(seq_len(nrow(pp)), sapply(x, length)),]
+    pp$silhouette <- unlist(si)
+    pp
+  })
+  allsi <- dplyr::bind_rows(allsi, .id = "dataset")
+  
   perDS <- lapply(res, FUN=function(x){
     # check if the dimensions are the same
     ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
@@ -185,9 +215,8 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
     colMeans(x$PC.R2[1:5,,drop=FALSE])
   }))
   
-  res <- c( clust.avg.silwidth=sw,
-             PC1.covar,
-             PC1.covarR )
+  res <- c( silhouettes=allsi, clust.avg.silwidth=sw,
+             PC1.covar, PC1.covarR )
   res$PCtop5.R2 <- PCtop5.R2
   res
 }

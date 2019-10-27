@@ -85,11 +85,7 @@ using the `dr` function.",
           tl <- x$phenoid
           dims <- pipeComp:::.parseDims(x,dims)
           x <- get(clustmethod)(x, dims=dims, resolution=resolution, k=k, steps=steps, min.size=min.size)
-          e <- match_evaluate_multiple(x, tl)
-          unmatched <- length(x)-sum(e$n_cells_matched)
-          e <- c( unlist(e), unmatched.cells=unmatched, 
-                  ARI=mclust::adjustedRandIndex(as.character(x),tl) )
-          list( x=x, intermediate_return=e )
+          list( x=x, intermediate_return=evaluateClustering(x,tl) )
         }
   )
   
