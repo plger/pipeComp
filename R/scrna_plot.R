@@ -3,7 +3,7 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
                                       "total_features"), reorder_rows=TRUE,
                               agg.by=NULL, agg.fn=mean, scale=FALSE, 
                               show_heatmap_legend=FALSE, value_format="%.2f", 
-                              col=viridisLite::inferno(100), ...){
+                              col=NULL, ...){
   what <- match.arg(what)
   covar <- covar[1]
   if("dimreduction" %in% names(res)) res <- res$dimreduction
@@ -56,6 +56,14 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
                  elapsed="Running time (s)",
                  NULL
   )
+  if(what=="silhouette" && (is.null(col) || length(cols)==11) && !scale) return(
+    Heatmap( res2, name=name, cluster_rows=FALSE, col=.silScale(dr, col), 
+             cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res)), 
+             show_column_names = FALSE, cell_fun=cellfn, col=col,
+             show_heatmap_legend=show_heatmap_legend,
+             column_title=title, column_title_gp=gpar(fontisze=10), ...))
+
+  if(is.null(col)) col <- viridisLite::inferno(100)
   Heatmap( res2, name=name, cluster_rows=FALSE,
            cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res)), 
            show_column_names = FALSE, cell_fun=cellfn, col=col,
@@ -240,4 +248,13 @@ describeDatasets <- function(sces, pt.size=0.3, ...){
   plot_grid( p1, pf(d,"total_counts"), pf(d,"total_features"), 
              rd("tSNE", size=pt.size, ...), rd("umap", size=pt.size, ...),
              nrow=1 )
+}
+
+.silScale <- function(x, cols=NULL){
+  if(is.null(cols)) cols <- rev(RColorBrewer::brewer.pal(n=11,"RdBu"))
+  if(is.function(cols)) cols <- cols(11)
+  if(length(cols)!=11) stop("`cols` should contain 11 colors.")
+  bb <- c( -seq(from=sqrt(abs(min(x))), to=0, length.out=6)^2, 
+           seq(from=0, to=sqrt(max(x)), length.out=6)[-1]^2 )
+  circlize::colorRamp2(bb, cols)
 }
