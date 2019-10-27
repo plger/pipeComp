@@ -55,8 +55,14 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL,
   
   ## BEGIN .runPipelineF
   .runPipelineF <- function(dsi){
-    if(debug) message(dsi, ": ", datasets[dsi])
-    ds <- readRDS(datasets[[dsi]])
+    if(is.character(datasets[[dsi]])){
+      ds <- readRDS(datasets[[dsi]])
+    }else{
+      ds <- datasets[[dsi]]
+    }
+    dsname <- names(datasets)[dsi]
+
+    if(debug) message(dsname)
 
     elapsed <- lapply(pipDef, FUN=function(x) list())
     elapsed.total <- list()

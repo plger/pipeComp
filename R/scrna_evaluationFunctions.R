@@ -119,7 +119,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   # each cell's distance to the cluster median
   cs <- split(row.names(x),clusters)
   dists <- lapply(n, FUN=function(i){
-    x2 <- lapply(cs, FUN=function(y) x[y,1:i])
+    x2 <- lapply(cs, FUN=function(y) x[y,1:i,drop=FALSE])
     sapply(x2, FUN=function(y){
       sqrt(colSums((t(y)-matrixStats::colMedians(y))^2))
     })
