@@ -6,17 +6,14 @@
 #' @param tl The true labels
 #'
 #' @return A numeric vector.
-#' @importFrom aricode ARI MI NMI NID
+#' @importFrom aricode clustComp
 #' @export
 evaluateClustering <- function(x, tl){
   e <- match_evaluate_multiple(x, tl)
   x <- as.character(x)
   unmatched <- length(x)-sum(e$n_cells_matched)
   c( unlist(e), unmatched.cells=unmatched, 
-     ARI=aricode::ARI(x,tl),
-     MI=aricode::MI(x,tl),
-     NMI=aricode::NMI(x,tl),
-     NID=aricode::NID(x,tl) )
+     unlist(aricode::clustComp(x,tl)) )
 }
 
 .compileExcludedCells <- function(before, after){
@@ -60,7 +57,9 @@ evaluateClustering <- function(x, tl){
       w <- grep(paste0("^",f,"\\."),colnames(x))
       x[[paste0("min_",f)]] <- matrixStats::rowMins(as.matrix(x[,w,drop=FALSE]))
     }
-    as.data.frame(x[,grep("\\.",colnames(x),invert=TRUE)], row.names=rn)
+    y <- as.data.frame(x[,grep("\\.",colnames(x),invert=TRUE)], row.names=rn)
+    y$true.nbClusts <- length(grep("^pr\\.", colnames(x)))
+    y
   })
   for(i in names(res)) colnames(res[[i]]) <- paste(i, colnames(res[[i]]))
   bind_cols(res)
@@ -164,7 +163,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   allsi <- lapply(res, FUN=function(x){
     si <- lapply(x,FUN=function(y) y$silhouettes[,3])
     pp <- parsePipNames(names(x))
-    pp <- pp[rep(seq_len(nrow(pp)), sapply(x, length)),]
+    pp <- pp[rep(seq_len(nrow(pp)), sapply(si, length)),]
     pp$silhouette <- unlist(si)
     pp
   })

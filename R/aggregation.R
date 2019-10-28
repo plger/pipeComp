@@ -48,6 +48,7 @@ returning raw results and running times.")
   names(isn) <- isn <- names(isn)[!isn]
   fullnames <- parsePipNames(names(res[[1]][[length(res[[1]])]]))
   res <- lapply(isn, FUN=function(x){
+    message(x)
     el <- as.data.frame(elapsed$stepwise[[x]], row.names=NULL)
     colnames(el) <- paste0("stepElapsed.",colnames(el))
     res2 <- pipDef@aggregation[[x]](lapply(res, FUN=function(y) y[[x]]))

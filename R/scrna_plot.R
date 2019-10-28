@@ -56,10 +56,10 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
                  elapsed="Running time (s)",
                  NULL
   )
-  if(what=="silhouette" && (is.null(col) || length(cols)==11) && !scale) return(
+  if(what=="silhouette" && (is.null(col) || length(col)==11) && !scale) return(
     Heatmap( res2, name=name, cluster_rows=FALSE, col=.silScale(dr, col), 
              cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res)), 
-             show_column_names = FALSE, cell_fun=cellfn, col=col,
+             show_column_names = FALSE, cell_fun=cellfn, 
              show_heatmap_legend=show_heatmap_legend,
              column_title=title, column_title_gp=gpar(fontisze=10), ...))
 
@@ -74,7 +74,7 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
 
 scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean, 
                                  scale=FALSE, value_format="%.2f", reorder_rows=TRUE, 
-                                 show_heatmap_legend=FALSE, 
+                                 show_heatmap_legend=FALSE,
                                   col=viridisLite::inferno(100), ...){
   if("clustering" %in% names(res)) res <- res$clustering
   what_options <- sapply(strsplit(colnames(res)[grep(" ",colnames(res))]," "),FUN=function(x) x[[2]])
@@ -82,6 +82,7 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
   if(what=="auto"){
     return( 
       scrna_evalPlot_clust(res, "ARI", scale=scale, reorder_rows=FALSE, ...) + 
+      scrna_evalPlot_clust(res, "NMI", scale=scale, reorder_rows=FALSE, ...) + 
       scrna_evalPlot_clust(res, "mean_re", scale=scale, reorder_rows=FALSE, ...) + 
       scrna_evalPlot_clust(res, "min_re", scale=scale, reorder_rows=FALSE, ...) +
       scrna_evalPlot_clust(res, "mean_pr", scale=scale, reorder_rows=FALSE, ...) + 
@@ -104,6 +105,53 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
                    elapsed="Running time (s)",
                    gsub("_re$","\nrecall",gsub("_pr$","\nprecision",what))
   )
+  row.names(res2) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
+  Heatmap( res2, name=what, cluster_rows=FALSE, show_heatmap_legend=show_heatmap_legend, 
+           cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res)), 
+           show_column_names = FALSE, cell_fun=cellfn, col=col,
+           column_title=title, column_title_gp=gpar(fontisze=10), ...)
+}
+
+scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL, 
+                                        agg.fn=mean, scale=FALSE, 
+                                        value_format="%.2f", reorder_rows=TRUE, 
+                                        show_heatmap_legend=FALSE,
+                                        col=viridisLite::inferno(100), ...){
+  if("clustering" %in% names(res)) res <- res$clustering
+  pp <- parsePipNames(row.names(res))
+  if(is.null(agg.by)){
+    pp <- pp[,setdiff(colnames(pp), c("dims","k","steps","resolution","min.size"))]
+    pp <- pp[,apply(pp,2,FUN=function(x) length(unique(x)))>1,drop=FALSE]
+    agg.by <- colnames(pp)
+  }
+  if(length(agg.by)>0){
+    ds <- gsub(paste0(" ",what), "", grep(paste0(" ",what), colnames(res), value=TRUE, fixed=TRUE), fixed=TRUE)
+    pp <- pp[,agg.by,drop=FALSE]
+    ps <- split(seq_len(nrow(pp)), .getReducedNames(pp))
+    res <- t(sapply(ps, FUN=function(x){
+      x <- vapply(ds, FUN.VALUE=double(1), FUN=function(y){
+        w <- which(res[,paste(y,"n_clus")]==res[,paste(y,"true.nbClusts")])
+        suppressWarnings(agg.fn( res[w,paste(y,what)] ))
+      })
+      names(x) <- ds
+      x
+    }))
+  }else{
+    res <- res[,grep(paste0(" ",what), colnames(res))]
+  }
+  res2 <- res
+  if(scale) res2 <- base::scale(res)
+  if(reorder_rows){
+    ro <- order(rowMeans(res2, na.rm=TRUE), decreasing=TRUE)
+  }else{
+    ro <- seq_len(nrow(res2))
+  }
+  co <- order(colMeans(res), decreasing=TRUE)
+  res <- res[ro,co]
+  res2 <- res2[ro,co]
+  cellfn <- .getCellFn(res,res2,value_format)
+  title <- paste(what, "at true\nnumber of clusters")
+  row.names(res2) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
   Heatmap( res2, name=what, cluster_rows=FALSE, show_heatmap_legend=show_heatmap_legend, 
            cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res)), 
            show_column_names = FALSE, cell_fun=cellfn, col=col,
@@ -158,7 +206,7 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
 
 .getReducedNames <- function(res){
   if(is.character(res)) res <- parsePipNames(res)
-  pp <- res[,grep("^stepElapsed\\.",colnames(res),invert=TRUE)]
+  pp <- res[,grep("^stepElapsed\\.",colnames(res),invert=TRUE),drop=FALSE]
   pp <- pp[,apply(pp,2,FUN=function(x) length(unique(x))>1),drop=FALSE]
   if(ncol(pp)>1){
     y <- apply(pp,1,FUN=function(x){
@@ -223,27 +271,36 @@ describeDatasets <- function(sces, pt.size=0.3, ...){
   noy <- theme( axis.line=element_blank(),axis.text.y=element_blank(),
                   axis.ticks.y=element_blank(), axis.title.y=element_blank(),
                   strip.background = element_blank(), legend.position = "none",
-                  aspect.ratio = 1, axis.text=element_text(size=10))
+                  aspect.ratio = 1, axis.text=element_text(size=10),
+                  plot.margin=margin(l=0,r=0))
   cs <- scale_fill_manual(values=cols2)
   d <- data.frame(dataset=rep(names(sces),sapply(tt,length)), cluster=unlist(cols), nb=unlist(tt))
-  p1 <- ggplot(d, aes(x=cluster, y=nb, fill=cluster)) + geom_bar(stat = "identity") + scale_y_log10() + facet_wrap(~dataset, scales="free_y", ncol=1, strip.position = "left") + coord_flip() + ylab("Number of cells") + xlab("") +  noy + cs
+  p1 <- ggplot(d, aes(x=cluster, y=nb, fill=cluster)) + geom_bar(stat = "identity") + 
+    scale_y_log10() + facet_wrap(~dataset, scales="free_y", ncol=1, strip.position = "left") + 
+    coord_flip() + ylab("Number of cells") + xlab("") +  noy + cs
   for(x in names(sces)) sces[[x]]$cluster <- unlist(cols)[paste(x, sces[[x]]$phenoid,sep=".")]
-  d <- suppressWarnings(dplyr::bind_rows(lapply(cd, FUN=function(x) x[,c("total_counts","total_features","cluster")])))
+  d <- suppressWarnings(dplyr::bind_rows(lapply(cd, FUN=function(x) 
+    x[,c("total_counts","total_features","cluster")]))
+  )
   d$dataset <- rep(names(cd),sapply(cd,nrow))
-  pf <- function(d, x) ggplot(d, aes_string(x="cluster", y=x, fill="cluster")) + geom_violin() + xlab("") + coord_flip() + noy + facet_wrap(~dataset, scales="free_y", ncol=1) + cs +
-    theme(strip.text.x = element_blank(), panel.grid.major.x=element_line(color="grey", linetype="dashed")) + 
-    scale_y_continuous(trans = 'log10', breaks=10^pretty(log10(d[[x]]),n=3), labels=trans_format('log10', math_format(10^.x)))
+  pf <- function(d, x) ggplot(d, aes_string(x="cluster", y=x, fill="cluster")) + 
+    geom_violin() + xlab("") + coord_flip() + noy + cs +
+    facet_wrap(~dataset, scales="free_y", ncol=1) + 
+    theme( strip.text.x = element_blank(), 
+           panel.grid.major.x=element_line(color="grey", linetype="dashed")) + 
+    scale_y_continuous( trans = 'log10', breaks=10^pretty(log10(d[[x]]),n=3), 
+                        labels=trans_format('log10', math_format(10^.x)) )
   rd <- function(dimred,...){
     d2 <- cbind(d, do.call(rbind, lapply(sces, FUN=function(x) reducedDim(x,dimred) )))
     colnames(d2)[5:6] <- c("x","y")
-    ggplot(d2, aes(x,y,col=cluster)) + geom_point(...) + facet_wrap(~dataset, scales="free", ncol=1) + 
+    ggplot(d2, aes(x,y,col=cluster)) + geom_point(...) + 
+      facet_wrap(~dataset, scales="free", ncol=1) + 
       scale_color_manual(values=cols2) + xlab(paste0("\n",dimred)) +
       theme(axis.line=element_blank(), axis.text=element_blank(),
             axis.ticks=element_blank(), axis.title.y=element_blank(),
             strip.background = element_blank(), strip.text.x=element_blank(),
-            legend.position = "none", aspect.ratio = 1)
+            legend.position = "none", aspect.ratio = 1 )
   }
-  p4 <- 
   p5 <- rd("umap", size=pt.size, ...)
   plot_grid( p1, pf(d,"total_counts"), pf(d,"total_features"), 
              rd("tSNE", size=pt.size, ...), rd("umap", size=pt.size, ...),

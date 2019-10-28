@@ -1,7 +1,7 @@
 scrna_seurat_defAlternatives <- function(){
   list(
     filt="filt.lenient",
-    norm=c("norm.seurat","norm.scran"),
+    norm=c("norm.seurat","norm.scran.noscale","norm.scran"),
     sel="sel.vst", selnb=3000,
     dr="seurat.pca", maxdim=30, clustmethod="clust.seurat",
     dims = 10, k = 20, steps = 8, 
@@ -52,6 +52,10 @@ norm.seurat <- function(x, vars=NULL, noscale=FALSE){
   x
 }
 
+norm.seurat.noscale <- function(x, ...){
+  norm.seurat(x, noscale=TRUE, ...)
+}
+
 norm.scran <- function(x, vars=NULL, noscale=FALSE, min.mean=1){
   library(scran)
   a <- x@assays$RNA@counts
@@ -66,6 +70,10 @@ norm.scran <- function(x, vars=NULL, noscale=FALSE, min.mean=1){
     x <- ScaleData(x, verbose=FALSE, vars.to.regress=vars)
   }
   x
+}
+
+norm.scran.noscale <- function(x, ...){
+  norm.scran(x, noscale=TRUE, ...)
 }
 
 sel.vst <- function(dat, n=2000, excl=c()){
