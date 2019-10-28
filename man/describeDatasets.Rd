@@ -4,12 +4,14 @@
 \alias{describeDatasets}
 \title{describeDatasets}
 \usage{
-describeDatasets(sces, ridges = TRUE)
+describeDatasets(sces, pt.size = 0.3, ...)
 }
 \arguments{
 \item{sces}{A character vector of paths to SCE rds files, or a list of SCEs}
 
-\item{ridges}{Logical; whether to plot ridges}
+\item{pt.size}{Point size (for reduced dims)}
+
+\item{...}{Passed to geom_point()}
 }
 \value{
 A plot_grid output
