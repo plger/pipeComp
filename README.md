@@ -70,8 +70,11 @@ A number of generic methods are implemented on the object, including `show`, `na
 Functions can be passed as arguments through their name (if they are loaded in the environment).
 
 ```{r}
+# load alternative functions
+source(system.file("extdata", "scrna_alternatives.R", package="pipeComp")
+# we build the list of alternatives
 alternatives <- list(
-  doubletmethod=c("none", "scDblFinder_wrapper"),
+  doubletmethod=c("none"),
   filt=c("lenientfilter"),
   norm=c("norm.seurat", "norm.seuratvst", "norm.scran"),
   sel=c("sel.vst"),
@@ -109,3 +112,10 @@ scrna_evalPlot_clust(res)
 ```
 
 <img src="inst/docs/clust_stats_example.png"/>
+
+```{r}
+scrna_evalPlot_clustAtTrueK(res, what="ARI", show_heatmap_legend = FALSE) + 
+  scrna_evalPlot_clustAtTrueK(res, what="NMI")
+```
+
+<img src="inst/docs/clustK_stats_example.png"/>
