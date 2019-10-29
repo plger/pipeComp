@@ -1,9 +1,35 @@
+#' scrna_evalPlot_DR
+#' 
+#' Plotting aggregated evaluation results at the level of dimensionality 
+#' reduction for the scRNA pipelines.
+#'
+#' @param res Aggregated pipeline results (i.e. the output of `runPipeline` or
+#' `aggregateResults`)
+#' @param what What to plot (default plots main metrics)
+#' @param covar Covariate of interest (used only if `what` is  'covar' or 
+#' 'covarRes'
+#' @param reorder_rows Logical; whether to sort rows (default TRUE)
+#' @param agg.by Aggregate results by these columns (default no aggregation)
+#' @param agg.fn Function for aggregation (default mean)
+#' @param scale Logical; whether to scale columns (default FALSE)
+#' @param show_heatmap_legend Passed to `Heatmap`
+#' @param value_format Format for displaying cells' values (use 
+#' `value_format=""` to disable)
+#' @param col Colors for the heatmap
+#' @param col_title_fontsize Fontsite of the column titles
+#' @param ... Passed to `Heatmap`
+#'
+#' @return One or several `Heatmap` object.
+#' @export
+#'
+#' @import ComplexHeatmap
+#' @importFrom viridisLite inferno
 scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRes", "varExpl", "elapsed"),
                               covar=c("log10_total_counts","log10_total_features",
                                       "total_features"), reorder_rows=TRUE,
                               agg.by=NULL, agg.fn=mean, scale=FALSE, 
                               show_heatmap_legend=FALSE, value_format="%.2f", 
-                              col=NULL, ...){
+                              col=NULL, col_title_fontsize=11, ...){
   what <- match.arg(what)
   covar <- covar[1]
   if("dimreduction" %in% names(res)) res <- res$dimreduction
@@ -14,10 +40,10 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
     # })
     # corcol <- circlize::colorRamp2(range(v, na.rm=TRUE), c("darkblue","orange"))
     return( 
-      scrna_evalPlot_DR(res, "silhouette", scale=scale, reorder_rows=FALSE, show_heatmap_legend=FALSE) + 
-      scrna_evalPlot_DR(res, "varExpl", scale=scale, reorder_rows=FALSE, show_heatmap_legend=FALSE) + 
-      scrna_evalPlot_DR(res, "covarRes", scale=scale, reorder_rows=FALSE, show_heatmap_legend=FALSE) +
-      scrna_evalPlot_DR(res, "covarRes", covar="total_features", scale=scale, reorder_rows=FALSE, show_heatmap_legend=FALSE)
+      scrna_evalPlot_DR(res, "silhouette", scale=scale, reorder_rows=FALSE, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, ...) + 
+      scrna_evalPlot_DR(res, "varExpl", scale=scale, reorder_rows=FALSE, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, ...) + 
+      scrna_evalPlot_DR(res, "covarRes", scale=scale, reorder_rows=FALSE, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, ...) +
+      scrna_evalPlot_DR(res, "covarRes", covar="total_features", scale=scale, reorder_rows=FALSE, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, ...)
     )
   }
   el <- grep("^stepElapsed\\.", colnames(res[[1]]), value=TRUE)
@@ -39,7 +65,6 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
   co <- order(colMeans(res), decreasing=TRUE)
   res <- res[ro,co]
   res2 <- res2[ro,co]
-  cellfn <- .getCellFn(res,res2,value_format)
   name <- switch( what,
                  silhouette="silhouette\nwidth",
                  covar=covar,
@@ -49,33 +74,58 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
                  NULL
   )
   title <- switch( what,
-                 silhouette="Average silhouette width\nper subpopluation",
-                 covar=paste0("Correlation with\n",covar),
-                 covarRes=paste0("Residual corr with\n",covar),
-                 varExpl="Variance explained\nby subpopulations",
+                 silhouette="average silhouette width\nper subpopluation",
+                 covar=paste0("correlation with\n",covar),
+                 covarRes=paste0("residual corr with\n",covar),
+                 varExpl="var explained by\nsubpopulations",
                  elapsed="Running time (s)",
                  NULL
   )
   if(what=="silhouette" && (is.null(col) || length(col)==11) && !scale) return(
-    Heatmap( res2, name=name, cluster_rows=FALSE, col=.silScale(dr, col), 
+    Heatmap( res2, name=name, cluster_rows=FALSE, col=.silScale(res2, col), 
              cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res)), 
-             show_column_names = FALSE, cell_fun=cellfn, 
-             show_heatmap_legend=show_heatmap_legend,
-             column_title=title, column_title_gp=gpar(fontisze=10), ...))
+             show_column_names = FALSE, 
+             cell_fun=.getCellFn(res,res2,value_format,c("white","black")), 
+             show_heatmap_legend=show_heatmap_legend, column_title=title, 
+             column_title_gp=gpar(fontsize=col_title_fontsize), ...))
 
   if(is.null(col)) col <- viridisLite::inferno(100)
   Heatmap( res2, name=name, cluster_rows=FALSE,
            cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res)), 
-           show_column_names = FALSE, cell_fun=cellfn, col=col,
-           show_heatmap_legend=show_heatmap_legend,
-           column_title=title, column_title_gp=gpar(fontisze=10), ...)
+           show_column_names = FALSE, cell_fun=.getCellFn(res,res2,value_format),
+           col=col, show_heatmap_legend=show_heatmap_legend, column_title=title, 
+           column_title_gp=gpar(fontsize=col_title_fontsize), ...)
 }
 
-
+#' scrna_evalPlot_clust
+#' 
+#' Plotting aggregated evaluation results at the level of clustering for the 
+#' scRNA pipelines.
+#'
+#' @param res Aggregated pipeline results (i.e. the output of `runPipeline` or
+#' `aggregateResults`)
+#' @param what What to plot (default plots main metrics)
+#' @param agg.by Aggregate results by these columns (default no aggregation)
+#' @param agg.fn Function for aggregation (default mean)
+#' @param scale Logical; whether to scale columns (default FALSE)
+#' @param value_format Format for displaying cells' values (use 
+#' `value_format=""` to disable)
+#' @param reorder_rows Logical; whether to sort rows (default TRUE)
+#' @param show_heatmap_legend Passed to `Heatmap`
+#' @param col Colors for the heatmap
+#' @param col_title_fontsize Fontsize of column titles.
+#' @param ... Passed to `Heatmap`
+#'
+#' @return One or several `Heatmap` object.
+#' @export
+#'
+#' @import ComplexHeatmap
+#' @importFrom viridisLite inferno
 scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean, 
                                  scale=FALSE, value_format="%.2f", reorder_rows=TRUE, 
                                  show_heatmap_legend=FALSE,
-                                  col=viridisLite::inferno(100), ...){
+                                 col=viridisLite::inferno(100), 
+                                 col_title_fontsize=12, ...){
   if("clustering" %in% names(res)) res <- res$clustering
   what_options <- sapply(strsplit(colnames(res)[grep(" ",colnames(res))]," "),FUN=function(x) x[[2]])
   what <- match.arg(what, c(what_options, "elapsed", "auto"))
@@ -109,14 +159,40 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
   Heatmap( res2, name=what, cluster_rows=FALSE, show_heatmap_legend=show_heatmap_legend, 
            cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res)), 
            show_column_names = FALSE, cell_fun=cellfn, col=col,
-           column_title=title, column_title_gp=gpar(fontisze=10), ...)
+           column_title=title, column_title_gp=gpar(fontisze=col_title_fontsize), ...)
 }
 
+#' scrna_evalPlot_clustAtTrueK
+#' 
+#' Plotting aggregated evaluation results at the level of clustering for the 
+#' scRNA pipelines, restricting to those analysis that have the right number of
+#' clusters.
+#'
+#' @param res Aggregated pipeline results (i.e. the output of `runPipeline` or
+#' `aggregateResults`)
+#' @param what Metric to plot
+#' @param agg.by Aggregate results by these columns (default no aggregation)
+#' @param agg.fn Function for aggregation (default mean)
+#' @param scale Logical; whether to scale columns (default FALSE)
+#' @param value_format Format for displaying cells' values (use 
+#' `value_format=""` to disable)
+#' @param reorder_rows Logical; whether to sort rows (default TRUE)
+#' @param show_heatmap_legend Passed to `Heatmap`
+#' @param col Colors for the heatmap
+#' @param col_title_fontsize Fontsize of the column titles
+#' @param ... Passed to `Heatmap`
+#'
+#' @return A `Heatmap` object.
+#' @export
+#'
+#' @import ComplexHeatmap
+#' @importFrom viridisLite inferno
 scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL, 
                                         agg.fn=mean, scale=FALSE, 
                                         value_format="%.2f", reorder_rows=TRUE, 
                                         show_heatmap_legend=FALSE,
-                                        col=viridisLite::inferno(100), ...){
+                                        col=viridisLite::inferno(100), 
+                                        col_title_fontsize=11, ...){
   if("clustering" %in% names(res)) res <- res$clustering
   pp <- parsePipNames(row.names(res))
   if(is.null(agg.by)){
@@ -150,12 +226,12 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   res <- res[ro,co]
   res2 <- res2[ro,co]
   cellfn <- .getCellFn(res,res2,value_format)
-  title <- paste(what, "at true\nnumber of clusters")
+  title <- paste(what, "at true\n# of clusters")
   row.names(res2) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
   Heatmap( res2, name=what, cluster_rows=FALSE, show_heatmap_legend=show_heatmap_legend, 
            cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res)), 
            show_column_names = FALSE, cell_fun=cellfn, col=col,
-           column_title=title, column_title_gp=gpar(fontisze=10), ...)
+           column_title=title, column_title_gp=gpar(fontisze=col_title_fontsize), ...)
 }
 
 
@@ -218,7 +294,7 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   }
   y
 }
-.getCellFn  <- function(res,res2,value_format){
+.getCellFn  <- function(res,res2,value_format,cols=c("black","white")){
   resmid <- range(res2, na.rm=TRUE)
   resmid <- resmid[1]+(resmid[2]-resmid[1])/2
   function(j, i, x, y, width, height, fill){
@@ -228,7 +304,7 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
       lab <- gsub("^0\\.",".",lab)
       lab <- gsub("^-0\\.","-.",lab)
     } 
-    grid.text(lab, x, y, gp = gpar(fontsize = 10, col=ifelse(res2[i,j]>resmid,"black","white")))
+    grid.text(lab, x, y, gp = gpar(fontsize = 10, col=ifelse(res2[i,j]>resmid,cols[1],cols[2])))
   }
 }
 
