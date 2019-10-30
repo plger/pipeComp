@@ -129,7 +129,7 @@ filt.pca <- function(x, vars=NULL){
 }
 
 filt.pca2 <- function(x){
-  filt.pca(x, vars=c("log10_total_counts", "log10_total_features", "pct_counts_Mt", "pct_counts_in_top_50_features")))
+  filt.pca(x, vars=c("log10_total_counts", "log10_total_features", "pct_counts_Mt", "pct_counts_in_top_50_features"))
 }
 
 seWrap <- function(sce, min.cells=10, min.features=0){
@@ -260,7 +260,7 @@ getDimensionality <- function(se, method, maxDims=50){
 applyFilterString <- function(sce, filterstring){
   x <- strsplit(filterstring,"_",fixed=T)[[1]]
   mads <- as.numeric(x[[2]])
-  vars <- .translateFilterVars(strsplit(x,";",fixed=T)[[1]])
+  vars <- .translateFilterVars(strsplit(x,",",fixed=T)[[1]])
   otimes <- ifelse(is.null(x[[3]]),1,as.numeric(x[[3]]))
   filt.mad(sce, nmads=mads, vars=vars, outlier.times=otimes)
 }
@@ -283,7 +283,7 @@ filt.stringent <- function(x){
            "top50"="pct_counts_in_top_50_features",
            "ratiodist"="featcount_dist"
   )
-  x <- strsplit(x,".",fixed=T)
+  x <- strsplit(x,"%",fixed=T)
   y <- sapply(x,FUN=function(x){ if(length(x)==1) return("both"); x[[2]] })
   names(y) <- sapply(x,vars=vars,FUN=function(x, vars) vars[x[[1]]])
   y
@@ -295,24 +295,24 @@ filt.stringent <- function(x){
 #' 
 #' @param mads A vector of number of MADs.
 #' @param times A vector of outlier times.
+#' @param dirs A vector of directions (higher/lower/both)
 #'
 #' @return A vector of filtering strings.
 #' @export
-getFilterStrings <- function(mads=c(2,2.5,3,5), times=1:3){
-  varCombs <- c("","mt","lcounts","mt;lcounts","lfeat;lcounts","mt;lfeat","mt;lfeat;lcounts",
-                "mt;lfeat;kcounts;top50","mt;top50","lcounts;top50")
+getFilterStrings <- function(mads=c(2,2.5,3,5), times=1:2, dirs=c("higher","both")){
+  varCombs <- c("","mt","lcounts","mt,lcounts","lfeat,lcounts","mt,lfeat","mt,lfeat,lcounts",
+                "mt,lfeat,lcounts,top50","mt,top50","lcounts,top50")
   v2 <- varCombs[grep("lfeat|lcounts", varCombs)]
   v2 <- gsub("lfeat","feat", v2)
   v2 <- gsub("lcounts","counts", v2)
   varCombs <- c(varCombs,v2)
-  dirs <- c("lower","higher","both")
   mads<- c(2, 2.5, 3, 5)
-  varCombs <- unlist(lapply(strsplit(varCombs,";",fixed=T), dir=dirs, mads=mads, FUN=function(x, dir, mads){
-    y <- expand.grid(lapply(x, y=dir, sep=".", FUN=paste))
-    apply(y,1,collapse=";",FUN=paste)
+  varCombs <- unlist(lapply(strsplit(varCombs,",",fixed=T), dir=dirs, mads=mads, FUN=function(x, dir, mads){
+    y <- expand.grid(lapply(x, y=dir, sep="%", FUN=paste))
+    apply(y,1,collapse=",",FUN=paste)
   }))
   eg <- expand.grid(varCombs, mads, times)
-  nbVars <- sapply(strsplit(as.character(eg[,1]),";"),FUN=length)
+  nbVars <- sapply(strsplit(as.character(eg[,1]),","),FUN=length)
   eg <- eg[which(nbVars>=eg[,3]),]
   as.character(apply(eg, 1, collapse="_", FUN=paste))
 }
