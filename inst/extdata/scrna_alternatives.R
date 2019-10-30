@@ -31,6 +31,48 @@ filt.lenient <- function(x){
   seWrap(x)
 }
 
+filt.default <- function(x, times=2){
+  library(scater)
+  if(!("featcount_dist" %in% colnames(colData(x)))) x <- add_meta(x)
+  filters <- c( "log10_total_counts:higher:2.5",
+                "log10_total_counts:lower:5",
+                "log10_total_features:higher:2.5",
+                "log10_total_features:lower:5",
+                "pct_counts_in_top_20_features:both:5",
+                "featcount_dist:both:5")
+  out <- lapply(strsplit(filters,":"), FUN=function(f){
+    which(isOutlier(x[[f[1]]], log=FALSE,
+                    nmads=as.numeric(f[3]), 
+                    type=f[2] ))
+  })
+  mtout <- isOutlier(x$pct_counts_Mt, nmads=3, type="lower" ) | 
+    (isOutlier(x$pct_counts_Mt, nmads=2.5, type="higher" ) & x$pct_counts_Mt > 0.08)
+  out <- c(out, list(mt=which(mtout)))
+  out <- table(unlist(out))
+  out <- as.numeric(names(out)[which(out>=times)])
+  if(length(out)>0) x <- x[,-out]
+  seWrap(x)
+}
+
+filt.stringent <- function(x){
+  filt.default(x,1)
+}
+
+.translateFilterVars <- function(x){
+  vars=c(  "mt"="pct_counts_Mt", 
+           "feat"="total_features",
+           "counts"="total_counts",
+           "lfeat"="log10_total_features", 
+           "lcounts"="log10_total_counts", 
+           "top50"="pct_counts_in_top_50_features",
+           "ratiodist"="featcount_dist"
+  )
+  x <- strsplit(x,".",fixed=T)
+  y <- sapply(x,FUN=function(x){ if(length(x)==1) return("both"); x[[2]] })
+  names(y) <- sapply(x,vars=vars,FUN=function(x, vars) vars[x[[1]]])
+  y
+}
+
 seWrap <- function(sce, min.cells=10, min.features=0){
   library(Seurat)
   se <- CreateSeuratObject( counts=counts(sce), 
@@ -186,4 +228,10 @@ filt.stringent <- function(x){
   y <- sapply(x,FUN=function(x){ if(length(x)==1) return("both"); x[[2]] })
   names(y) <- sapply(x,vars=vars,FUN=function(x, vars) vars[x[[1]]])
   y
+}
+
+doublet.scDblFinder <- function(x){
+  library(scDblFinder)
+  x <- scDblFinder(x, verbose=FALSE)
+  x[,which(x$scDblFinder.class!="doublet")]
 }
