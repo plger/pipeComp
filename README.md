@@ -38,26 +38,26 @@ See the `?PipelineDefinition` for more information, or `scrna_seurat_pipeline` f
 pipDef <- scrna_seurat_pipeline()
 pipDef
 ```
-```
+<pre><code>
 A PipelineDefinition object with the following steps:
-  - doublet(x, doubletmethod) *
-Takes a SCE object with the `phenoid` colData column, passes it through the 
-function `doubletmethod`, and outputs a filtered SCE.
-  - filtering(x, filt) *
-Takes a SCE object, passes it through the function `filt`, and outputs a 
-filtered Seurat object.
-  - normalization(x, norm)
-Passes the object through function `norm` to return the object with the 
-normalized and scale data slots filled.
-  - selection(x, sel, selnb)
-Returns a seurat object with the VariableFeatures filled with `selnb` features 
-using the function `sel`.
-  - dimreduction(x, dr, maxdim) *
-Returns a seurat object with the PCA reduction with up to `maxdim` components
-using the `dr` function.
-  - clustering(x, clustmethod, dims, k, steps, resolution, min.size) *
-Uses function `clustmethod` to return a named vector of cell clusters.
-```
+  - <b>doublet</b>(x, doubletmethod) *
+<i>Takes a SCE object with the `phenoid` colData column, passes it through the </i>
+<i>function `doubletmethod`, and outputs a filtered SCE.</i>
+  - <b>filtering</b>(x, filt) *
+<i>Takes a SCE object, passes it through the function `filt`, and outputs a </i>
+<i>filtered Seurat object.</i>
+  - <b>normalization</b>(x, norm)
+<i>Passes the object through function `norm` to return the object with the </i>
+<i>normalized and scale data slots filled.</i>
+  - <b>selection</b>(x, sel, selnb)
+<i>Returns a seurat object with the VariableFeatures filled with `selnb` features </i>
+<i>using the function `sel`.</i>
+  - <b>dimreduction</b>(x, dr, maxdim) *
+<i>Returns a seurat object with the PCA reduction with up to `maxdim` components </i>
+<i>using the `dr` function.</i>
+  - <b>clustering</b>(x, clustmethod, dims, k, steps, resolution, min.size) *
+<i>Uses function `clustmethod` to return a named vector of cell clusters.</i>
+</code></pre>
 
 A number of generic methods are implemented on the object, including `show`, `names`, `length`, `[`, `as.list`.
 
