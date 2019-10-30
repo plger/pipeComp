@@ -9,6 +9,55 @@ scrna_seurat_defAlternatives <- function(){
     min.size = 50 )
 }
 
+none <- function(x) x
+
+#' filt.mad
+#' 
+#' Filter cells on the basis of MADs.
+#'
+#' @param x An object of class `SingleCellExperiment`
+#' @param nmads The number of MADs above/below which to filter out (default 3)
+#' @param min.cells The minimum number of cells expressing a feature (default 10) to keep
+#' the feature.
+#' @param min.features The minimum number of features detected in a cell (default 100) to 
+#' keep the cell.
+#' @param vars A named vector of control variables on which to check for deviations, in 
+#' the form `variable=direction`.
+#' @param outlier.times The number of times a cell should be an outlier for it to be 
+#' excluded.
+#'
+#' @return A Seurat object.
+#' @export
+filt.mad <- function( x, nmads=3, min.cells=10, min.features=100,
+                      vars=c( "pct_mt"="higher", 
+                              "log10_total_features"="both", 
+                              "log10_total_counts"="both", 
+                              "pct_counts_top_50_features"="higher"
+                      ),
+                      outlier.times=1
+){
+  if(length(vars)==0) seWrap(x, min.cells=min.cells, min.features=min.features)
+  out <- unlist(lapply(names(vars), o=x, v=vars, nm=nmads, FUN=function(x,o,v,nm){
+    tryCatch(
+      which(isOutlier(o[[x]], 
+                      nmads=nm, 
+                      log=F, 
+                      type=v[[x]]
+      )),
+      error=function(e){ 
+        warning(e)
+        return(c())
+      }
+    )
+  }))
+  if(length(out)>0){
+    out <- table(out)
+    out <- as.numeric(names(out)[which(out>=outlier.times)])
+    if(length(out)>0) x <- x[,-out]    
+  }
+  seWrap(x, min.cells=min.cells, min.features=min.features)
+}
+
 filt.lenient <- function(x){
   library(scater)
   if(!("featcount_dist" %in% colnames(colData(x)))) x <- add_meta(x)
@@ -71,6 +120,16 @@ filt.stringent <- function(x){
   y <- sapply(x,FUN=function(x){ if(length(x)==1) return("both"); x[[2]] })
   names(y) <- sapply(x,vars=vars,FUN=function(x, vars) vars[x[[1]]])
   y
+}
+
+filt.pca <- function(x, vars=NULL){
+  library(scater)
+  x <- runPCA(x, use_coldata=TRUE, detect_outliers=TRUE, selected_variables=vars)
+  seWrap(x[,!x$outlier])
+}
+
+filt.pca2 <- function(x){
+  filt.pca(x, vars=c("log10_total_counts", "log10_total_features", "pct_counts_Mt", "pct_counts_in_top_50_features")))
 }
 
 seWrap <- function(sce, min.cells=10, min.features=0){
@@ -228,6 +287,34 @@ filt.stringent <- function(x){
   y <- sapply(x,FUN=function(x){ if(length(x)==1) return("both"); x[[2]] })
   names(y) <- sapply(x,vars=vars,FUN=function(x, vars) vars[x[[1]]])
   y
+}
+
+#' getFilterStrings
+#'
+#' Returns a combination of filtering strings.
+#' 
+#' @param mads A vector of number of MADs.
+#' @param times A vector of outlier times.
+#'
+#' @return A vector of filtering strings.
+#' @export
+getFilterStrings <- function(mads=c(2,2.5,3,5), times=1:3){
+  varCombs <- c("","mt","lcounts","mt;lcounts","lfeat;lcounts","mt;lfeat","mt;lfeat;lcounts",
+                "mt;lfeat;kcounts;top50","mt;top50","lcounts;top50")
+  v2 <- varCombs[grep("lfeat|lcounts", varCombs)]
+  v2 <- gsub("lfeat","feat", v2)
+  v2 <- gsub("lcounts","counts", v2)
+  varCombs <- c(varCombs,v2)
+  dirs <- c("lower","higher","both")
+  mads<- c(2, 2.5, 3, 5)
+  varCombs <- unlist(lapply(strsplit(varCombs,";",fixed=T), dir=dirs, mads=mads, FUN=function(x, dir, mads){
+    y <- expand.grid(lapply(x, y=dir, sep=".", FUN=paste))
+    apply(y,1,collapse=";",FUN=paste)
+  }))
+  eg <- expand.grid(varCombs, mads, times)
+  nbVars <- sapply(strsplit(as.character(eg[,1]),";"),FUN=length)
+  eg <- eg[which(nbVars>=eg[,3]),]
+  as.character(apply(eg, 1, collapse="_", FUN=paste))
 }
 
 doublet.scDblFinder <- function(x){
