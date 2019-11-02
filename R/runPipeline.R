@@ -15,13 +15,15 @@
 #' @param nthreads Number of threads, default 6.
 #' @param debug Logical (default FALSE). When enabled, disables multithreading 
 #' and prints extra information.
+#' @param ... passed to MulticoreParam. Can for instance be used to set `makeCluster` 
+#' arguments, or set `threshold="TRACE"` when debugging in a multithreaded context.
 #'
 #' @return 
 #' 
 #' @import methods BiocParallel data.table
 #' @export
 runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL,
-                         output.prefix="", nthreads=6, debug=FALSE){
+                         output.prefix="", nthreads=6, debug=FALSE, ...){
   mcall <- match.call()
   if(!is(pipelineDef,"PipelineDefinition")) 
     pipelineDef <- PipelineDefinition(pipelineDef)
@@ -160,12 +162,16 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL,
       x
     })
     
-    saveRDS(res, file=paste0(output.prefix,"res.",dsi,".flattened.rds"))
+    resfile <- paste0(output.prefix,"res.",dsi,".flattened.rds")
+    saveRDS(res, file=resfile)
+    
+    res <- list( res=resfile, elapsed.total=elapsed.total )
+    ifile <- paste0(output.prefix,"res.",dsi,".stepIntermediateReturnObjects.rds")
     if(sum(sapply(intermediate_return_objects,length))>0){
-      f <- paste0(output.prefix,"res.",dsi,".stepIntermediateReturnObjects.rds")
-      saveRDS(intermediate_return_objects, file=f)
+      saveRDS(intermediate_return_objects, file=ifile)
+      res[["intermediate"]] <- ifile
     }
-    list( res=res, elapsed=elapsed, elapsed.total=elapsed.total )
+    res
   }
   ## END .runPipelineF
   
@@ -173,11 +179,9 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL,
   if(!debug && nthreads>1 && length(datasets)>1){
     nthreads <- min(nthreads, length(datasets))
     message(paste("Using",nthreads,"threads"))
-    cl <- makeCluster(nthreads)
     res <- bplapply( dsnames, 
-                     BPPARAM=MulticoreParam(nthreads), 
+                     BPPARAM=MulticoreParam(nthreads, ...), 
                      FUN=.runPipelineF )
-    stopCluster(cl)
   }else{
     nthreads <- 1
     if(debug) message("Running in debug mode (single thread)")

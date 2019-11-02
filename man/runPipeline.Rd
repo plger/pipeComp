@@ -5,7 +5,7 @@
 \title{runPipeline}
 \usage{
 runPipeline(datasets, alternatives, pipelineDef, eg = NULL,
-  output.prefix = "", nthreads = 6, debug = FALSE)
+  output.prefix = "", nthreads = 6, debug = FALSE, ...)
 }
 \arguments{
 \item{datasets}{A named vector of initial objects or paths to rds files.}
@@ -25,6 +25,8 @@ performed.}
 
 \item{debug}{Logical (default FALSE). When enabled, disables multithreading 
 and prints extra information.}
+
+\item{...}{passed to MulticoreParam.}
 }
 \value{
 
