@@ -1,12 +1,14 @@
-scrna_seurat_defAlternatives <- function(){
-  list(
+scrna_seurat_defAlternatives <- function(x=list()){
+  def <- list(
     filt="filt.lenient",
     norm=c("norm.seurat","norm.scran.noscale","norm.scran"),
-    sel="sel.vst", selnb=3000,
+    sel="sel.vst", selnb=2000,
     dr="seurat.pca", maxdim=30, clustmethod="clust.seurat",
     dims = 10, k = 20, steps = 8, 
     resolution = c(0.01, 0.1, 0.5, 0.8, 1), 
     min.size = 50 )
+  for(f in names(x)) def[[f]] <- x[[f]]
+  def
 }
 
 none <- function(x) x
@@ -63,7 +65,6 @@ filt.lenient <- function(x){
   if(!("featcount_dist" %in% colnames(colData(x)))) x <- add_meta(x)
   filters <- c( "log10_total_counts:both:5",
                 "log10_total_features:both:5",
-                "log10_total_features:lower:5",
                 "pct_counts_in_top_20_features:both:5",
                 "featcount_dist:both:5")
   out <- lapply(strsplit(filters,":"), FUN=function(f){
@@ -148,6 +149,11 @@ norm.seurat <- function(x, vars=NULL, noscale=FALSE){
   if(noscale){
     x <- SetAssayData(x, slot="scale.data", as.matrix(GetAssayData(x)))
   }else{
+    if(is.null(vars)) vars <- c()
+    for(f in vars){
+      if(!(sd(x@meta.data[[f]])>0)) vars <- setdiff(vars,f)
+    }
+    if(length(vars)==0) vars <- NULL
     x <- ScaleData(x, verbose=FALSE, vars.to.regress=vars)
   }
   x
@@ -176,6 +182,39 @@ norm.scran <- function(x, vars=NULL, noscale=FALSE, min.mean=1){
 norm.scran.noscale <- function(x, ...){
   norm.scran(x, noscale=TRUE, ...)
 }
+
+norm.none <- function(x, vars=NULL, noscale=FALSE){
+  x <- SetAssayData(x, slot="data", log1p(GetAssayData(x, slot="counts")))
+  if(noscale){
+    x <- SetAssayData(x, slot="scale.data", as.matrix(GetAssayData(x)))
+  }else{
+    x <- ScaleData(x, verbose=FALSE, vars.to.regress=vars)
+  }
+  x
+}
+
+norm.none.noscale <- function(x){
+  norm.none(x, noscale=TRUE)
+}
+
+#' norm.seuratvst
+#'
+#' A wrapper around `sctransform` variance stabilizing transformation.
+#' 
+#' @param x A Seurat object.
+#' @param vars A vector of variables to regress when scaling (default none)
+#' @param noscale Ignored.
+#' @param variable.features.n Passed to `SCTransform`, default 5000
+#'
+#' @return A Seurat object with updated data slot.
+#' @export
+norm.seuratvst <- function(x, vars=NULL, noscale=FALSE, variable.features.n=5000){
+  library(sctransform)
+  x <- SCTransform(x, vars.to.regress=vars, verbose=FALSE, variable.features.n=variable.features.n, return.only.var.genes=FALSE)
+  x@misc$vst.var.feat <- VariableFeatures(x)
+  x
+}
+
 
 sel.vst <- function(dat, n=2000, excl=c()){
   if(!is.null(dat@misc$vst.var.feat)){
