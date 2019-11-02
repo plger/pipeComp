@@ -62,14 +62,14 @@ using the `dr` function.",
           list( x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2) )
         },
         filtering=function(x, filt){
-          x2 <- pipeComp::.runf(filt, x, alt=applyFilterString)
+          x2 <- pipeComp:::.runf(filt, x, alt=applyFilterString)
           list( x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2) )
         },
         normalization=function(x, norm){ 
           get(norm)(x)
         },
         selection=function(x, sel, selnb){ 
-          x <- .runf(sel, x, n=selnb, alt=applySelString)
+          x <- pipeComp:::.runf(sel, x, n=selnb, alt=applySelString)
           list( x=x, intermediate_return=Seurat::VariableFeatures(x) )
         },
         dimreduction=DRfun,
