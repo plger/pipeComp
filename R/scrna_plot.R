@@ -319,8 +319,7 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
 #' @return A plot_grid output
 #'
 #' @export
-#' @import SummarizedExperiment SingleCellExperiment scran ggplot2 scales
-#' @importFrom scater logNormCounts
+#' @import SummarizedExperiment SingleCellExperiment scran scater ggplot2 scales
 #' @importFrom cowplot plot_grid
 describeDatasets <- function(sces, pt.size=0.3, ...){
   if(is.null(names(sces))) names(sces) <- paste0("dataset",seq_along(sces))
