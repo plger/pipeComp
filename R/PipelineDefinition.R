@@ -27,7 +27,7 @@
 
 #' PipelineDefinition-class
 #' @import methods
-#' @describeIn PipelineDefinition PipelineDefinition class
+#' @describeIn PipelineDefinition PipelineDefinition-class
 #' @export
 setClass( "PipelineDefinition", 
           slots=representation( functions="list", descriptions="list", 
@@ -149,7 +149,6 @@ setMethod("as.list",signature("PipelineDefinition"), function(x){
   x@functions
 })
 
-#' @importFrom base args
 setGeneric("arguments", function(name) args(name))
 #' @export
 setMethod("arguments",signature("PipelineDefinition"), function(name){
