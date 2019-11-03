@@ -49,19 +49,23 @@ returning raw results and running times.")
   fullnames <- parsePipNames(names(res[[1]][[length(res[[1]])]]))
   res <- lapply(isn, FUN=function(x){
     message(x)
-    el <- as.data.frame(elapsed$stepwise[[x]], row.names=NULL)
-    colnames(el) <- paste0("stepElapsed.",colnames(el))
     res2 <- pipDef@aggregation[[x]](lapply(res, FUN=function(y) y[[x]]))
     if(!is(res2, "list")) res2 <- list(res2)
-    res2 <- lapply(res2, FUN=function(x){
-      suppressWarnings(cbind(x, el))
-    })
+    if(!is.null(elapsed$stepwise[[x]])){
+      el <- as.data.frame(elapsed$stepwise[[x]], row.names=NULL)
+      colnames(el) <- paste0("stepElapsed.",colnames(el))
+      res2 <- lapply(res2, FUN=function(x){
+        suppressWarnings(cbind(x, el))
+      })
+    }
     if(length(res2)==1) res2 <- res2[[1]]
     res2
   })
-  et <- as.data.frame(elapsed$total)
-  row.names(et) <- NULL
-  colnames(et) <- paste0("totalTime.",colnames(et))
-  res$elapsedTotal <- cbind( fullnames,  et)
+  if(!is.null(elapsed$total)){
+    et <- as.data.frame(elapsed$total)
+    row.names(et) <- NULL
+    colnames(et) <- paste0("totalTime.",colnames(et))
+    res$elapsedTotal <- cbind( fullnames,  et)
+  }
   res
 }

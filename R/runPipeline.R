@@ -165,7 +165,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL,
     resfile <- paste0(output.prefix,"res.",dsi,".flattened.rds")
     saveRDS(res, file=resfile)
     
-    res <- list( res=resfile, elapsed.total=elapsed.total )
+    res <- list( res=resfile, elapsed=elapsed, elapsed.total=elapsed.total )
     ifile <- paste0(output.prefix,"res.",dsi,".stepIntermediateReturnObjects.rds")
     if(sum(sapply(intermediate_return_objects,length))>0){
       saveRDS(intermediate_return_objects, file=ifile)
