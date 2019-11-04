@@ -9,6 +9,7 @@
 #' @param covar Covariate of interest (used only if `what` is  'covar' or 
 #' 'covarRes'
 #' @param reorder_rows Logical; whether to sort rows (default TRUE)
+#' @param reorder_columns Logical; whether to sort columns
 #' @param agg.by Aggregate results by these columns (default no aggregation)
 #' @param agg.fn Function for aggregation (default mean)
 #' @param scale Logical; whether to scale columns (default FALSE)
@@ -22,28 +23,26 @@
 #' @return One or several `Heatmap` object.
 #' @export
 #'
-#' @import ComplexHeatmap
+#' @import ComplexHeatmap matrixStats
 #' @importFrom viridisLite inferno
 scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRes", "varExpl", "elapsed"),
                               covar=c("log10_total_counts","log10_total_features",
                                       "total_features"), reorder_rows=TRUE,
+                              reorder_columns=what=="silhouette",
                               agg.by=NULL, agg.fn=mean, scale=FALSE, 
                               show_heatmap_legend=FALSE, value_format="%.2f", 
-                              col=NULL, col_title_fontsize=11, ...){
+                              col=NULL, col_title_fontsize=11, 
+                              anno_legend=TRUE, ...){
   what <- match.arg(what)
   covar <- covar[1]
   if("dimreduction" %in% names(res)) res <- res$dimreduction
   if(what=="auto"){
-    # v <- lapply( c("PCtop5.R2", paste0("PC1_covar.", c("log10_total_counts", "total_features"))), FUN=function(x){
-    #   x <- res[[x]][,grep("^stepElapsed", colnames(res[[x]]), invert=TRUE)]
-    #   as.numeric(as.matrix(x))
-    # })
-    # corcol <- circlize::colorRamp2(range(v, na.rm=TRUE), c("darkblue","orange"))
-    return( 
-      scrna_evalPlot_DR(res, "silhouette", scale=scale, reorder_rows=FALSE, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, ...) + 
-      scrna_evalPlot_DR(res, "varExpl", scale=scale, reorder_rows=FALSE, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, ...) + 
-      scrna_evalPlot_DR(res, "covarRes", scale=scale, reorder_rows=FALSE, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, ...) +
-      scrna_evalPlot_DR(res, "covarRes", covar="total_features", scale=scale, reorder_rows=FALSE, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, ...)
+    H <- scrna_evalPlot_DR(res, "silhouette", scale=FALSE, reorder_rows=reorder_rows, value_format=value_format, show_heatmap_legend=TRUE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...)
+    ro <- row.names(H@matrix)
+    return( H +
+      scrna_evalPlot_DR(res, "varExpl", scale=scale, reorder_rows=ro, value_format=value_format, show_heatmap_legend=TRUE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...) + 
+      scrna_evalPlot_DR(res, "covarRes", scale=scale, reorder_rows=ro, value_format=value_format, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...) +
+      scrna_evalPlot_DR(res, "covarRes", covar="total_features", scale=scale, reorder_rows=ro, value_format=value_format, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...)
     )
   }
   el <- grep("^stepElapsed\\.", colnames(res[[1]]), value=TRUE)
@@ -57,12 +56,25 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
                  )
   res2 <- res <- .prepRes(res, agg.by, agg.fn, elapsed=what=="elapsed")
   if(scale) res2 <- base::scale(res)
-  if(reorder_rows){
-    ro <- order(rowMeans(res2), decreasing=TRUE)
+  res2 <- as.matrix(res2)
+  if(length(reorder_rows)>1){
+    ro <- reorder_rows
   }else{
-    ro <- seq_len(nrow(res2))
+    if(reorder_rows){
+      if(what=="silhouette"){
+        ro <- order(rowMedians(res2)+rowMeans(res2)+rowMins(res2), decreasing=TRUE)
+      }else{
+        ro <- order(rowMeans(res2), decreasing=TRUE)
+      }
+    }else{
+      ro <- seq_len(nrow(res2))
+    }
   }
-  co <- order(colMeans(res), decreasing=TRUE)
+  if(reorder_columns){
+    co <- order(colMeans(res), decreasing=TRUE)
+  }else{
+    co <- 1:ncol(res)
+  }
   res <- res[ro,co]
   res2 <- res2[ro,co]
   name <- switch( what,
@@ -83,15 +95,15 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
   )
   if(what=="silhouette" && (is.null(col) || length(col)==11) && !scale) return(
     Heatmap( res2, name=name, cluster_rows=FALSE, col=.silScale(res2, col), 
-             cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res)), 
-             show_column_names = FALSE, 
+             cluster_columns=FALSE, show_column_names = FALSE, 
+             bottom_annotation=.ds_anno(colnames(res),anno_legend), 
              cell_fun=.getCellFn(res,res2,value_format,c("white","black")), 
              show_heatmap_legend=show_heatmap_legend, column_title=title, 
              column_title_gp=gpar(fontsize=col_title_fontsize), ...))
 
   if(is.null(col)) col <- viridisLite::inferno(100)
-  Heatmap( res2, name=name, cluster_rows=FALSE,
-           cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res)), 
+  Heatmap( res2, name=name, cluster_rows=FALSE, cluster_columns=FALSE, 
+           bottom_annotation=.ds_anno(colnames(res), anno_legend), 
            show_column_names = FALSE, cell_fun=.getCellFn(res,res2,value_format),
            col=col, show_heatmap_legend=show_heatmap_legend, column_title=title, 
            column_title_gp=gpar(fontsize=col_title_fontsize), ...)
@@ -111,6 +123,7 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
 #' @param value_format Format for displaying cells' values (use 
 #' `value_format=""` to disable)
 #' @param reorder_rows Logical; whether to sort rows (default TRUE)
+#' @param reorder_columns Logical; whether to sort columns
 #' @param show_heatmap_legend Passed to `Heatmap`
 #' @param col Colors for the heatmap
 #' @param col_title_fontsize Fontsize of column titles.
@@ -119,13 +132,14 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
 #' @return One or several `Heatmap` object.
 #' @export
 #'
-#' @import ComplexHeatmap
+#' @import ComplexHeatmap matrixStats
 #' @importFrom viridisLite inferno
 scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean, 
-                                 scale=FALSE, value_format="%.2f", reorder_rows=TRUE, 
+                                 scale=FALSE, value_format="%.2f", 
+                                 reorder_rows=TRUE, reorder_columns=FALSE,
                                  show_heatmap_legend=FALSE,
                                  col=viridisLite::inferno(100), 
-                                 col_title_fontsize=12, ...){
+                                 col_title_fontsize=12, anno_legend=TRUE, ...){
   if("clustering" %in% names(res)) res <- res$clustering
   what_options <- sapply(strsplit(colnames(res)[grep(" ",colnames(res))]," "),FUN=function(x) x[[2]])
   what <- match.arg(what, c(what_options, "elapsed", "auto"))
@@ -142,14 +156,23 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
   res <- res[,grep(ifelse(what=="elapsed","stepElapsed",paste0(" ",what)), colnames(res))]
   res2 <- res <- .prepRes(res, agg.by, agg.fn, elapsed=what=="elapsed")
   if(scale) res2 <- base::scale(res)
-  if(reorder_rows){
-    ro <- order(rowMeans(res2), decreasing=TRUE)
+  if(length(reorder_rows)>1){
+    ro <- reorder_rows
   }else{
-    ro <- seq_len(nrow(res2))
+    if(reorder_rows){
+      ro <- order(rowMeans(res2), decreasing=TRUE)
+    }else{
+      ro <- seq_len(nrow(res2))
+    }
   }
-  co <- order(colMeans(res), decreasing=TRUE)
+  if(reorder_columns){
+    co <- order(colMeans(res), decreasing=TRUE)
+  }else{
+    co <- 1:ncol(res)
+  }
   res <- res[ro,co]
   res2 <- res2[ro,co]
+  res2 <- as.matrix(res2)
   cellfn <- .getCellFn(res,res2,value_format)
   title <- switch( what,
                    elapsed="Running time (s)",
@@ -157,7 +180,7 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
   )
   row.names(res2) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
   Heatmap( res2, name=what, cluster_rows=FALSE, show_heatmap_legend=show_heatmap_legend, 
-           cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res)), 
+           cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res),anno_legend), 
            show_column_names = FALSE, cell_fun=cellfn, col=col,
            column_title=title, column_title_gp=gpar(fontisze=col_title_fontsize), ...)
 }
@@ -177,6 +200,7 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
 #' @param value_format Format for displaying cells' values (use 
 #' `value_format=""` to disable)
 #' @param reorder_rows Logical; whether to sort rows (default TRUE)
+#' @param reorder_columns Logical; whether to sort columns
 #' @param show_heatmap_legend Passed to `Heatmap`
 #' @param col Colors for the heatmap
 #' @param col_title_fontsize Fontsize of the column titles
@@ -185,14 +209,16 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
 #' @return A `Heatmap` object.
 #' @export
 #'
-#' @import ComplexHeatmap
+#' @import ComplexHeatmap matrixStats
 #' @importFrom viridisLite inferno
 scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL, 
                                         agg.fn=mean, scale=FALSE, 
                                         value_format="%.2f", reorder_rows=TRUE, 
+                                        reorder_columns=FALSE,
                                         show_heatmap_legend=FALSE,
                                         col=viridisLite::inferno(100), 
-                                        col_title_fontsize=11, ...){
+                                        col_title_fontsize=11, 
+                                        anno_legend=TRUE, ...){
   if("clustering" %in% names(res)) res <- res$clustering
   pp <- parsePipNames(row.names(res))
   if(is.null(agg.by)){
@@ -206,6 +232,7 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
     ps <- split(seq_len(nrow(pp)), .getReducedNames(pp))
     res <- t(sapply(ps, FUN=function(x){
       x <- vapply(ds, FUN.VALUE=double(1), FUN=function(y){
+        res <- res[x,]
         w <- which(res[,paste(y,"n_clus")]==res[,paste(y,"true.nbClusts")])
         suppressWarnings(agg.fn( res[w,paste(y,what)] ))
       })
@@ -216,30 +243,50 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
     res <- res[,grep(paste0(" ",what), colnames(res))]
   }
   res2 <- res
-  if(scale) res2 <- base::scale(res)
-  if(reorder_rows){
-    ro <- order(rowMeans(res2, na.rm=TRUE), decreasing=TRUE)
+  if(scale) res2 <- .safescale(res)
+  if(length(reorder_rows)>1){
+    ro <- reorder_rows
   }else{
-    ro <- seq_len(nrow(res2))
+    if(reorder_rows){
+      ro <- order(rowMeans(res2, na.rm=TRUE), decreasing=TRUE)
+    }else{
+      ro <- seq_len(nrow(res2))
+    }
   }
-  co <- order(colMeans(res), decreasing=TRUE)
+  if(reorder_columns){
+    co <- order(colMeans(res, na.rm=TRUE), decreasing=TRUE)
+  }else{
+    co <- 1:ncol(res)
+  }
   res <- res[ro,co]
   res2 <- res2[ro,co]
   cellfn <- .getCellFn(res,res2,value_format)
   title <- paste(what, "at true\n# of clusters")
   row.names(res2) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
   Heatmap( res2, name=what, cluster_rows=FALSE, show_heatmap_legend=show_heatmap_legend, 
-           cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res)), 
+           cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res),anno_legend), 
            show_column_names = FALSE, cell_fun=cellfn, col=col,
            column_title=title, column_title_gp=gpar(fontisze=col_title_fontsize), ...)
 }
 
+.safescale <- function(x){
+  if(!is.null(dim(x))){
+    y <- apply(x,2,.safescale)
+    row.names(y) <- row.names(x)
+    return(y)
+  }
+  if(all(is.na(x))) return(x)
+  if(sd(x,na.rm=TRUE)>0) return(base::scale(x))
+  if(sum(!is.na(x))==0) return(base::scale(as.numeric(!is.na(x))))
+  rep(0,length(x))
+}
 
-.ds_anno <- function(x){
+
+.ds_anno <- function(x, legend=TRUE){
   y <- sapply(strsplit(gsub("stepElapsed\\.","",x)," "),FUN=function(x) x[[1]])
   cols <- GTscripts::getQualitativePalette(length(unique(y)))
   names(cols) <- sort(unique(y))
-  ComplexHeatmap::HeatmapAnnotation(dataset=y, col=list(dataset=cols), show_annotation_name = FALSE)
+  ComplexHeatmap::HeatmapAnnotation(dataset=y, col=list(dataset=cols), show_annotation_name = FALSE, show_legend=legend)
 }
 
 .getReducedNames <- function(res){
@@ -273,13 +320,6 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   res
 }
 
-.ds_anno <- function(x){
-  y <- sapply(strsplit(gsub("stepElapsed\\.","",x)," "),FUN=function(x) x[[1]])
-  cols <- GTscripts::getQualitativePalette(length(unique(y)))
-  names(cols) <- sort(unique(y))
-  ComplexHeatmap::HeatmapAnnotation(dataset=y, col=list(dataset=cols), show_annotation_name = FALSE)
-}
-
 .getReducedNames <- function(res){
   if(is.character(res)) res <- parsePipNames(res)
   pp <- res[,grep("^stepElapsed\\.",colnames(res),invert=TRUE),drop=FALSE]
@@ -300,7 +340,7 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   function(j, i, x, y, width, height, fill){
     if(value_format=="" || is.null(value_format) || is.na(value_format)) return(NULL)
     lab <- sprintf(value_format, res[i,j])
-    if(!any(abs(res)>1)){
+    if(!any(abs(res)>1, na.rm=TRUE)){
       lab <- gsub("^0\\.",".",lab)
       lab <- gsub("^-0\\.","-.",lab)
     } 
@@ -308,7 +348,7 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   }
 }
 
-#' describeDatasets
+#' scrna_describeDatasets
 #' 
 #' Plots descriptive information about the datasets
 #'
@@ -321,12 +361,12 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
 #' @export
 #' @import SummarizedExperiment SingleCellExperiment scran scater ggplot2 scales
 #' @importFrom cowplot plot_grid
-describeDatasets <- function(sces, pt.size=0.3, ...){
+scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
   if(is.null(names(sces))) names(sces) <- paste0("dataset",seq_along(sces))
   if(is.character(sces)){
     sces <- lapply(sces, FUN=function(x){
       sce <- readRDS(x)
-      sce <- scater::logNormCounts(sce)
+      sce <- logNormCounts(sce)
       var.stats <- modelGeneVar(sce)
       sce <- denoisePCA(sce, technical=var.stats)
       reducedDim(sce, "tSNE") <- Rtsne::Rtsne(reducedDim(sce))$Y

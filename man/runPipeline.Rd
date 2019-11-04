@@ -26,7 +26,8 @@ performed.}
 \item{debug}{Logical (default FALSE). When enabled, disables multithreading 
 and prints extra information.}
 
-\item{...}{passed to MulticoreParam.}
+\item{...}{passed to MulticoreParam. Can for instance be used to set `makeCluster` 
+arguments, or set `threshold="TRACE"` when debugging in a multithreaded context.}
 }
 \value{
 

@@ -7,9 +7,10 @@
 scrna_evalPlot_DR(res, what = c("auto", "silhouette", "covar",
   "covarRes", "varExpl", "elapsed"), covar = c("log10_total_counts",
   "log10_total_features", "total_features"), reorder_rows = TRUE,
-  agg.by = NULL, agg.fn = mean, scale = FALSE,
-  show_heatmap_legend = FALSE, value_format = "\%.2f", col = NULL,
-  col_title_fontsize = 11, ...)
+  reorder_columns = what == "silhouette", agg.by = NULL,
+  agg.fn = mean, scale = FALSE, show_heatmap_legend = FALSE,
+  value_format = "\%.2f", col = NULL, col_title_fontsize = 11,
+  anno_legend = TRUE, ...)
 }
 \arguments{
 \item{res}{Aggregated pipeline results (i.e. the output of `runPipeline` or
@@ -21,6 +22,8 @@ scrna_evalPlot_DR(res, what = c("auto", "silhouette", "covar",
 'covarRes'}
 
 \item{reorder_rows}{Logical; whether to sort rows (default TRUE)}
+
+\item{reorder_columns}{Logical; whether to sort columns}
 
 \item{agg.by}{Aggregate results by these columns (default no aggregation)}
 
