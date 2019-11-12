@@ -6,8 +6,9 @@
 \usage{
 scrna_evalPlot_clust(res, what = "auto", agg.by = NULL,
   agg.fn = mean, scale = FALSE, value_format = "\%.2f",
-  reorder_rows = TRUE, show_heatmap_legend = FALSE,
-  col = viridisLite::inferno(100), col_title_fontsize = 12, ...)
+  reorder_rows = TRUE, reorder_columns = FALSE,
+  show_heatmap_legend = FALSE, col = viridisLite::inferno(100),
+  col_title_fontsize = 12, anno_legend = TRUE, ...)
 }
 \arguments{
 \item{res}{Aggregated pipeline results (i.e. the output of `runPipeline` or
@@ -25,6 +26,8 @@ scrna_evalPlot_clust(res, what = "auto", agg.by = NULL,
 `value_format=""` to disable)}
 
 \item{reorder_rows}{Logical; whether to sort rows (default TRUE)}
+
+\item{reorder_columns}{Logical; whether to sort columns}
 
 \item{show_heatmap_legend}{Passed to `Heatmap`}
 
