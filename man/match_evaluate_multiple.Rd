@@ -18,7 +18,7 @@ A list.
 \description{
 Function to match cluster labels with 'true' clusters using the Hungarian algorithm, 
 and return precision, recall, and F1 score. Written by Lukas Weber in August 2016 as 
-part of his \href{https://github.com/lmweber/cytometry-clustering-comparison}[cytometry
-clustering comparison], with just slight modifications on initial handling of 
+part of his \href{https://github.com/lmweber/cytometry-clustering-comparison}{cytometry
+clustering comparison}, with just slight modifications on initial handling of 
 input arguments.
 }

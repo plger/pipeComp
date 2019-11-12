@@ -105,7 +105,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   }
   library(cluster)
   clusters <- as.factor(clusters)
-  n <- sapply(n, y=ncol(x), FUN=function(x,y) min(x,y))
+  n <- unique(sapply(n, y=ncol(x), FUN=function(x,y) min(x,y)))
   si <- lapply(n, FUN=function(dims){
     silhouette(as.integer(clusters), dist(x[,1:dims]))
   })
@@ -115,7 +115,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   })
   # summarize silhouette information
   if(length(n)==1){
-    silhouettes <- si[[1]]
+    silhouettes <- si[[1]][,1:3]
   }else{
     silhouettes <- cbind(si[[1]][,1:2], do.call(cbind, lapply(si,FUN=function(x) as.numeric(x[,3]))))
   }
@@ -125,12 +125,12 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   colnames(csw) <- levels(clusters)
   
   # variance in each component explained by clusters
-  R2 <- apply(x[,1:max(n)], 2, cl=clusters, FUN=.getVE)
+  R2 <- apply(x[,seq_len(n)], 2, cl=clusters, FUN=.getVE)
   
   # correlation of each component with covariates
   covar.cor <- sapply( covars, FUN=function(y) cor(x,y) )
   # correlation of the residuals (after regression on clusters) explained by each covariates
-  res <- apply(x[,1:max(n)], 2, cl=clusters, FUN=function(x, cl){
+  res <- apply(x[,seq_len(n)], 2, cl=clusters, FUN=function(x, cl){
     lm(x~cl)$residuals
   })
   covar.Rcor <- sapply( covars, FUN=function(y) cor(res,y) )
@@ -225,8 +225,8 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
 #' 
 #' Function to match cluster labels with 'true' clusters using the Hungarian algorithm, 
 #' and return precision, recall, and F1 score. Written by Lukas Weber in August 2016 as 
-#' part of his \href{https://github.com/lmweber/cytometry-clustering-comparison}[cytometry
-#' clustering comparison], with just slight modifications on initial handling of 
+#' part of his \href{https://github.com/lmweber/cytometry-clustering-comparison}{cytometry
+#' clustering comparison}, with just slight modifications on initial handling of 
 #' input arguments.
 #'
 #' @param clus_algorithm cluster labels from algorithm
