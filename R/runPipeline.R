@@ -13,6 +13,7 @@
 #' performed.
 #' @param output.prefix An optional prefix for the output files.
 #' @param nthreads Number of threads, default 6.
+#' @param saveEndResults Logical; whether to save the output of the last step.
 #' @param debug Logical (default FALSE). When enabled, disables multithreading 
 #' and prints extra information.
 #' @param ... passed to MulticoreParam. Can for instance be used to set `makeCluster` 
@@ -22,8 +23,8 @@
 #' 
 #' @import methods BiocParallel data.table
 #' @export
-runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL,
-                         output.prefix="", nthreads=6, debug=FALSE, ...){
+runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.prefix="",
+                         nthreads=6, saveEndResults=TRUE, debug=FALSE, ...){
   mcall <- match.call()
   if(!is(pipelineDef,"PipelineDefinition")) 
     pipelineDef <- PipelineDefinition(pipelineDef)
@@ -162,8 +163,12 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL,
       x
     })
     
-    resfile <- paste0(output.prefix,"res.",dsi,".flattened.rds")
-    saveRDS(res, file=resfile)
+    if(saveEndResults){
+      resfile <- paste0(output.prefix,"res.",dsi,".endOutputs.rds")
+      saveRDS(res, file=resfile)
+    }else{
+      resfile <- NULL
+    }
     
     res <- list( res=resfile, elapsed=elapsed, elapsed.total=elapsed.total )
     ifile <- paste0(output.prefix,"res.",dsi,".stepIntermediateReturnObjects.rds")

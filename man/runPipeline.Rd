@@ -5,7 +5,8 @@
 \title{runPipeline}
 \usage{
 runPipeline(datasets, alternatives, pipelineDef, eg = NULL,
-  output.prefix = "", nthreads = 6, debug = FALSE, ...)
+  output.prefix = "", nthreads = 6, saveEndResults = TRUE,
+  debug = FALSE, ...)
 }
 \arguments{
 \item{datasets}{A named vector of initial objects or paths to rds files.}
@@ -23,10 +24,13 @@ performed.}
 
 \item{nthreads}{Number of threads, default 6.}
 
+\item{saveEndResults}{Logical; whether to save the output of the last step.}
+
 \item{debug}{Logical (default FALSE). When enabled, disables multithreading 
 and prints extra information.}
 
-\item{...}{passed to MulticoreParam.}
+\item{...}{passed to MulticoreParam. Can for instance be used to set `makeCluster` 
+arguments, or set `threshold="TRACE"` when debugging in a multithreaded context.}
 }
 \value{
 
