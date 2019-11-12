@@ -226,6 +226,53 @@ sel.vst <- function(dat, n=2000, excl=c()){
   dat
 }
 
+#' applySelString
+#' 
+#' Applies a given selection string.
+#'
+#' @param se A Seurat object.
+#' @param selstring A rowData variable to use, or a selection string, e.g. 'vst:2000:coding_rmMt_rmribo'.
+#' @param n The number of genes to select (ignored if selstring is a full selection string).
+#'
+#' @return A filtered Seurat object.
+#' @export
+applySelString <- function(se, selstring, n=2000){
+  #vst:2000:coding_rmMt_rmribo
+  x <- strsplit(selstring,":",fixed=T)[[1]]
+  excl <- c()
+  if(length(x)>2 && x[3]!="") excl <- gsub("rm","",strsplit(x[3], "_")[[1]])
+  fn <- paste0("sel.",x[1])
+  if(exists(x[2])) n <- as.numeric(x[2])
+  if(exists(fn) && is.function(get(fn))) return(get(fn)(se, n=n, excl=excl))
+  sel.fromField(se, x[1], n, excl)
+}
+
+#' sel.fromField
+#' 
+#' Selection of features based on a given rowData field (in decreasing order).
+#'
+#' @param dat A `Seurat` object.
+#' @param f The field to use.
+#' @param n The number of features to select (default 2000)
+#' @param excl Feature types to exclude (default none)
+#'
+#' @return A `Seurat` object with updated `VariableFeatures`
+#' @export
+sel.fromField <- function( dat, f, n=2000, excl=c() ){
+  if(is.null(dat@misc$rowData[[f]])) return(NULL)
+  e <- dat@misc$rowData[row.names(dat),f]
+  VariableFeatures(dat) <- row.names(dat)[order(e, decreasing=T)[1:min(n,length(e))]]
+  VariableFeatures(dat) <- subsetFeatureByType(VariableFeatures(dat), excl)
+  dat
+}
+
+sel.deviance <- function(x, n=2000, excl=c()){
+  sel.fromField(x, "deviance", n=n, excl=excl)
+}
+sel.expr <- function(x, n=2000, excl=c()){
+  sel.fromField(x, "total_counts", n=n, excl=excl)
+}
+
 seurat.pca <- function(x, dims=50, weight.by.var=TRUE, seed.use=42){
   RunPCA(x, features=VariableFeatures(x), verbose=FALSE, 
          weight.by.var=weight.by.var, npcs=dims, seed.use = seed.use)
@@ -274,7 +321,7 @@ subsetFeatureByType <- function(g, classes=c("Mt","conding","ribo")){
 
 getDimensionality <- function(se, method, maxDims=50){
   x <- se@reductions$pca@cell.embeddings
-  switch(method,
+  x <- switch(method,
          essLocal.a=essLocalDimEst(x),
          essLocal.b=essLocalDimEst(x, ver="b"),
          pcaLocal.FO=pcaLocalDimEst(x,ver="FO"),
@@ -287,7 +334,30 @@ getDimensionality <- function(se, method, maxDims=50){
          scran.denoisePCA=scran.ndims.wrapper(se),
          jackstraw.elbow=js.wrapper(se,n.dims=ncol(x)-1,ret="ndims")
   )
+  if(is.list(x) && "dim.est" %in% names(x)) x <- max(x$dim.est)
+  x
 }
+
+js.wrapper <- function(so, n.dims=50, n.rep=500, doplot=TRUE, ret=c("Seurat","pvalues","ndims")){
+  ret <- match.arg(ret)
+  so <- JackStraw(so, dims = n.dims, num.replicate=n.rep, verbose=FALSE)
+  so <- ScoreJackStraw(so, dims = 1:n.dims, verbose=FALSE)
+  if(ret=="pvalues") return( Reductions(so,"pca")@jackstraw$overall.p.values[,2] )
+  if(ret=="Seurat") return( so )
+  y <- so@reductions$pca@jackstraw$overall.p.values[,2]
+  nzeros <- which(y>0)[1]-1
+  y <- y[-1*(1:nzeros)]
+  farthestPoint(-log10(y))+nzeros
+}
+
+scran.ndims.wrapper <- function(so){
+  library(SingleCellExperiment)
+  library(scran)
+  sce <- SingleCellExperiment(list(counts=GetAssayData(so,"counts"), logcounts=GetAssayData(so, "data")))[VariableFeatures(so),]
+  pcs <- getDenoisedPCs(sce, technical=modelGeneVar(sce))
+  ncol(pcs$components)
+}
+
 
 #' applyFilterString
 #'
@@ -360,4 +430,16 @@ doublet.scDblFinder <- function(x){
   library(scDblFinder)
   x <- scDblFinder(x, verbose=FALSE)
   x[,which(x$scDblFinder.class!="doublet")]
+}
+
+farthestPoint <- function(y, x=NULL){
+  if(is.null(x)) x <- 1:length(y)
+  d <- apply( cbind(x,y), 1, 
+              a=c(1,y[1]), b=c(length(y),rev(y)[1]), 
+              FUN=function(y, a, b){
+                v1 <- a-b
+                v2 <- y-a
+                abs(det(cbind(v1,v2)))/sqrt(sum(v1*v1))
+              })
+  order(d,decreasing=T)[1]
 }
