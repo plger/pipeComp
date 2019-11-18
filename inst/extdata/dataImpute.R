@@ -17,6 +17,7 @@
 #
 # ==============================================================================
 
+source("impWrapper/impWrappers.R")
 source("DoDataImputation.R")
 
 #  SCIMPUTE ====================================================================
@@ -35,11 +36,19 @@ for(i in input) {
   
 }
 
+# Individual wrapper example
+input = list.files("datasets/", full.names = T, pattern = "\\.csv|\\.rds")
+out_dir <- "imputations/scimputetemp/"
+dir.create(out_dir, showWarnings = FALSE)
+input <- readRDS(input[1])
+out <- wrapp.scimpute(sce = input, kcluster_modif = -1, n_cores = 5L)
+
+
 # SAVERX ======================================================================
 # WARNING: for some reason, does not work in for loop AND can not run multiple imputations in the same r session (open issue of the package). 
 # ==> change manually the selected lines to run on all input files. 
 
-input = list.files("filtCountMatrices", full.names = T, pattern = "\\.csv|\\.rds")
+input = list.files("datasets", full.names = T, pattern = "\\.csv|\\.rds")
 out_dir <- "imputations/SAVERX/"
 dir.create(out_dir, showWarnings = FALSE)
 
@@ -48,13 +57,16 @@ out_file <- gsub(".*\\/", "", input[1]) %>% gsub("\\.csv", ".rds", .)    # <----
 saveRDS(res, file = paste0(out_dir, out_file))
 
 
+# Individual wrapper example 
+input <- readRDS(input[1])
+wrapp.saverx(sce = input, organism = "Human", n_cores = 5L)
 
 # DCA ==========================================================================
 
 input = list.files("datasets", full.names = T, pattern = "\\.csv|\\.rds")
 out_dir <- "imputations/DCA/"
 dir.create(out_dir, showWarnings = FALSE)
-for(i in input[-c(1:2)]) {
+for(i in input) {
   
   cat("Imputing file ", i, "\n")
   res <- DoDataImputation(count = i, method = "dca", organism = "auto",
@@ -64,10 +76,16 @@ for(i in input[-c(1:2)]) {
   
 }
 
-# BayesBos =====================================================================
+# Individual function example
+input <- readRDS(input[1])
+out <- wrapp.dca(sce = input,
+                 dca_path = "/home/asonrel/miniconda3/bin/dca", 
+                 n_cores = 6L )
+
+# Empirical Bose ===============================================================
 # HVGs selection on the selected line. 
 
-input = list.files("filtCountMatrices", full.names = T, pattern = "\\.csv")
+input = list.files("datasets", full.names = T, pattern = "\\.csv")
 out_dir <- "imputations/EmpiricalBose/"
 dir.create(out_dir, showWarnings = FALSE)
 
@@ -83,6 +101,11 @@ for(i in input) {
   saveRDS(res, file = paste0(out_dir, out_file))
   
 }
+
+# Individual function example
+input <- readRDS(input[1])
+out <- wrapp.empiricalbose(sce = input, python_path =  "/home/asonrel/miniconda3/bin/python", restr_to_hvgs = TRUE, n_cores = 6L)
+
 
 ### ALRA -----------------------------------------------------------------------
 
@@ -103,6 +126,11 @@ for (i in input) {
   saveRDS(res, file = paste0(out_dir, out_file))
   
 }
+
+# Individual wrapper example
+input <- readRDS(input[1])
+out <- wrapp.alra(sce = input, alra_norm = TRUE, alra_path = "/home/asonrel/softwares/ALRA-master/alra.R")
+
 
 
 ### ENHANCE ------------------------------------------------------------------
@@ -125,10 +153,14 @@ for (i in input) {
   
 }
 
+# Individual function example
+input <- readRDS(input[1])
+out <- wrapp.enhance(sce = input, enhance_path = "/home/asonrel/softwares/enhance-R-master/enhance.R")
+
 
 #### DCA ---------------------------------------------------------------------
 
-input = list.files("filtCountMatrices", full.names = T, pattern = "\\.csv|\\.rds") 
+input = list.files("datasets", full.names = T, pattern = "\\.csv|\\.rds") 
 out_dir <- "imputations/dca/"
 dir.create(out_dir, showWarnings = FALSE)
 
@@ -143,6 +175,11 @@ for (i in input) {
   saveRDS(res, file = paste0(out_dir, out_file))
   
 }
+
+
+# Individual function example
+input <- readRDS(input[1])
+out <- wrapp.dca(sce = input,dca_path = "/home/asonrel/miniconda3/bin/dca", n_cores = 6L )
 
 
 ### DRimpute ---------------------------------------------------------------------
@@ -164,5 +201,10 @@ for (i in input) {
   saveRDS(res, file = paste0(out_dir, out_file))
   
 }
+
+# Individual function example
+input <- readRDS(input[1])
+out <- wrapp.drimpute(sce = input,DrImpute_prepross = TRUE, n_cores = 6L )
+
 
 
