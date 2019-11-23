@@ -432,6 +432,15 @@ doublet.scDblFinder <- function(x){
   x[,which(x$scDblFinder.class!="doublet")]
 }
 
+doublet.scds <- function(x){
+  x <- scds::bcds(x)
+  x <- scds::cxds(x)
+  x <- scds::cxds_bcds_hybrid(x)
+  dbn <- floor((0.01 * ncol(x)/1000)*ncol(x))
+  o <- order(x$hybrid_score, decreasing=TRUE)[seq_len(dbn)]
+  x[,-o]
+}
+
 farthestPoint <- function(y, x=NULL){
   if(is.null(x)) x <- 1:length(y)
   d <- apply( cbind(x,y), 1, 
