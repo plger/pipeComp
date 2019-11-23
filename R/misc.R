@@ -19,7 +19,7 @@
 #' my_names <- c("param1=A;param2=5","param1=B;param2=0")
 #' parsePipNames(my_names)
 parsePipNames <- function(x, setRowNames=FALSE, addcolumns=NULL){
-  if(is.data.frame(x)){
+  if(is.data.frame(x) || is.matrix(x)){
     if(!is.null(addcolumns)){
       addcolumns <- cbind(x,addcolumns)
     }else{

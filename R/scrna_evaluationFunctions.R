@@ -125,12 +125,15 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   colnames(csw) <- levels(clusters)
   
   # variance in each component explained by clusters
-  R2 <- apply(x[,seq_len(n)], 2, cl=clusters, FUN=.getVE)
+  cat("\n",n,"\n")
+  cat(seq_len(max(n)))
+  cat("\n")
+  R2 <- apply(x[,seq_len(max(n))], 2, cl=clusters, FUN=.getVE)
   
   # correlation of each component with covariates
   covar.cor <- sapply( covars, FUN=function(y) cor(x,y) )
   # correlation of the residuals (after regression on clusters) explained by each covariates
-  res <- apply(x[,seq_len(n)], 2, cl=clusters, FUN=function(x, cl){
+  res <- apply(x[,seq_len(max(n))], 2, cl=clusters, FUN=function(x, cl){
     lm(x~cl)$residuals
   })
   covar.Rcor <- sapply( covars, FUN=function(y) cor(res,y) )
@@ -182,8 +185,10 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
     })
     names(sw) <- unique(ll)
     list( clust.avg.silwidth=sw,
-          PC1.covar=sapply(x, FUN=function(x) x$covar.cor[1,]),
-          PC1.covarR=sapply(x, FUN=function(x) x$covar.Rcor[1,]),
+          PC1.covar=tryCatch(sapply(x, FUN=function(x) x$covar.cor[1,]), 
+                             error=function(e) NULL),
+          PC1.covarR=tryCatch(sapply(x, FUN=function(x) x$covar.Rcor[1,]), 
+                              error=function(e) NULL),
           PC.R2=sapply(x, FUN=function(x) x$R2) )
   })
   
@@ -196,13 +201,14 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   })
   names(sw) <- names(perDS[[1]]$clust.avg.silwidth)
   
-  PC1.covar <- lapply(row.names(perDS[[1]]$PC1.covar), FUN=function(covar){
-    do.call(cbind, lapply(perDS, FUN=function(x) abs(x$PC1.covar[covar,])))
-  })
-  names(PC1.covar) <- paste0("PC1_covar.",row.names(perDS[[1]]$PC1.covar))
-  if(is.null(perDS[[1]]$PC1.covarR)){
+  if(is.null(perDS[[1]]$PC1.covar) | is.null(perDS[[1]]$PC1.covarR)){
+    PC1.covar <- NULL
     PC1.covarR <- NULL
   }else{
+    PC1.covar <- lapply(row.names(perDS[[1]]$PC1.covar), FUN=function(covar){
+      do.call(cbind, lapply(perDS, FUN=function(x) abs(x$PC1.covar[covar,])))
+    })
+    names(PC1.covar) <- paste0("PC1_covar.",row.names(perDS[[1]]$PC1.covar))
     PC1.covarR <- lapply(row.names(perDS[[1]]$PC1.covarR), FUN=function(covar){
       do.call(cbind, lapply(perDS, FUN=function(x) abs(x$PC1.covarR[covar,])))
     })
@@ -210,11 +216,11 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   }
   
   PCtop5.R2 <- do.call(cbind, lapply(perDS, FUN=function(x){
-    colMeans(x$PC.R2[1:5,,drop=FALSE])
+    colMeans(x$PC.R2[1:min(5,nrow(x$PC.R2)),,drop=FALSE])
   }))
   
-  res <- c( silhouettes=allsi, clust.avg.silwidth=sw,
-             PC1.covar, PC1.covarR )
+  res <- list( silhouettes=allsi, clust.avg.silwidth=sw )
+  res <- c(res, PC1.covar, PC1.covarR)
   res$PCtop5.R2 <- PCtop5.R2
   res
 }
