@@ -25,10 +25,8 @@
   if(length(e) == 0) TRUE else e
 }
 
-#' PipelineDefinition-class
 #' @import methods
-#' @describeIn PipelineDefinition PipelineDefinition-class
-#' @export
+#' @exportClass PipelineDefinition
 setClass( "PipelineDefinition", 
           slots=representation( functions="list", descriptions="list", 
                                 evaluation="list", aggregation="list", 
@@ -41,6 +39,9 @@ setClass( "PipelineDefinition",
 
 
 #' PipelineDefinition
+#' 
+#' Creates on object of class `PipelineDefinition` containing step functions,
+#' as well as optionally step evaluation and aggregation functions.
 #'
 #' @param functions A list of functions for each step
 #' @param descriptions A list of descriptions for each step
@@ -52,6 +53,10 @@ setClass( "PipelineDefinition",
 #'
 #' @return An object of class `PipelineDefinition`, with the slots functions,
 #' descriptions, evaluation, aggregation, defaultArguments, and misc.
+#' 
+#' @aliases PipelineDefinition-class
+#' @seealso \code{\link{PipelineDefinition-methods}}, \code{\link{addPipelineStep}}.
+#' For an example pipeline, see \code{\link{scrna_seurat_pipeline}}.
 #' @export
 PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
                                 aggregation=NULL, defaultArguments=list(), 
@@ -108,7 +113,16 @@ PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
 	x
 }
 
-#' @export
+#' Methods for \code{\link{PipelineDefinition}} class
+#' @name PipelineDefinition-methods
+#' @rdname PipelineDefinition-methods
+#' @aliases PipelineDefinition-method
+#' @seealso \code{\link{PipelineDefinition}}, \code{\link{addPipelineStep}}
+#' @param object An object of class \code{\link{PipelineDefinition}}
+NULL
+
+#' @rdname PipelineDefinition-methods
+#' @importMethodsFrom methods show
 setMethod("show", signature("PipelineDefinition"), function(object){
   fns <- sapply(names(object@functions), FUN=function(x){ 
     y <- paste0("  - \033[1m",x,"\033[22m(",paste(names(formals(object@functions[[x]])),collapse=", "),")")
@@ -122,63 +136,122 @@ setMethod("show", signature("PipelineDefinition"), function(object){
   cat("\n")
 })
 
-#' @export
+#' @rdname PipelineDefinition-methods
+#' @param x An object of class \code{\link{PipelineDefinition}}
 setMethod("names", signature("PipelineDefinition"), function(x){
   names(x@functions)
 })
+#' @rdname PipelineDefinition-methods
+setMethod("names<-", signature("PipelineDefinition"), function(x, value){
+  if(any(duplicated(value))) stop("Some step names are duplicated!")
+  names(x@functions) <- value
+  names(x@evaluation) <- value
+  names(x@aggregation) <- value
+  names(x@descriptions) <- value
+  validObject(x)
+  x
+})
 
-#' @export
+#' @rdname PipelineDefinition-methods
 setMethod("$", signature("PipelineDefinition"), function(x, name){
   x@functions[[name]]
 })
 
-#' @export
+#' @rdname PipelineDefinition-methods
 setMethod("length", signature("PipelineDefinition"), function(x){
   length(x@functions)
 })
 
-#' @export
+#' @rdname PipelineDefinition-methods
 setMethod("[",signature("PipelineDefinition"), function(x, i){
   new("PipelineDefinition", functions=x@functions[i], 
        descriptions=x@descriptions[i], evaluation=x@evaluation[i],
        aggregation=x@aggregation[i], misc=x@misc)
 })
 
-#' @export
+#' @rdname PipelineDefinition-methods
 setMethod("as.list",signature("PipelineDefinition"), function(x){
   x@functions
 })
 
-setGeneric("arguments", function(name) args(name))
-#' @export
-setMethod("arguments",signature("PipelineDefinition"), function(name){
-  lapply(name@functions, FUN=function(x){ setdiff(names(formals(x)), "x") })
+#' @exportMethod arguments
+setGeneric("arguments", function(object) args(object))
+#' @rdname PipelineDefinition-methods
+setMethod("arguments",signature("PipelineDefinition"), function(object){
+  lapply(object@functions, FUN=function(x){ setdiff(names(formals(x)), "x") })
 })
 
-#' @export
-setMethod("c",signature("PipelineDefinition"), function(x, ...){
-  stop("Not yet implemented")
-  ## TO DEBUG
-  y <- unlist(list(...))
-  ycl <- sapply(y, class)
-  if( !all(ycl=="PipelineDefinition") ){
-    if(!all( ycl %in% c("PipelineDefinition","function"))){
-      stop("A PipelineDefinition can only be concatenated with other
-           PipelineDefinition or functions.")
-    }
-    if(is.null(names(y)) || (any(names(y)=="" & ycl=="function")))
-      stop("The function arguments should be named.")
-    y <- lapply(names(y), FUN=function(x){
-      if(is.function(y[[x]])) y[[x]] <- PipelineDefinition(y[x])
-    })
-  }
-  y <- c(x,y)
-  if(any(table(unlist(lapply(y,names)))>1))
-    stop("Some step names are not unique.")
-  new( "PipelineDefinition",
-       functions=do.call(c, lapply(y, FUN=function(x) x@functions)),
-       descriptions=do.call(c, lapply(y, FUN=function(x) x@functions)),
-       aggregation=do.call(c, lapply(y, FUN=function(x) x@aggregation)),
-       misc=do.call(c, lapply(y, FUN=function(x) x@misc))
-    )
+#' @exportMethod stepFn
+setGeneric("stepFn", function(object, step, type) standardGeneric("stepFn"))
+#' @param step The name of the step for which to set or get the function
+#' @param type The type of function to set/get (either `functions`, `evaluation`,
+#' `aggregation`, or `descriptions` - will parse partial matches)
+#' @rdname PipelineDefinition-methods
+setMethod("stepFn", signature("PipelineDefinition"), function(object, step, type){
+  type <- match.arg(type, c("functions","evaluation","aggregation","descriptions"))
+  step <- match.arg(step, names(object))
+  slot(object, type)[[step]]
 })
+#' @exportMethod stepFn<-
+setGeneric("stepFn<-", function(object, step, type, value) standardGeneric("stepFn<-"))
+#' @rdname PipelineDefinition-methods
+setMethod("stepFn<-", signature("PipelineDefinition"), function(object, step, type, value){
+  type <- match.arg(type, c("functions","evaluation","aggregation","descriptions"))
+  step <- match.arg(step, names(object))
+  slot(object, type)[[step]] <- value
+  validObject(object)
+  object
+})
+
+
+#' addPipelineStep
+#' 
+#' Add a step to an existing \code{\link{PipelineDefinition}}
+#'
+#' @param object A \code{\link{PipelineDefinition}}
+#' @param name The name of the step to add
+#' @param after The name of the step after which to add the new step. If NULL, will
+#' add the step at the beginning of the pipeline.
+#' @param slots A optional named list with slots to fill for that step (i.e. `functions`,
+#' `evaluation`, `aggregation`, `descriptions` - will be parsed)
+#'
+#' @return A \code{\link{PipelineDefinition}}
+#' @seealso \code{\link{PipelineDefinition}}, \code{\link{PipelineDefinition-methods}}
+#' @importFrom methods is slot
+#' @export
+#'
+#' @examples
+#' pd <- scrna_seurat_pipeline()
+#' pd
+#' pd <- addPipelineStep(pd, name="newstep", after="filtering", 
+#'                       slots=list(description="Step that does nothing..."))
+#' pd
+addPipelineStep <- function(object, name, after=NULL, slots=list()){
+  if(!is(object, "PipelineDefinition")) stop("object should be a PipelineDefinition")
+  if(name %in% names(object)) stop("There is already a step with that name!")
+  if(!is.null(after) && !(after %in% names(object))) 
+    stop("`after` should either be null or the name of a step.")
+  n <- c("functions","evaluation","aggregation","descriptions")
+  if(length(slots)>0) names(slots) <- sapply(names(slots), choices=n, FUN=match.arg)
+  if(!all(names(slots) %in% n)) stop( paste("fns should be a function or a list of", 
+    "functions with one or more of the following names:\n", paste(n,collapse=", ")) )
+  
+  if(is.null(after)){
+    i1 <- vector("integer")
+    i2 <- seq_along(names(object))
+  }else{
+    w <- which(names(object)==after)
+    i1 <- 1:w
+    i2 <- (w+1):length(object)
+    if(w==length(object)) i2 <- vector("integer")
+  }
+  ll <- list(NULL)
+  names(ll) <- name
+  for(f in n) slot(object,f) <- c(slot(object,f)[i1], ll, slot(object,f)[i2])
+  for(f in names(slots)) stepFn(object, name, f) <- slots[[f]]
+  if(is.null(stepFn(object, name, "functions"))) 
+    stepFn(object, name, "functions") <- identity
+
+  validObject(object)
+  object
+}
