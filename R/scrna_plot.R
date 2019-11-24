@@ -57,17 +57,21 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
   res2 <- res <- .prepRes(res, agg.by, agg.fn, elapsed=what=="elapsed")
   if(scale) res2 <- base::scale(res)
   res2 <- as.matrix(res2)
-  if(length(reorder_rows)>1){
-    ro <- reorder_rows
+  if(is(reorder_rows, "Heatmap")){
+    ro <- row.names(reorder_rows@matrix)
   }else{
-    if(reorder_rows){
-      if(what=="silhouette"){
-        ro <- order(rowMedians(res2)+rowMeans(res2)+rowMins(res2), decreasing=TRUE)
-      }else{
-        ro <- order(rowMeans(res2), decreasing=TRUE)
-      }
+    if(length(reorder_rows)>1){
+      ro <- reorder_rows
     }else{
-      ro <- seq_len(nrow(res2))
+      if(reorder_rows){
+        if(what=="silhouette"){
+          ro <- order(rowMedians(res2)+rowMeans(res2)+rowMins(res2), decreasing=TRUE)
+        }else{
+          ro <- order(rowMeans(res2), decreasing=TRUE)
+        }
+      }else{
+        ro <- seq_len(nrow(res2))
+      }
     }
   }
   if(reorder_columns){
@@ -156,13 +160,17 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
   res <- res[,grep(ifelse(what=="elapsed","stepElapsed",paste0(" ",what)), colnames(res))]
   res2 <- res <- .prepRes(res, agg.by, agg.fn, elapsed=what=="elapsed")
   if(scale) res2 <- base::scale(res)
-  if(length(reorder_rows)>1){
-    ro <- reorder_rows
+  if(is(reorder_rows, "Heatmap")){
+    ro <- row.names(reorder_rows@matrix)
   }else{
-    if(reorder_rows){
-      ro <- order(rowMeans(res2), decreasing=TRUE)
+    if(length(reorder_rows)>1){
+      ro <- reorder_rows
     }else{
-      ro <- seq_len(nrow(res2))
+      if(reorder_rows){
+        ro <- order(rowMeans(res2, na.rm=TRUE), decreasing=TRUE)
+      }else{
+        ro <- seq_len(nrow(res2))
+      }
     }
   }
   if(reorder_columns){
@@ -217,8 +225,8 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
                                         reorder_columns=FALSE,
                                         show_heatmap_legend=FALSE,
                                         col=viridisLite::inferno(100), 
-                                        col_title_fontsize=11, 
-                                        anno_legend=TRUE, ...){
+                                        col_title_fontsize=11, title=NULL,
+                                        name=NULL, anno_legend=TRUE, ...){
   if("clustering" %in% names(res)) res <- res$clustering
   pp <- parsePipNames(row.names(res))
   if(is.null(agg.by)){
@@ -244,13 +252,17 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   }
   res2 <- res
   if(scale) res2 <- .safescale(res)
-  if(length(reorder_rows)>1){
-    ro <- reorder_rows
+  if(is(reorder_rows, "Heatmap")){
+    ro <- row.names(reorder_rows@matrix)
   }else{
-    if(reorder_rows){
-      ro <- order(rowMeans(res2, na.rm=TRUE), decreasing=TRUE)
+    if(length(reorder_rows)>1){
+      ro <- reorder_rows
     }else{
-      ro <- seq_len(nrow(res2))
+      if(reorder_rows){
+        ro <- order(rowMeans(res2, na.rm=TRUE), decreasing=TRUE)
+      }else{
+        ro <- seq_len(nrow(res2))
+      }
     }
   }
   if(reorder_columns){
@@ -261,10 +273,11 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   res <- res[ro,co]
   res2 <- res2[ro,co]
   cellfn <- .getCellFn(res,res2,value_format)
-  title <- paste(what, "at true\n# of clusters")
+  if(is.null(title)) title <- paste(what, "at true\n# of clusters")
   row.names(res2) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
-  Heatmap( res2, name=what, cluster_rows=FALSE, show_heatmap_legend=show_heatmap_legend, 
-           cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res),anno_legend), 
+  Heatmap( res2, name=ifelse(is.null(name),what,name), cluster_rows=FALSE, 
+           show_heatmap_legend=show_heatmap_legend, cluster_columns=FALSE, 
+           bottom_annotation=.ds_anno(colnames(res),anno_legend), 
            show_column_names = FALSE, cell_fun=cellfn, col=col,
            column_title=title, column_title_gp=gpar(fontisze=col_title_fontsize), ...)
 }
@@ -348,6 +361,77 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   }
 }
 
+.mergeFilterOut <- function(ll){
+  if(length(ll)==1) return(ll[[1]])
+  # get back the initial number of cells
+  N <- attr(ll[[1]],"initialNumbers")
+  if(is.null(N)){
+    x <- abs(as.matrix(ll[[1]]))
+    pc <- x[,grep("^pcOut",colnames(x))]
+    n <- x[,grep("^nOut",colnames(x))]
+    N <- matrixStats::colMedians(round(100*n/pc), na.rm = TRUE)
+    N[is.na(N)] <- 100
+  }
+  ll2 <- lapply(ll, FUN=function(x){
+    x <- x[,grep("^nOut",colnames(x))]
+    attr(x, "initialNumbers") <- NULL
+    cbind(parsePipNames(row.names(x)), x)
+  })
+  x <- rev(ll2)[[1]]
+  for(i in seq.int(length(ll)-1,1)){
+    y <- ll2[[i]]
+    of <- intersect(colnames(x),colnames(y))
+    of <- of[grep("^nOut", of, invert=TRUE)]
+    p1 <- apply(x[,of,drop=FALSE],1,FUN=function(x) 
+      paste(paste0(of,"=",x), collapse=";"))
+    y <- y[,grep("^nOut", colnames(y))]
+    row.names(y) <- apply(ll2[[i]][,of,drop=FALSE],1,FUN=function(x) 
+      paste(paste0(of,"=",x), collapse=";"))
+    colnames(y) <- NULL
+    x <- x[,grep("^nOut", colnames(x))]
+    x+y[p1,]
+  }
+  pc <- round(100*t(t(x)/N),3)
+  colnames(pc) <- gsub("^nOut","pcOut", colnames(pc))
+  cbind(x, pc, deparse.level=0)
+}
+
+scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"), returnTable=FALSE){
+  co <- .mergeFilterOut(res[steps])
+  co <- abs(as.matrix(co[,grep("^pcOut",colnames(co))]))
+  ds <- sapply(strsplit(colnames(co),"\\."), FUN=function(x) x[2])
+  ds <- split(seq_len(ncol(co)), ds)
+  df <- data.frame(
+    method=rep(row.names(co), length(ds)),
+    dataset=rep(names(ds), each=nrow(co)),
+    maxPCout=unlist(lapply(ds, FUN=function(x) rowMaxs(co[,x]))),
+    medianPCout=unlist(lapply(ds, FUN=function(x) rowMedians(co[,x])))
+  )
+  ds <- sapply(strsplit(colnames(res$clustering)," "), FUN=function(x) x[1])
+  ds <- split(seq_len(ncol(res$clustering)), ds)
+  ds <- ds[grep("stepElapsed",names(ds),invert=TRUE)]
+  ds <- lapply(ds, FUN=function(x){
+    cl <- res$clustering[,x]
+    by <- sapply(strsplit(row.names(cl),";"), FUN=function(x) paste(x[1:2],collapse=";"))
+    meanF1 <- aggregate(cl[[grep("mean_F1",colnames(cl))]], by=list(by), na.rm=TRUE, FUN=mean)
+    topF1 <- aggregate(cl[[grep("mean_F1",colnames(cl))]], by=list(by), na.rm=TRUE, FUN=max)
+    w <- which(cl[[grep("n_clus",colnames(cl))]]==cl[[grep("nbClusts",colnames(cl))]])
+    cl <- cl[w,]
+    tmp <- aggregate(cl[[grep("mean_F1",colnames(cl))]], by=list(by[w]), na.rm=TRUE, FUN=mean)
+    F1atK <- tmp[,2]
+    names(F1atK) <- tmp[,1]
+    d <- data.frame(method=meanF1[,1], meanF1=as.numeric(meanF1[,2]), 
+                    topF1=as.numeric(topF1[,2]), F1atK=F1atK[as.character(meanF1[,1])])
+    d
+  })
+  ds2 <- bind_rows(ds,.id="dataset")
+  m <- merge(df, ds2, by=c("dataset","method"))
+  if(returnTable) return(m)
+  ggplot(m, aes(maxPCout, meanF1, group=method, colour=method)) + geom_point(size=3) + 
+    facet_wrap(~dataset, scales="free") + xlab("Proportion") + 
+    xlab("Max proportion of subpopulation excluded")
+}
+
 #' scrna_describeDatasets
 #' 
 #' Plots descriptive information about the datasets
@@ -426,7 +510,16 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
   if(is.null(cols)) cols <- rev(RColorBrewer::brewer.pal(n=11,"RdBu"))
   if(is.function(cols)) cols <- cols(11)
   if(length(cols)!=11) stop("`cols` should contain 11 colors.")
-  bb <- c( -seq(from=sqrt(abs(min(x))), to=0, length.out=6)^2, 
-           seq(from=0, to=sqrt(max(x)), length.out=6)[-1]^2 )
+  bb <- c( -seq(from=sqrt(abs(min(x, na.rm=TRUE))), to=0, length.out=6)^2, 
+           seq(from=0, to=sqrt(max(x, na.rm=TRUE)), length.out=6)[-1]^2 )
   circlize::colorRamp2(bb, cols)
+}
+
+.renameHrows <- function(h, f=function(x) gsub("norm\\.","",x)){
+  if(is(h,"HeatmapList")){
+    h@ht_list <- lapply(h@ht_list, f=f, FUN=.renameHrows)
+    return(h)
+  }
+  h@row_names_param$anno@var_env$value <- f(h@row_names_param$anno@var_env$value)
+  h
 }

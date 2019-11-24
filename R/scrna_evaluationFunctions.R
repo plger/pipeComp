@@ -28,22 +28,25 @@ evaluateClustering <- function(x, tl){
   nout <- do.call(cbind, lapply(names(res), FUN=function(ds){ 
     t(sapply(res[[ds]], FUN=function(x){
       x <- x$table
-      y <- as.numeric(x[2,])-as.numeric(x[1,])
+      y <- as.numeric(x[1,])-as.numeric(x[2,])
       names(y) <- paste0(ds,".",colnames(x))
       y
     }))
   }))
+  N <- unlist(lapply(res, FUN=function(x) x[[1]]$table[1,]))
   pc <- do.call(cbind, lapply(names(res), FUN=function(ds){ 
     t(sapply(res[[ds]], FUN=function(x){
       x <- x$table
-      y <- (as.numeric(x[2,])-as.numeric(x[1,]))/as.numeric(colSums(x))
+      y <- (as.numeric(x[1,])-as.numeric(x[2,]))/as.numeric(x[1,])
       names(y) <- paste0(ds,".",colnames(x))
       round(y*100,2)
     }))
   }))
   colnames(pc) <- paste0("pcOut.", colnames(pc))
-  colnames(nout) <- paste0("nOut.", colnames(pc))
-  return(cbind(nout, pc))
+  colnames(nout) <- paste0("nOut.", colnames(nout))
+  res <- cbind(nout, pc, deparse.level=0)
+  attr(res, "initialNumbers") <- N
+  return(res)
 }
 
 #' @importFrom matrixStats rowMins
