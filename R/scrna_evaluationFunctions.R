@@ -177,22 +177,32 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   perDS <- lapply(res, FUN=function(x){
     # check if the dimensions are the same
     ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
-    if(!all(length(unique(table(ll))))){
-      x <- lapply(x, FUN=function(x){
-        row.names(x$clust.avg.silwidth)[grep("all",row.names(x$clust.avg.silwidth))] <- "all"
-      })
+    if(!all(length(unique(table(ll)))) || nrow(x[[1]]$clust.avg.silwidth)==1){
+      # check if there's only one N per analysis
+      if(all(sapply(x, FUN=function(x) nrow(x$clust.avg.silwidth))==1)){
+        for(i in seq_along(x)) row.names(x[[i]]$clust.avg.silwidth) <- "selected"
+      }else{
+        x <- lapply(x, FUN=function(x){
+          row.names(x$clust.avg.silwidth)[grep("all",row.names(x$clust.avg.silwidth))] <- "all"
+          x
+        })
+      }
       ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
     }
     sw <- lapply(unique(ll), FUN=function(topX){
       sapply(x, FUN=function(x) unlist(as.data.frame(x$clust.avg.silwidth)[topX,]))
     })
     names(sw) <- unique(ll)
+    R2 <- lapply(x, FUN=function(x) x$R2)
+    R2 <- sapply(sort(unique(unlist(lapply(R2,names)))), FUN=function(n){
+      sapply(R2, FUN=function(x) x[n])
+    })
     list( clust.avg.silwidth=sw,
           PC1.covar=tryCatch(sapply(x, FUN=function(x) x$covar.cor[1,]), 
                              error=function(e) NULL),
           PC1.covarR=tryCatch(sapply(x, FUN=function(x) x$covar.Rcor[1,]), 
                               error=function(e) NULL),
-          PC.R2=sapply(x, FUN=function(x) x$R2) )
+          PC.R2=R2 )
   })
   
   if(dswise) return(perDS)
