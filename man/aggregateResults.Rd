@@ -4,13 +4,16 @@
 \alias{aggregateResults}
 \title{aggregateResults}
 \usage{
-aggregateResults(path = "./", pipDef = NULL)
+aggregateResults(path = NULL, resfiles = NULL, pipDef = NULL)
 }
 \arguments{
 \item{path}{Path to the folder containing the output of runPipeline}
 
-\item{pipDef}{A `pipelineDefinition` containing the aggregation
-methods.}
+\item{resfiles}{Path to *.stepIntermediateReturnObjects.rds files; the files 
+are assumed to come from the `pipDef` pipeline, using the same alternatives
+for all datasets.}
+
+\item{pipDef}{A `pipelineDefinition` containing the aggregation methods.}
 }
 \value{
 A list with a slot for each step for which there is an aggregation 
@@ -19,5 +22,7 @@ method, or (if no aggregation method available) a list of the
 }
 \description{
 Aggregates the `stepIntermediateReturnObjects` (and running times) of a 
-`runPipeline` results.
+`runPipeline` results. Results should be indicated either as a `path`` prefix
+(with elapsed and pipeline info files along the results) or as a vector of 
+paths to `stepIntermediateReturnObjects` files (`resfiles`).
 }
