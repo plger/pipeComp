@@ -2,6 +2,7 @@
 % Please edit documentation in R/PipelineDefinition.R
 \name{PipelineDefinition}
 \alias{PipelineDefinition}
+\alias{PipelineDefinition-class}
 \title{PipelineDefinition}
 \usage{
 PipelineDefinition(functions, descriptions = NULL, evaluation = NULL,
@@ -28,5 +29,10 @@ An object of class `PipelineDefinition`, with the slots functions,
 descriptions, evaluation, aggregation, defaultArguments, and misc.
 }
 \description{
-PipelineDefinition
+Creates on object of class `PipelineDefinition` containing step functions,
+as well as optionally step evaluation and aggregation functions.
+}
+\seealso{
+\code{\link{PipelineDefinition-methods}}, \code{\link{addPipelineStep}}.
+For an example pipeline, see \code{\link{scrna_seurat_pipeline}}.
 }

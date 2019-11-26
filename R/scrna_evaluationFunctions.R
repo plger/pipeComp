@@ -28,22 +28,25 @@ evaluateClustering <- function(x, tl){
   nout <- do.call(cbind, lapply(names(res), FUN=function(ds){ 
     t(sapply(res[[ds]], FUN=function(x){
       x <- x$table
-      y <- as.numeric(x[2,])-as.numeric(x[1,])
+      y <- as.numeric(x[1,])-as.numeric(x[2,])
       names(y) <- paste0(ds,".",colnames(x))
       y
     }))
   }))
+  N <- unlist(lapply(res, FUN=function(x) x[[1]]$table[1,]))
   pc <- do.call(cbind, lapply(names(res), FUN=function(ds){ 
     t(sapply(res[[ds]], FUN=function(x){
       x <- x$table
-      y <- (as.numeric(x[2,])-as.numeric(x[1,]))/as.numeric(colSums(x))
+      y <- (as.numeric(x[1,])-as.numeric(x[2,]))/as.numeric(x[1,])
       names(y) <- paste0(ds,".",colnames(x))
       round(y*100,2)
     }))
   }))
   colnames(pc) <- paste0("pcOut.", colnames(pc))
-  colnames(nout) <- paste0("nOut.", colnames(pc))
-  return(cbind(nout, pc))
+  colnames(nout) <- paste0("nOut.", colnames(nout))
+  res <- cbind(nout, pc, deparse.level=0)
+  attr(res, "initialNumbers") <- N
+  return(res)
 }
 
 #' @importFrom matrixStats rowMins
@@ -105,7 +108,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   }
   library(cluster)
   clusters <- as.factor(clusters)
-  n <- sapply(n, y=ncol(x), FUN=function(x,y) min(x,y))
+  n <- unique(sapply(n, y=ncol(x), FUN=function(x,y) min(x,y)))
   si <- lapply(n, FUN=function(dims){
     silhouette(as.integer(clusters), dist(x[,1:dims]))
   })
@@ -115,7 +118,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   })
   # summarize silhouette information
   if(length(n)==1){
-    silhouettes <- si[[1]]
+    silhouettes <- si[[1]][,1:3]
   }else{
     silhouettes <- cbind(si[[1]][,1:2], do.call(cbind, lapply(si,FUN=function(x) as.numeric(x[,3]))))
   }
@@ -125,12 +128,15 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   colnames(csw) <- levels(clusters)
   
   # variance in each component explained by clusters
-  R2 <- apply(x[,1:max(n)], 2, cl=clusters, FUN=.getVE)
+  cat("\n",n,"\n")
+  cat(seq_len(max(n)))
+  cat("\n")
+  R2 <- apply(x[,seq_len(max(n))], 2, cl=clusters, FUN=.getVE)
   
   # correlation of each component with covariates
   covar.cor <- sapply( covars, FUN=function(y) cor(x,y) )
   # correlation of the residuals (after regression on clusters) explained by each covariates
-  res <- apply(x[,1:max(n)], 2, cl=clusters, FUN=function(x, cl){
+  res <- apply(x[,seq_len(max(n))], 2, cl=clusters, FUN=function(x, cl){
     lm(x~cl)$residuals
   })
   covar.Rcor <- sapply( covars, FUN=function(y) cor(res,y) )
@@ -171,20 +177,32 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   perDS <- lapply(res, FUN=function(x){
     # check if the dimensions are the same
     ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
-    if(!all(length(unique(table(ll))))){
-      x <- lapply(x, FUN=function(x){
-        row.names(x$clust.avg.silwidth)[grep("all",row.names(x$clust.avg.silwidth))] <- "all"
-      })
+    if(!all(length(unique(table(ll)))) || nrow(x[[1]]$clust.avg.silwidth)==1){
+      # check if there's only one N per analysis
+      if(all(sapply(x, FUN=function(x) nrow(x$clust.avg.silwidth))==1)){
+        for(i in seq_along(x)) row.names(x[[i]]$clust.avg.silwidth) <- "selected"
+      }else{
+        x <- lapply(x, FUN=function(x){
+          row.names(x$clust.avg.silwidth)[grep("all",row.names(x$clust.avg.silwidth))] <- "all"
+          x
+        })
+      }
       ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
     }
     sw <- lapply(unique(ll), FUN=function(topX){
       sapply(x, FUN=function(x) unlist(as.data.frame(x$clust.avg.silwidth)[topX,]))
     })
     names(sw) <- unique(ll)
+    R2 <- lapply(x, FUN=function(x) x$R2)
+    R2 <- sapply(sort(unique(unlist(lapply(R2,names)))), FUN=function(n){
+      sapply(R2, FUN=function(x) x[n])
+    })
     list( clust.avg.silwidth=sw,
-          PC1.covar=sapply(x, FUN=function(x) x$covar.cor[1,]),
-          PC1.covarR=sapply(x, FUN=function(x) x$covar.Rcor[1,]),
-          PC.R2=sapply(x, FUN=function(x) x$R2) )
+          PC1.covar=tryCatch(sapply(x, FUN=function(x) x$covar.cor[1,]), 
+                             error=function(e) NULL),
+          PC1.covarR=tryCatch(sapply(x, FUN=function(x) x$covar.Rcor[1,]), 
+                              error=function(e) NULL),
+          PC.R2=R2 )
   })
   
   if(dswise) return(perDS)
@@ -196,13 +214,14 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   })
   names(sw) <- names(perDS[[1]]$clust.avg.silwidth)
   
-  PC1.covar <- lapply(row.names(perDS[[1]]$PC1.covar), FUN=function(covar){
-    do.call(cbind, lapply(perDS, FUN=function(x) abs(x$PC1.covar[covar,])))
-  })
-  names(PC1.covar) <- paste0("PC1_covar.",row.names(perDS[[1]]$PC1.covar))
-  if(is.null(perDS[[1]]$PC1.covarR)){
+  if(is.null(perDS[[1]]$PC1.covar) | is.null(perDS[[1]]$PC1.covarR)){
+    PC1.covar <- NULL
     PC1.covarR <- NULL
   }else{
+    PC1.covar <- lapply(row.names(perDS[[1]]$PC1.covar), FUN=function(covar){
+      do.call(cbind, lapply(perDS, FUN=function(x) abs(x$PC1.covar[covar,])))
+    })
+    names(PC1.covar) <- paste0("PC1_covar.",row.names(perDS[[1]]$PC1.covar))
     PC1.covarR <- lapply(row.names(perDS[[1]]$PC1.covarR), FUN=function(covar){
       do.call(cbind, lapply(perDS, FUN=function(x) abs(x$PC1.covarR[covar,])))
     })
@@ -210,11 +229,11 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   }
   
   PCtop5.R2 <- do.call(cbind, lapply(perDS, FUN=function(x){
-    colMeans(x$PC.R2[1:5,,drop=FALSE])
+    colMeans(x$PC.R2[1:min(5,nrow(x$PC.R2)),,drop=FALSE])
   }))
   
-  res <- c( silhouettes=allsi, clust.avg.silwidth=sw,
-             PC1.covar, PC1.covarR )
+  res <- list( silhouettes=allsi, clust.avg.silwidth=sw )
+  res <- c(res, PC1.covar, PC1.covarR)
   res$PCtop5.R2 <- PCtop5.R2
   res
 }
@@ -225,8 +244,8 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
 #' 
 #' Function to match cluster labels with 'true' clusters using the Hungarian algorithm, 
 #' and return precision, recall, and F1 score. Written by Lukas Weber in August 2016 as 
-#' part of his \href{https://github.com/lmweber/cytometry-clustering-comparison}[cytometry
-#' clustering comparison], with just slight modifications on initial handling of 
+#' part of his \href{https://github.com/lmweber/cytometry-clustering-comparison}{cytometry
+#' clustering comparison}, with just slight modifications on initial handling of 
 #' input arguments.
 #'
 #' @param clus_algorithm cluster labels from algorithm

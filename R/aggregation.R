@@ -54,9 +54,9 @@ returning raw results and running times.")
     if(!is.null(elapsed$stepwise[[x]])){
       el <- as.data.frame(elapsed$stepwise[[x]], row.names=NULL)
       colnames(el) <- paste0("stepElapsed.",colnames(el))
-      res2 <- lapply(res2, FUN=function(x){
+      res2 <- tryCatch(lapply(res2, FUN=function(x){
         suppressWarnings(cbind(x, el))
-      })
+      }), error=function(e) res2)
     }
     if(length(res2)==1) res2 <- res2[[1]]
     res2

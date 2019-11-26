@@ -5,7 +5,8 @@
 \title{runPipeline}
 \usage{
 runPipeline(datasets, alternatives, pipelineDef, eg = NULL,
-  output.prefix = "", nthreads = 6, debug = FALSE, ...)
+  output.prefix = "", nthreads = 6, saveEndResults = TRUE,
+  debug = FALSE, ...)
 }
 \arguments{
 \item{datasets}{A named vector of initial objects or paths to rds files.}
@@ -22,6 +23,8 @@ performed.}
 \item{output.prefix}{An optional prefix for the output files.}
 
 \item{nthreads}{Number of threads, default 6.}
+
+\item{saveEndResults}{Logical; whether to save the output of the last step.}
 
 \item{debug}{Logical (default FALSE). When enabled, disables multithreading 
 and prints extra information.}
