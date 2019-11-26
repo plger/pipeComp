@@ -138,6 +138,7 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
 #'
 #' @import ComplexHeatmap matrixStats
 #' @importFrom viridisLite inferno
+#' @importFrom grid gpar
 scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean, 
                                  scale=FALSE, value_format="%.2f", 
                                  reorder_rows=TRUE, reorder_columns=FALSE,
@@ -219,6 +220,7 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
 #'
 #' @import ComplexHeatmap matrixStats
 #' @importFrom viridisLite inferno
+#' @importFrom grid gpar
 scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL, 
                                         agg.fn=mean, scale=FALSE, 
                                         value_format="%.2f", reorder_rows=TRUE, 
@@ -297,7 +299,7 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
 
 .ds_anno <- function(x, legend=TRUE){
   y <- sapply(strsplit(gsub("stepElapsed\\.","",x)," "),FUN=function(x) x[[1]])
-  cols <- GTscripts::getQualitativePalette(length(unique(y)))
+  cols <- getQualitativePalette(length(unique(y)))
   names(cols) <- sort(unique(y))
   ComplexHeatmap::HeatmapAnnotation(dataset=y, col=list(dataset=cols), show_annotation_name = FALSE, show_legend=legend)
 }
@@ -460,7 +462,7 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
   }
   tt <- lapply(sces, FUN=function(x) table(x$phenoid))
   cols <- lapply(tt, FUN=function(x){
-    y <- GTscripts::getQualitativePalette(length(x))
+    y <- getQualitativePalette(length(x))
     names(y) <- names(x)
     y
   })

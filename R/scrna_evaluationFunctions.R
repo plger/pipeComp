@@ -53,6 +53,10 @@ evaluateClustering <- function(x, tl){
 #' @importFrom dplyr bind_cols bind_rows
 .aggregateClusterEvaluation <- function(res){
   res <- lapply(res, FUN=function(a){
+    a <- lapply(a, cn=unique(unlist(lapply(a, names))), FUN=function(x,cn){
+      for(f in setdiff(cn,names(x))) x[[f]] <- NA_real_
+      x[cn]
+    })
     x <- as.data.frame(t(dplyr::bind_rows(a)))
     colnames(x) <- names(a[[1]])
     for(f in c("pr","re","F1")){
@@ -189,8 +193,12 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
       }
       ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
     }
+    spn <- unique(unlist(sapply(x, FUN=function(x) colnames(x$clust.avg.silwidth))))
     sw <- lapply(unique(ll), FUN=function(topX){
-      sapply(x, FUN=function(x) unlist(as.data.frame(x$clust.avg.silwidth)[topX,]))
+      sapply(x, FUN=function(x){
+        x <- unlist(as.data.frame(x$clust.avg.silwidth)[topX,])
+        sapply(spn, FUN=function(y) ifelse(y %in% names(x), x[[y]], NA))
+      })
     })
     names(sw) <- unique(ll)
     R2 <- lapply(x, FUN=function(x) x$R2)
