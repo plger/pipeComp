@@ -47,7 +47,7 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
   }
   el <- grep("^stepElapsed\\.", colnames(res[[1]]), value=TRUE)
   res <- switch( what,
-                 silhouette=res$clust.avg.silwidth.top_10_dims,
+                 silhouette=res$clust.avg.silwidth,
                  covar=res[[paste0("PC1_covar.",covar)]],
                  covarRes=res[[paste0("PC1_covarR.",covar)]],
                  varExpl=res$PCtop5.R2,

@@ -71,11 +71,11 @@ Functions can be passed as arguments through their name (if they are loaded in t
 
 ```{r}
 # load alternative functions
-source(system.file("extdata", "scrna_alternatives.R", package="pipeComp")
+source(system.file("extdata", "scrna_alternatives.R", package="pipeComp"))
 # we build the list of alternatives
 alternatives <- list(
   doubletmethod=c("none"),
-  filt=c("lenientfilter"),
+  filt=c("filt.lenient"),
   norm=c("norm.seurat", "norm.seuratvst", "norm.scran"),
   sel=c("sel.vst"),
   selnb=2000,

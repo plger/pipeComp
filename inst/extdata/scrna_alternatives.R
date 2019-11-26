@@ -335,7 +335,7 @@ getDimensionality <- function(se, method, maxDims=50){
          jackstraw.elbow=js.wrapper(se,n.dims=ncol(x)-1,ret="ndims")
   )
   if(is.list(x) && "dim.est" %in% names(x)) x <- max(x$dim.est)
-  x
+  round(x)
 }
 
 js.wrapper <- function(so, n.dims=50, n.rep=500, doplot=TRUE, ret=c("Seurat","pvalues","ndims")){
@@ -436,7 +436,7 @@ doublet.scds <- function(x){
   x <- scds::bcds(x)
   x <- scds::cxds(x)
   x <- scds::cxds_bcds_hybrid(x)
-  dbn <- floor((0.01 * ncol(x)/1000)*ncol(x))
+  dbn <- ceiling((0.01 * ncol(x)/1000)*ncol(x))
   o <- order(x$hybrid_score, decreasing=TRUE)[seq_len(dbn)]
   x[,-o]
 }

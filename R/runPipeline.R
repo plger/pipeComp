@@ -32,7 +32,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.pr
   .checkPipArgs(alternatives, pipDef)
   
   if(is.null(names(datasets)))
-    names(datsets) <- paste0("dataset",seq_along(datasets))
+    names(datasets) <- paste0("dataset",seq_along(datasets))
   if(any(grepl("\\.",names(datasets)))) 
     warning("It is recommended not to use dots ('.') in dataset names to 
             facilitate browsing aggregated results.")
