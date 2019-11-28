@@ -277,6 +277,62 @@ seurat.pca <- function(x, dims=50, weight.by.var=TRUE, seed.use=42){
   RunPCA(x, features=VariableFeatures(x), verbose=FALSE, 
          weight.by.var=weight.by.var, npcs=dims, seed.use = seed.use)
 }
+seurat.pca.noweight <- function(x, dims=50, weight.by.var=FALSE, seed.use=42){
+  RunPCA(x, features=VariableFeatures(x), verbose=FALSE, 
+         weight.by.var=weight.by.var, npcs=dims, seed.use = seed.use)
+}
+
+scran.denoisePCA <- function(x, scaled=TRUE){
+  if(is(x, "Seurat")){
+    sce <- SingleCellExperiment( list( counts=GetAssayData(x, slot="counts"),
+                                       logcounts=GetAssayData(x, slot=ifelse(scaled,"scale.data","data"))) )
+    var.stats <- modelGeneVar(sce)
+    sce <- denoisePCA(sce, technical=var.stats)
+    return(sceDR2seurat(reducedDim(sce, "PCA"), x, "pca"))
+  }
+}
+scran.denoisePCA.lowrank <- function(x, scaled=TRUE){
+  if(is(x, "Seurat")){
+    sce <- SingleCellExperiment( list( counts=GetAssayData(x, slot="counts"),
+                                       logcounts=GetAssayData(x, slot=ifelse(scaled,"scale.data","data"))) )
+    var.stats <- modelGeneVar(sce)
+    sce <- denoisePCA(sce, technical=var.stats, value="lowrank")
+    return(sceDR2seurat(reducedDim(sce, "PCA"), x, "pca"))
+  }
+}
+
+
+seGlmPCA <- function(x, weight.by.var=TRUE, dims=20){
+  library(glmpca)
+  dr <- glmpca(as.matrix(x@assays$RNA@counts[VariableFeatures(x),]), dims)
+  e <- as.matrix(dr$factors)
+  colnames(e) <- gsub("dim","dim_",colnames(e))
+  if(weight.by.var=="both"){
+    x[["glmpca"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+    e <- t(t(e)*dr$d)
+    x[["glmpca.wt"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+  }else{
+    if(weight.by.var) e <- t(t(e)*dr$d)
+    x[["pca"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+  }
+  x
+}
+seGlmPCA.noweight <- function(x, ...){
+  seGlmPCA(x, weight.by.var=FALSE, ...)
+}
+
+sceDR2seurat <- function(embeddings, object, name){
+    if (is.null(x = rownames(x = embeddings))){
+      rownames(x = embeddings) <- cell.names
+    }
+    key <- gsub(pattern = "[[:digit:]]", replacement = "_", 
+                x = colnames(embeddings)[1])
+    if (length(x = key) == 0) key <- paste0(name, "_")
+    colnames(embeddings) <- paste0(key, 1:ncol(embeddings))
+    object[[name]] <- CreateDimReducObject(embeddings = embeddings, key = key, 
+                                           assay = DefaultAssay(object = object))
+    object
+}
 
 clust.seurat <- function(x, rd=NULL, k=20, steps=8, dims=50, seed.use=1234, min.size=0, resolution=0.8){
   dims <- min(dims,ncol(x@reductions$pca@cell.embeddings))
