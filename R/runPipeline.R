@@ -12,7 +12,7 @@
 #' indexes relative to this element. If omitted, all combinations will be 
 #' performed.
 #' @param output.prefix An optional prefix for the output files.
-#' @param nthreads Number of threads, default 6.
+#' @param nthreads Number of threads, defaults to the number of datasets.
 #' @param saveEndResults Logical; whether to save the output of the last step.
 #' @param debug Logical (default FALSE). When enabled, disables multithreading 
 #' and prints extra information.
@@ -24,7 +24,7 @@
 #' @import methods BiocParallel data.table
 #' @export
 runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.prefix="",
-                         nthreads=6, saveEndResults=TRUE, debug=FALSE, ...){
+                         nthreads=length(datasets), saveEndResults=TRUE, debug=FALSE, ...){
   mcall <- match.call()
   if(!is(pipelineDef,"PipelineDefinition")) 
     pipelineDef <- PipelineDefinition(pipelineDef)
@@ -33,6 +33,8 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.pr
   
   if(is.null(names(datasets)))
     names(datasets) <- paste0("dataset",seq_along(datasets))
+  if(any(grepl(" ",names(datasets)))) 
+    stop("Dataset names should not have spaces.")
   if(any(grepl("\\.",names(datasets)))) 
     warning("It is recommended not to use dots ('.') in dataset names to 
             facilitate browsing aggregated results.")
@@ -231,7 +233,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.pr
   message("
                   Finished running on all datasets, now aggregating results...")
     
-  aggregateResults(output.prefix, pipelineDef)
+  aggregateResults(output.prefix, pipDef = pipelineDef)
 }
 
 
