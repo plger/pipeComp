@@ -181,7 +181,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   perDS <- lapply(res, FUN=function(x){
     # check if the dimensions are the same
     ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
-    if(!all(length(unique(table(ll)))) || nrow(x[[1]]$clust.avg.silwidth)==1){
+    if((length(unique(table(ll)))>1) || nrow(x[[1]]$clust.avg.silwidth)==1){
       # check if there's only one N per analysis
       if(all(sapply(x, FUN=function(x) nrow(x$clust.avg.silwidth))==1)){
         for(i in seq_along(x)) row.names(x[[i]]$clust.avg.silwidth) <- "selected"
