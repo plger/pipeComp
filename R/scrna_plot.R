@@ -66,7 +66,8 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
     }else{
       if(reorder_rows){
         if(what=="silhouette"){
-          ro <- order(rowMedians(res2)+rowMeans(res2)+rowMins(res2), decreasing=TRUE)
+          ro <- order( colSums(apply(res2,1,prob=c(0.05,0.5),FUN=quantile))+
+                         rowMeans(res2), decreasing=TRUE)
         }else{
           ro <- order(rowMeans(res2), decreasing=TRUE)
         }
@@ -162,6 +163,7 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
   res <- res[,grep(ifelse(what=="elapsed","stepElapsed",paste0(" ",what)), colnames(res))]
   res2 <- res <- .prepRes(res, agg.by, agg.fn, elapsed=what=="elapsed")
   if(scale) res2 <- base::scale(res)
+  row.names(res2) <- row.names(res) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
   if(is(reorder_rows, "Heatmap")){
     ro <- row.names(reorder_rows@matrix)
   }else{
@@ -188,7 +190,6 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
                    elapsed="Running time (s)",
                    gsub("_re$","\nrecall",gsub("_pr$","\nprecision",what))
   )
-  row.names(res2) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
   Heatmap( res2, name=what, cluster_rows=FALSE, show_heatmap_legend=show_heatmap_legend, 
            cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res),anno_legend), 
            show_column_names = FALSE, cell_fun=cellfn, col=col,
@@ -258,6 +259,7 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   }else{
     res <- res[,grep(paste0(" ",what), colnames(res))]
   }
+  row.names(res) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res),fixed=TRUE))
   res2 <- res
   if(scale) res2 <- .safescale(res)
   if(is(reorder_rows, "Heatmap")){
@@ -282,7 +284,6 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   res2 <- res2[ro,co]
   cellfn <- .getCellFn(res,res2,value_format)
   if(is.null(title)) title <- paste(what, "at true\n# of clusters")
-  row.names(res2) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
   Heatmap( res2, name=ifelse(is.null(name),what,name), cluster_rows=FALSE, 
            show_heatmap_legend=show_heatmap_legend, cluster_columns=FALSE, 
            bottom_annotation=.ds_anno(colnames(res),anno_legend), 
