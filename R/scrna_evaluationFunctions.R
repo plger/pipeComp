@@ -202,7 +202,9 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
     })
     names(sw) <- unique(ll)
     R2 <- lapply(x, FUN=function(x) x$R2)
-    R2 <- sapply(sort(unique(unlist(lapply(R2,names)))), FUN=function(n){
+    nn <- unique(unlist(lapply(R2,names)))
+    #nn <- nn[order(as.numeric(unlist(regmatches(nn,gregexpr("[[:digit:]]+$",nn)))))]
+    R2 <- sapply(nn, FUN=function(n){
       sapply(R2, FUN=function(x) x[n])
     })
     list( clust.avg.silwidth=sw,
@@ -237,6 +239,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   }
   
   PCtop5.R2 <- do.call(cbind, lapply(perDS, FUN=function(x){
+    if(!is.matrix(x$PC.R2)) return(t(x$PC.R2[1:min(5,nrow(x$PC.R2))]))
     colMeans(x$PC.R2[1:min(5,nrow(x$PC.R2)),,drop=FALSE])
   }))
   

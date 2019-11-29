@@ -54,6 +54,7 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
                  elapsed=res$PCtop5.R2[,el],
                  stop("Unknown plot type requested")
                  )
+  if(is.list(res)) res <- res[[1]]
   res2 <- res <- .prepRes(res, agg.by, agg.fn, elapsed=what=="elapsed")
   if(scale) res2 <- base::scale(res)
   res2 <- as.matrix(res2)
@@ -228,7 +229,8 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
                                         show_heatmap_legend=FALSE,
                                         col=viridisLite::inferno(100), 
                                         col_title_fontsize=11, title=NULL,
-                                        name=NULL, anno_legend=TRUE, ...){
+                                        name=NULL, anno_legend=TRUE, 
+                                        closest=FALSE, ...){
   if("clustering" %in% names(res)) res <- res$clustering
   pp <- parsePipNames(row.names(res))
   if(is.null(agg.by)){
@@ -244,6 +246,10 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
       x <- vapply(ds, FUN.VALUE=double(1), FUN=function(y){
         res <- res[x,]
         w <- which(res[,paste(y,"n_clus")]==res[,paste(y,"true.nbClusts")])
+        if(length(w)==0 && closest){
+          di <- abs(res[,paste(y,"n_clus")]-res[,paste(y,"true.nbClusts")])
+          w <- which(di==min(di))
+        }
         suppressWarnings(agg.fn( res[w,paste(y,what)] ))
       })
       names(x) <- ds
@@ -394,6 +400,7 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
     x+y[p1,]
   }
   pc <- round(100*t(t(x)/N),3)
+  pc[pc>100] <- 100
   colnames(pc) <- gsub("^nOut","pcOut", colnames(pc))
   cbind(x, pc, deparse.level=0)
 }
