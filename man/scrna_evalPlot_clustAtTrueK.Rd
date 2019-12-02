@@ -8,7 +8,8 @@ scrna_evalPlot_clustAtTrueK(res, what = "ARI", agg.by = NULL,
   agg.fn = mean, scale = FALSE, value_format = "\%.2f",
   reorder_rows = TRUE, reorder_columns = FALSE,
   show_heatmap_legend = FALSE, col = viridisLite::inferno(100),
-  col_title_fontsize = 11, anno_legend = TRUE, ...)
+  col_title_fontsize = 11, title = NULL, name = NULL,
+  anno_legend = TRUE, ...)
 }
 \arguments{
 \item{res}{Aggregated pipeline results (i.e. the output of `runPipeline` or

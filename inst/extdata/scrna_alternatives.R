@@ -277,6 +277,60 @@ seurat.pca <- function(x, dims=50, weight.by.var=TRUE, seed.use=42){
   RunPCA(x, features=VariableFeatures(x), verbose=FALSE, 
          weight.by.var=weight.by.var, npcs=dims, seed.use = seed.use)
 }
+seurat.pca.noweight <- function(x, dims=50, weight.by.var=FALSE, seed.use=42){
+  RunPCA(x, features=VariableFeatures(x), verbose=FALSE, 
+         weight.by.var=weight.by.var, npcs=dims, seed.use = seed.use)
+}
+
+scran.denoisePCA <- function(x, dims=50, ...){
+  library(scran)
+  if(is(x, "Seurat")){
+    sce <- SingleCellExperiment( list( counts=GetAssayData(x, slot="counts"),
+                                       logcounts=GetAssayData(x, slot="data")) )
+    if(packageVersion("scran") >= "1.13"){
+      var.stats <- modelGeneVar(sce)
+      sce <- denoisePCA(sce, technical=var.stats, min.rank=2, max.rank=dims, ...)
+    }else{
+      td <- trendVar(sce, use.spikes=FALSE)
+      sce <- denoisePCA(sce, technical=td$trend, min.rank=2, max.rank=dims, ...)
+    }
+    return(sceDR2seurat(reducedDim(sce, "PCA"), x, "pca"))
+  }
+}
+
+
+
+seGlmPCA <- function(x, weight.by.var=TRUE, dims=20){
+  library(glmpca)
+  dr <- glmpca(as.matrix(x@assays$RNA@counts[VariableFeatures(x),]), dims)
+  e <- as.matrix(dr$factors)
+  colnames(e) <- gsub("dim","dim_",colnames(e))
+  if(weight.by.var=="both"){
+    x[["glmpca"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+    e <- t(t(e)*dr$d)
+    x[["glmpca.wt"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+  }else{
+    if(weight.by.var) e <- t(t(e)*dr$d)
+    x[["pca"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+  }
+  x
+}
+seGlmPCA.noweight <- function(x, ...){
+  seGlmPCA(x, weight.by.var=FALSE, ...)
+}
+
+sceDR2seurat <- function(embeddings, object, name){
+    if (is.null(rownames(embeddings))){
+      rownames(embeddings) <- colnames(object)
+    }
+    key <- gsub(pattern = "[[:digit:]]", replacement = "_", 
+                x = colnames(embeddings)[1])
+    if (length(x = key) == 0) key <- paste0(name, "_")
+    colnames(embeddings) <- paste0(key, 1:ncol(embeddings))
+    object[[name]] <- CreateDimReducObject(embeddings = embeddings, key = key, 
+                                           assay = DefaultAssay(object))
+    object
+}
 
 clust.seurat <- function(x, rd=NULL, k=20, steps=8, dims=50, seed.use=1234, min.size=0, resolution=0.8){
   dims <- min(dims,ncol(x@reductions$pca@cell.embeddings))
@@ -335,7 +389,7 @@ getDimensionality <- function(se, method, maxDims=50){
          jackstraw.elbow=js.wrapper(se,n.dims=ncol(x)-1,ret="ndims")
   )
   if(is.list(x) && "dim.est" %in% names(x)) x <- max(x$dim.est)
-  x
+  round(x)
 }
 
 js.wrapper <- function(so, n.dims=50, n.rep=500, doplot=TRUE, ret=c("Seurat","pvalues","ndims")){
@@ -433,10 +487,8 @@ doublet.scDblFinder <- function(x){
 }
 
 doublet.scds <- function(x){
-  x <- scds::bcds(x)
-  x <- scds::cxds(x)
-  x <- scds::cxds_bcds_hybrid(x)
-  dbn <- floor((0.01 * ncol(x)/1000)*ncol(x))
+  x <- scds::cxds_bcds_hybrid(x, list(verb=FALSE), list(verb=FALSE))
+  dbn <- ceiling((0.01 * ncol(x)/1000)*ncol(x))
   o <- order(x$hybrid_score, decreasing=TRUE)[seq_len(dbn)]
   x[,-o]
 }
@@ -451,4 +503,57 @@ farthestPoint <- function(y, x=NULL){
                 abs(det(cbind(v1,v2)))/sqrt(sum(v1*v1))
               })
   order(d,decreasing=T)[1]
+}
+
+
+#' clust.scran
+#' 
+#' A wrapper to use scran clustering.
+#'
+#' @param ds An object of class `SingleCellExperiment` or `Seurat`.
+#' @param rd The name of the dimensionality reduction to use. If NULL, the first one availble 
+#' will be used. If NA (or if none is available), will be computed by `quickCluster`.
+#' @param method The method, either `fast_greedy` or `walktrap`.
+#' @param k number of NN to consider, default 20.
+#' @param steps number of steps for the random walk (walktrap method), default 8.
+#' @param dims The (maximum) number of dimensions to use.
+#' @param nthreads The number of threads, default 1.
+#' @param seed.use not used.
+#' @param min.size Minimum size of a cluster (default 50)
+#' @param resolution Ignored; for consistency with `clust.seurat`
+#'
+#' @return A factorial vector of cluster IDs, with cell names as names.
+#' 
+#' @export
+clust.scran <- function(ds, rd=NULL, method="walktrap", k=20, steps=8, dims=50, nthreads=1, seed.use=NULL, min.size=0, resolution=NULL){
+  if(is(ds,"Seurat")){
+    ds <- SingleCellExperiment(
+      assays=list(
+        counts=ds@assays$RNA@counts,
+        logcounts=GetAssayData(ds, slot="scale.data")
+      ),
+      colData=ds@meta.data,
+      reducedDims=lapply(ds@reductions, FUN=function(x) x@cell.embeddings)
+    )
+  }
+  if(is.null(rd) && length(ds@reducedDims)>0) rd <- names(ds@reducedDims)[[1]]
+  if(!is.null(rd) && !is.na(rd)){
+    dims <- min(dims, ncol(ds@reducedDims[[rd]]))
+    ds@reducedDims[[rd]] <- ds@reducedDims[[rd]][,1:dims]
+  }else{
+    dr <- NULL
+  }
+  g <- scran::buildSNNGraph(ds, BPPARAM=MulticoreParam(nthreads), use.dimred=rd, k=k)
+  if(method=="walktrap"){
+    cl <- igraph::cluster_walktrap(g, steps=steps)$membership
+  }else{
+    cl <- igraph::cluster_fast_greedy(g)$membership
+  }
+  if(min.size>0) cl <- scran:::.merge_closest_graph(g, cl, min.size=min.size)
+  names(cl) <- colnames(ds)
+  as.factor(cl)
+}
+
+clust.scran.fg <- function(ds, ...){
+  clust.scran(ds, method="fastq_greedy", ...)
 }

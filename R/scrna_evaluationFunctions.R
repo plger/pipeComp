@@ -53,6 +53,10 @@ evaluateClustering <- function(x, tl){
 #' @importFrom dplyr bind_cols bind_rows
 .aggregateClusterEvaluation <- function(res){
   res <- lapply(res, FUN=function(a){
+    a <- lapply(a, cn=unique(unlist(lapply(a, names))), FUN=function(x,cn){
+      for(f in setdiff(cn,names(x))) x[[f]] <- NA_real_
+      x[cn]
+    })
     x <- as.data.frame(t(dplyr::bind_rows(a)))
     colnames(x) <- names(a[[1]])
     for(f in c("pr","re","F1")){
@@ -177,7 +181,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   perDS <- lapply(res, FUN=function(x){
     # check if the dimensions are the same
     ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
-    if(!all(length(unique(table(ll)))) || nrow(x[[1]]$clust.avg.silwidth)==1){
+    if((length(unique(table(ll)))>1) || nrow(x[[1]]$clust.avg.silwidth)==1){
       # check if there's only one N per analysis
       if(all(sapply(x, FUN=function(x) nrow(x$clust.avg.silwidth))==1)){
         for(i in seq_along(x)) row.names(x[[i]]$clust.avg.silwidth) <- "selected"
@@ -189,12 +193,18 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
       }
       ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
     }
+    spn <- unique(unlist(sapply(x, FUN=function(x) colnames(x$clust.avg.silwidth))))
     sw <- lapply(unique(ll), FUN=function(topX){
-      sapply(x, FUN=function(x) unlist(as.data.frame(x$clust.avg.silwidth)[topX,]))
+      sapply(x, FUN=function(x){
+        x <- unlist(as.data.frame(x$clust.avg.silwidth)[topX,])
+        sapply(spn, FUN=function(y) ifelse(y %in% names(x), x[[y]], NA))
+      })
     })
     names(sw) <- unique(ll)
     R2 <- lapply(x, FUN=function(x) x$R2)
-    R2 <- sapply(sort(unique(unlist(lapply(R2,names)))), FUN=function(n){
+    nn <- unique(unlist(lapply(R2,names)))
+    #nn <- nn[order(as.numeric(unlist(regmatches(nn,gregexpr("[[:digit:]]+$",nn)))))]
+    R2 <- sapply(nn, FUN=function(n){
       sapply(R2, FUN=function(x) x[n])
     })
     list( clust.avg.silwidth=sw,
@@ -229,6 +239,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   }
   
   PCtop5.R2 <- do.call(cbind, lapply(perDS, FUN=function(x){
+    if(!is.matrix(x$PC.R2)) return(t(x$PC.R2[1:min(5,nrow(x$PC.R2))]))
     colMeans(x$PC.R2[1:min(5,nrow(x$PC.R2)),,drop=FALSE])
   }))
   

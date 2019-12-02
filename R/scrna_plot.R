@@ -47,13 +47,14 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
   }
   el <- grep("^stepElapsed\\.", colnames(res[[1]]), value=TRUE)
   res <- switch( what,
-                 silhouette=res$clust.avg.silwidth.top_10_dims,
+                 silhouette=res$clust.avg.silwidth,
                  covar=res[[paste0("PC1_covar.",covar)]],
                  covarRes=res[[paste0("PC1_covarR.",covar)]],
                  varExpl=res$PCtop5.R2,
                  elapsed=res$PCtop5.R2[,el],
                  stop("Unknown plot type requested")
                  )
+  if(is.list(res)) res <- res[[1]]
   res2 <- res <- .prepRes(res, agg.by, agg.fn, elapsed=what=="elapsed")
   if(scale) res2 <- base::scale(res)
   res2 <- as.matrix(res2)
@@ -65,7 +66,8 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
     }else{
       if(reorder_rows){
         if(what=="silhouette"){
-          ro <- order(rowMedians(res2)+rowMeans(res2)+rowMins(res2), decreasing=TRUE)
+          ro <- order( colSums(apply(res2,1,prob=c(0.05,0.5),FUN=quantile))+
+                         rowMeans(res2), decreasing=TRUE)
         }else{
           ro <- order(rowMeans(res2), decreasing=TRUE)
         }
@@ -138,6 +140,7 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
 #'
 #' @import ComplexHeatmap matrixStats
 #' @importFrom viridisLite inferno
+#' @importFrom grid gpar
 scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean, 
                                  scale=FALSE, value_format="%.2f", 
                                  reorder_rows=TRUE, reorder_columns=FALSE,
@@ -160,6 +163,7 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
   res <- res[,grep(ifelse(what=="elapsed","stepElapsed",paste0(" ",what)), colnames(res))]
   res2 <- res <- .prepRes(res, agg.by, agg.fn, elapsed=what=="elapsed")
   if(scale) res2 <- base::scale(res)
+  row.names(res2) <- row.names(res) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
   if(is(reorder_rows, "Heatmap")){
     ro <- row.names(reorder_rows@matrix)
   }else{
@@ -186,7 +190,6 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
                    elapsed="Running time (s)",
                    gsub("_re$","\nrecall",gsub("_pr$","\nprecision",what))
   )
-  row.names(res2) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
   Heatmap( res2, name=what, cluster_rows=FALSE, show_heatmap_legend=show_heatmap_legend, 
            cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res),anno_legend), 
            show_column_names = FALSE, cell_fun=cellfn, col=col,
@@ -219,6 +222,7 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
 #'
 #' @import ComplexHeatmap matrixStats
 #' @importFrom viridisLite inferno
+#' @importFrom grid gpar
 scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL, 
                                         agg.fn=mean, scale=FALSE, 
                                         value_format="%.2f", reorder_rows=TRUE, 
@@ -226,7 +230,8 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
                                         show_heatmap_legend=FALSE,
                                         col=viridisLite::inferno(100), 
                                         col_title_fontsize=11, title=NULL,
-                                        name=NULL, anno_legend=TRUE, ...){
+                                        name=NULL, anno_legend=TRUE, 
+                                        closest=FALSE, ...){
   if("clustering" %in% names(res)) res <- res$clustering
   pp <- parsePipNames(row.names(res))
   if(is.null(agg.by)){
@@ -242,6 +247,10 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
       x <- vapply(ds, FUN.VALUE=double(1), FUN=function(y){
         res <- res[x,]
         w <- which(res[,paste(y,"n_clus")]==res[,paste(y,"true.nbClusts")])
+        if(length(w)==0 && closest){
+          di <- abs(res[,paste(y,"n_clus")]-res[,paste(y,"true.nbClusts")])
+          w <- which(di==min(di))
+        }
         suppressWarnings(agg.fn( res[w,paste(y,what)] ))
       })
       names(x) <- ds
@@ -250,6 +259,7 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   }else{
     res <- res[,grep(paste0(" ",what), colnames(res))]
   }
+  row.names(res) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res),fixed=TRUE))
   res2 <- res
   if(scale) res2 <- .safescale(res)
   if(is(reorder_rows, "Heatmap")){
@@ -274,7 +284,6 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   res2 <- res2[ro,co]
   cellfn <- .getCellFn(res,res2,value_format)
   if(is.null(title)) title <- paste(what, "at true\n# of clusters")
-  row.names(res2) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
   Heatmap( res2, name=ifelse(is.null(name),what,name), cluster_rows=FALSE, 
            show_heatmap_legend=show_heatmap_legend, cluster_columns=FALSE, 
            bottom_annotation=.ds_anno(colnames(res),anno_legend), 
@@ -297,7 +306,7 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
 
 .ds_anno <- function(x, legend=TRUE){
   y <- sapply(strsplit(gsub("stepElapsed\\.","",x)," "),FUN=function(x) x[[1]])
-  cols <- GTscripts::getQualitativePalette(length(unique(y)))
+  cols <- getQualitativePalette(length(unique(y)))
   names(cols) <- sort(unique(y))
   ComplexHeatmap::HeatmapAnnotation(dataset=y, col=list(dataset=cols), show_annotation_name = FALSE, show_legend=legend)
 }
@@ -392,6 +401,7 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
     x+y[p1,]
   }
   pc <- round(100*t(t(x)/N),3)
+  pc[pc>100] <- 100
   colnames(pc) <- gsub("^nOut","pcOut", colnames(pc))
   cbind(x, pc, deparse.level=0)
 }
@@ -460,7 +470,7 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
   }
   tt <- lapply(sces, FUN=function(x) table(x$phenoid))
   cols <- lapply(tt, FUN=function(x){
-    y <- GTscripts::getQualitativePalette(length(x))
+    y <- getQualitativePalette(length(x))
     names(y) <- names(x)
     y
   })
