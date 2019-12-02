@@ -8,106 +8,106 @@
 #   pip(e)Comp
 #
 # Description: 
-#   Commands used to run the data imputations from 'DoDataImputation.R' wrapper. 
+#   Commands used to run the data imputations from the individual wrappers using
+#   SCEs as input. 
 #   It is better to run the following tools on a hpc: alra, dca, DrImpute, 
 #   EmpiricalBose, enhance.
+#   For the all-in-one wrapper, replace the individual wrappers with 
+#   'DoDataImputation()' using file paths as input and specifying the method
+#   with the 'method' arg. 
 #
 # ------------------------------------------------------------------------------
 # TODO: 
 #
 # ==============================================================================
 
-source("impWrapper/impWrappers.R")
-source("DoDataImputation.R")
+# individual wrappers
+system.file("extdata", "impWrappers.R", 
+            package = "pipeComp")
+# all-in-one wrapper
+system.file("extdata", "DoDataImputation.R", 
+            package = "pipeComp")
 
-#  SCIMPUTE ====================================================================
+#  SCIMPUTE --------------------------------------------------------------------
 # Change the selected lines if modified k.  
 
 input = list.files("datasets", full.names = T, pattern = "\\.csv|\\.rds")
-out_dir <- "imputations/scImpute_plus5/"   # <-----
+out_dir <- "imputations/scImpute/"   # <-----
 dir.create(out_dir, showWarnings = FALSE)
-for(i in input) {
+for (i in input) {
   
   cat("Imputing file ", i, "\n")
-  res <- DoDataImputation(count = i, method = "scImpute", organism = "auto",
-                          n_cores = 4, kcluster_modif = 5)    # <-----
+  input <- readRDS(i)
+  res <- wrapp.scimpute(input,
+                        organism = "auto",
+                        n_cores = 1L, 
+                        kcluster_modif = 0)    # <-----
   out_file <- gsub(".*\\/", "", i) %>% gsub("\\.csv$", ".rds", .)
   saveRDS(res, file = paste0(out_dir, out_file))
   
 }
 
-# Individual wrapper example
-input = list.files("datasets/", full.names = T, pattern = "\\.csv|\\.rds")
-out_dir <- "imputations/scimputetemp/"
-dir.create(out_dir, showWarnings = FALSE)
-input <- readRDS(input[1])
-out <- wrapp.scimpute(sce = input, kcluster_modif = -1, n_cores = 5L)
 
-
-# SAVERX ======================================================================
-# WARNING: for some reason, does not work in for loop AND can not run multiple imputations in the same r session (open issue of the package). 
-# ==> change manually the selected lines to run on all input files. 
+# SAVERX  ----------------------------------------------------------------------
+# WARNING: for some reason, may not work in for loop AND can not run multiple imputations in the same r session (open issue of the package). 
+# ==> change manually the selected lines to run on all input files if this happens. 
 
 input = list.files("datasets", full.names = T, pattern = "\\.csv|\\.rds")
 out_dir <- "imputations/SAVERX/"
 dir.create(out_dir, showWarnings = FALSE)
-
-res <- DoDataImputation(count = input[1], method = "SAVERX", organism = "auto")   # <-----
-out_file <- gsub(".*\\/", "", input[1]) %>% gsub("\\.csv", ".rds", .)    # <------
-saveRDS(res, file = paste0(out_dir, out_file))
-
-
-# Individual wrapper example 
-input <- readRDS(input[1])
-wrapp.saverx(sce = input, organism = "Human", n_cores = 5L)
-
-# DCA ==========================================================================
-
-input = list.files("datasets", full.names = T, pattern = "\\.csv|\\.rds")
-out_dir <- "imputations/DCA/"
-dir.create(out_dir, showWarnings = FALSE)
-for(i in input) {
+for (i in input) {
   
+  if (length(grep("Kumar|simMix2", i)) == 1) organism <- "Mouse" else organism <- "Human"
   cat("Imputing file ", i, "\n")
-  res <- DoDataImputation(count = i, method = "dca", organism = "auto",
-                          n_cores = 6L)
+  input <- readRDS(i)
+  res <- wrapp.saverx(input,
+                      organism = organism, 
+                      n_cores = 1L)   
   out_file <- gsub(".*\\/", "", i) %>% gsub("\\.csv$", ".rds", .)
   saveRDS(res, file = paste0(out_dir, out_file))
   
 }
 
-# Individual function example
-input <- readRDS(input[1])
-out <- wrapp.dca(sce = input,
-                 dca_path = "/home/asonrel/miniconda3/bin/dca", 
-                 n_cores = 6L )
 
-# Empirical Bose ===============================================================
+# DCA --------------------------------------------------------------------------
+
+input = list.files("datasets", full.names = T, pattern = "\\.csv|\\.rds")
+out_dir <- "imputations/DCA/"
+dir.create(out_dir, showWarnings = FALSE)
+for (i in input) {
+  
+  cat("Imputing file ", i, "\n")
+  input <- readRDS(i)
+  res <- wrapp.dca(input, 
+                   dca_path = "/home/asonrel/miniconda3/bin/dca",
+                   n_cores = 1L)
+  out_file <- gsub(".*\\/", "", i) %>% gsub("\\.csv$", ".rds", .)
+  saveRDS(res, file = paste0(out_dir, out_file))
+  
+}
+
+# Empirical Bose ---------------------------------------------------------------
 # HVGs selection on the selected line. 
 
 input = list.files("datasets", full.names = T, pattern = "\\.csv")
 out_dir <- "imputations/EmpiricalBose/"
 dir.create(out_dir, showWarnings = FALSE)
 
-for(i in input) {
+for (i in input) {
   
   cat("Imputing file ", i, "\n")
-  res <- DoDataImputation(count = i, method = "EmpiricalBose",
-                          python_path = "/usr/bin/python3",
-                          n_cores = 2L,
-                          restr_to_hvgs = FALSE)  # <-------
+  input <- readRDS(i)
+  res <- wrapp.empiricalbose(input, 
+                             python_path = "/home/asonrel/miniconda3/bin/python",
+                             n_cores = 1L,
+                             restr_to_hvgs = FALSE)  # <-------
   
   out_file <- gsub(".*\\/", "", i) %>% gsub("\\.csv$", ".rds", .)
   saveRDS(res, file = paste0(out_dir, out_file))
   
 }
 
-# Individual function example
-input <- readRDS(input[1])
-out <- wrapp.empiricalbose(sce = input, python_path =  "/home/asonrel/miniconda3/bin/python", restr_to_hvgs = TRUE, n_cores = 6L)
-
-
-### ALRA -----------------------------------------------------------------------
+# ALRA -------------------------------------------------------------------------
 
 input = list.files("datasets", full.names = T, pattern = "\\.csv|\\.rds")
 out_dir <- "imputations/alra/"
@@ -116,22 +116,16 @@ dir.create(out_dir, showWarnings = FALSE)
 for (i in input) {
   
   cat("Imputing file ", i, "\n")
-  res <- DoDataImputation(count = i, method = "alra",
-                          organism = "auto",
-                          alra_norm = FALSE, # <-----
-                          alra_path = "/home/asonrel/softwares/ALRA-master/alra.R" # <-----
+  input <- readRDS(i)
+  res <- wrapp.alra(input,
+                    alra_norm = FALSE, # <-----
+                    alra_path = "/home/asonrel/softwares/ALRA-master/alra.R" # <-----
   )
   
   out_file <- gsub(".*\\/", "", i) %>% gsub("\\.csv$", ".rds", .)
   saveRDS(res, file = paste0(out_dir, out_file))
   
 }
-
-# Individual wrapper example
-input <- readRDS(input[1])
-out <- wrapp.alra(sce = input, alra_norm = TRUE, alra_path = "/home/asonrel/softwares/ALRA-master/alra.R")
-
-
 
 ### ENHANCE ------------------------------------------------------------------
 
@@ -144,21 +138,16 @@ dir.create(out_dir, showWarnings = FALSE)
 for (i in input) {
   
   cat("Imputing file ", i, "\n")
-  res <- DoDataImputation(count = i, method = "enhance", 
-                          organism = "auto", 
-                          enhance_path = enhance_path) # <------
+  input <- readRDS(i)
+  res <- wrapp.enhance(input,
+                       enhance_path = enhance_path) # <------
   
   out_file <- gsub(".*\\/", "", i) %>% gsub("\\.csv$", ".rds", .)
   saveRDS(res, file = paste0(out_dir, out_file))
   
 }
 
-# Individual function example
-input <- readRDS(input[1])
-out <- wrapp.enhance(sce = input, enhance_path = "/home/asonrel/softwares/enhance-R-master/enhance.R")
-
-
-#### DCA ---------------------------------------------------------------------
+# DCA --------------------------------------------------------------------------
 
 input = list.files("datasets", full.names = T, pattern = "\\.csv|\\.rds") 
 out_dir <- "imputations/dca/"
@@ -167,22 +156,17 @@ dir.create(out_dir, showWarnings = FALSE)
 for (i in input) {
   
   cat("Imputing file ", i, "\n")
-  res <- DoDataImputation(count = i, method = "dca",
-                          organism = "auto",
-                          n_cores = 6L)
+  input <- readRDS(i)
+  res <- wrapp.dca(input,
+                   dca_path = "/home/asonrel/miniconda3/bin/dca",
+                   n_cores = 1L)
   
   out_file <- gsub(".*\\/", "", i) %>% gsub("\\.csv$", ".rds", .)
   saveRDS(res, file = paste0(out_dir, out_file))
   
 }
 
-
-# Individual function example
-input <- readRDS(input[1])
-out <- wrapp.dca(sce = input,dca_path = "/home/asonrel/miniconda3/bin/dca", n_cores = 6L )
-
-
-### DRimpute ---------------------------------------------------------------------
+# DRimpute ---------------------------------------------------------------------
 
 input = list.files("datasets", full.names = T, pattern = "\\.csv|\\.rds")
 out_dir <- "imputations/DrImpute_noprocess/"
@@ -191,20 +175,13 @@ dir.create(out_dir, showWarnings = FALSE)
 for (i in input) {
   
   cat("Imputing file ", i, "\n")
-  res <- DoDataImputation(count = i, 
-                          method = "DrImpute",
-                          organism = "auto",
-                          n_cores = 3L, 
-                          DrImpute_prepross = FALSE) # <-------
+  input <- readRDS(i)
+  res <- wrapp.drimpute(input, 
+                        n_cores = 1L, 
+                        DrImpute_prepross = FALSE) # <-------
   
   out_file <- gsub(".*\\/", "", i) %>% gsub("\\.csv$", ".rds", .)
   saveRDS(res, file = paste0(out_dir, out_file))
   
 }
-
-# Individual function example
-input <- readRDS(input[1])
-out <- wrapp.drimpute(sce = input,DrImpute_prepross = TRUE, n_cores = 6L )
-
-
 
