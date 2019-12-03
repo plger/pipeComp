@@ -23,7 +23,7 @@
 #' @return One or several `Heatmap` object.
 #' @export
 #'
-#' @import ComplexHeatmap matrixStats
+#' @import ComplexHeatmap matrixStats grid
 #' @importFrom viridisLite inferno
 scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRes", "varExpl", "elapsed"),
                               covar=c("log10_total_counts","log10_total_features",
@@ -54,7 +54,7 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
                  elapsed=res$PCtop5.R2[,el],
                  stop("Unknown plot type requested")
                  )
-  if(is.list(res)) res <- res[[1]]
+  if(is(res, "list")) res <- res[[1]]
   res2 <- res <- .prepRes(res, agg.by, agg.fn, elapsed=what=="elapsed")
   if(scale) res2 <- base::scale(res)
   res2 <- as.matrix(res2)
@@ -138,9 +138,8 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
 #' @return One or several `Heatmap` object.
 #' @export
 #'
-#' @import ComplexHeatmap matrixStats
+#' @import ComplexHeatmap matrixStats grid
 #' @importFrom viridisLite inferno
-#' @importFrom grid gpar
 scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean, 
                                  scale=FALSE, value_format="%.2f", 
                                  reorder_rows=TRUE, reorder_columns=FALSE,
@@ -220,9 +219,8 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
 #' @return A `Heatmap` object.
 #' @export
 #'
-#' @import ComplexHeatmap matrixStats
+#' @import ComplexHeatmap matrixStats grid
 #' @importFrom viridisLite inferno
-#' @importFrom grid gpar
 scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL, 
                                         agg.fn=mean, scale=FALSE, 
                                         value_format="%.2f", reorder_rows=TRUE, 
