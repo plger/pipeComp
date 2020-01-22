@@ -193,12 +193,12 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
       }
       ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
     }
-    spn <- unique(unlist(sapply(x, FUN=function(x) colnames(x$clust.avg.silwidth))))
+    spn <- unique(unlist(lapply(x, FUN=function(x) colnames(x$clust.avg.silwidth))))
     sw <- lapply(unique(ll), FUN=function(topX){
-      sapply(x, FUN=function(x){
+      t(sapply(x, FUN=function(x){
         x <- unlist(as.data.frame(x$clust.avg.silwidth)[topX,])
         sapply(spn, FUN=function(y) ifelse(y %in% names(x), x[[y]], NA))
-      })
+      }))
     })
     names(sw) <- unique(ll)
     R2 <- lapply(x, FUN=function(x) x$R2)
@@ -218,7 +218,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   if(dswise) return(perDS)
   
   sw <- lapply(names(perDS[[1]]$clust.avg.silwidth), FUN=function(n){
-    d <- lapply(perDS, FUN=function(x){ t(x$clust.avg.silwidth[[n]]) })
+    d <- lapply(perDS, FUN=function(x){ x$clust.avg.silwidth[[n]] })
     for(f in names(perDS)) colnames(d[[f]]) <- paste(f,colnames(d[[f]]))
     do.call(cbind, d)
   })
