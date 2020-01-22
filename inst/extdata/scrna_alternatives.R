@@ -525,7 +525,8 @@ farthestPoint <- function(y, x=NULL){
 #' @return A factorial vector of cluster IDs, with cell names as names.
 #' 
 #' @export
-clust.scran <- function(ds, rd=NULL, method="walktrap", k=20, steps=8, dims=50, nthreads=1, seed.use=NULL, min.size=0, resolution=NULL){
+clust.scran <- function(ds, rd=NULL, method="walktrap", k=20, steps=8, dims=50, nthreads=1, seed.use=NULL, min.size=0, resolution=NULL, graph.type=c("snn","knn")){
+  graph.type <- match.arg(graph.type)
   if(is(ds,"Seurat")){
     ds <- SingleCellExperiment(
       assays=list(
@@ -539,15 +540,20 @@ clust.scran <- function(ds, rd=NULL, method="walktrap", k=20, steps=8, dims=50, 
   if(is.null(rd) && length(ds@reducedDims)>0) rd <- names(ds@reducedDims)[[1]]
   if(!is.null(rd) && !is.na(rd)){
     dims <- min(dims, ncol(ds@reducedDims[[rd]]))
-    ds@reducedDims[[rd]] <- ds@reducedDims[[rd]][,1:dims]
+    ds@reducedDims[[rd]] <- ds@reducedDims[[rd]][,seq_len(dims)]
   }else{
     dr <- NULL
+    dims <- 50
   }
-  g <- scran::buildSNNGraph(ds, BPPARAM=MulticoreParam(nthreads), use.dimred=rd, k=k)
-  if(method=="walktrap"){
-    cl <- igraph::cluster_walktrap(g, steps=steps)$membership
+  if(graph.type=="snn"){
+    g <- scran::buildSNNGraph(ds, BPPARAM=MulticoreParam(nthreads), use.dimred=rd, k=k, d=dims)
   }else{
-    cl <- igraph::cluster_fast_greedy(g)$membership
+    g <- scran::buildKNNGraph(ds, BPPARAM=MulticoreParam(nthreads), use.dimred=rd, k=k, d=dims)
+  }
+  if(method=="walktrap"){
+    cl <- igraph::cluster_walktrap(g, steps=steps, merges=FALSE)$membership
+  }else{
+    cl <- igraph::cluster_fast_greedy(g, merges=FALSE)$membership
   }
   if(min.size>0) cl <- scran:::.merge_closest_graph(g, cl, min.size=min.size)
   names(cl) <- colnames(ds)
@@ -556,4 +562,8 @@ clust.scran <- function(ds, rd=NULL, method="walktrap", k=20, steps=8, dims=50, 
 
 clust.scran.fg <- function(ds, ...){
   clust.scran(ds, method="fastq_greedy", ...)
+}
+
+clust.scran.knn <- function(ds, ...){
+  clust.scran(ds, graph.type="knn", ...)
 }
