@@ -21,7 +21,6 @@
 #' @param saveDimRed Logical; whether to save the dimensionality reduction for 
 #' each analysis (default FALSE)
 #' 
-#' @importFrom mclust adjustedRandIndex
 #' @export
 scrna_seurat_pipeline <- function(saveDimRed=FALSE){
   # description for each step
