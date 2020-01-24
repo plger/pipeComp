@@ -537,10 +537,10 @@ clust.scran <- function(ds, rd=NULL, method="walktrap", k=20, steps=8, dims=50, 
       reducedDims=lapply(ds@reductions, FUN=function(x) x@cell.embeddings)
     )
   }
-  if(is.null(rd) && length(ds@reducedDims)>0) rd <- names(ds@reducedDims)[[1]]
+  if(is.null(rd) && length(reducedDim(ds))>0) rd <- names(reducedDim(ds))[[1]]
   if(!is.null(rd) && !is.na(rd)){
-    dims <- min(dims, ncol(ds@reducedDims[[rd]]))
-    ds@reducedDims[[rd]] <- ds@reducedDims[[rd]][,seq_len(dims)]
+    dims <- min(dims, ncol(reducedDim(ds, rd)))
+    reducedDim(ds, rd) <- reducedDim(ds, rd)[,seq_len(dims)]
   }else{
     dr <- NULL
     dims <- 50
