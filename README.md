@@ -1,6 +1,10 @@
+<img align="right" src="sticker.png"/>
+
 # pipeComp
 
 `pipeComp` is a simple framework to facilitate the comparison of pipelines involving various steps and parameters. Given a `PipelineDefinition`, a set of alternative parameters (which might include different subroutines) and benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly to avoid storing potentially large intermediate data.
+
+<br style="clear: right;"/>
 
 ## PipelineDefinition
 
