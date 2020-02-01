@@ -40,7 +40,6 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
     H <- scrna_evalPlot_DR(res, "silhouette", scale=FALSE, reorder_rows=reorder_rows, value_format=value_format, show_heatmap_legend=TRUE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...)
     ro <- row.names(H@matrix)
     return( H +
-      scrna_evalPlot_DR(res, "varExpl", scale=scale, reorder_rows=ro, value_format=value_format, show_heatmap_legend=TRUE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...) + 
       scrna_evalPlot_DR(res, "covarRes", scale=scale, reorder_rows=ro, value_format=value_format, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...) +
       scrna_evalPlot_DR(res, "covarRes", covar="total_features", scale=scale, reorder_rows=ro, value_format=value_format, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...)
     )
