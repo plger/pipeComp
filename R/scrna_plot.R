@@ -40,14 +40,13 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
     H <- scrna_evalPlot_DR(res, "silhouette", scale=FALSE, reorder_rows=reorder_rows, value_format=value_format, show_heatmap_legend=TRUE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...)
     ro <- row.names(H@matrix)
     return( H +
-      scrna_evalPlot_DR(res, "varExpl", scale=scale, reorder_rows=ro, value_format=value_format, show_heatmap_legend=TRUE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...) + 
       scrna_evalPlot_DR(res, "covarRes", scale=scale, reorder_rows=ro, value_format=value_format, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...) +
       scrna_evalPlot_DR(res, "covarRes", covar="total_features", scale=scale, reorder_rows=ro, value_format=value_format, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...)
     )
   }
   el <- grep("^stepElapsed\\.", colnames(res[[1]]), value=TRUE)
   res <- switch( what,
-                 silhouette=res$clust.avg.silwidth,
+                 silhouette=res[[grep("clust\\.avg\\.silwidth",names(res))[[1]]]],
                  covar=res[[paste0("PC1_covar.",covar)]],
                  covarRes=res[[paste0("PC1_covarR.",covar)]],
                  varExpl=res$PCtop5.R2,
@@ -161,7 +160,7 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
   }
   res <- res[,grep(ifelse(what=="elapsed","stepElapsed",paste0(" ",what)), colnames(res))]
   res2 <- res <- .prepRes(res, agg.by, agg.fn, elapsed=what=="elapsed")
-  if(scale) res2 <- base::scale(res)
+  if(scale) res2 <- .safescale(res)
   row.names(res2) <- row.names(res) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
   if(is(reorder_rows, "Heatmap")){
     ro <- row.names(reorder_rows@matrix)
