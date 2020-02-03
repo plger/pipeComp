@@ -403,6 +403,18 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   cbind(x, pc, deparse.level=0)
 }
 
+
+
+#' scrna_evalPlot_filtering
+#'
+#' @param res Aggregated pipeline results (i.e. the output of `runPipeline` or
+#' `aggregateResults`)
+#' @param steps Steps to include (default 'doublet' and 'filtering'); other 
+#' steps will be averaged.
+#' @param returnTable Logical; whether to return the data.frame rather than plot.
+#'
+#' @return A ggplot, or a data.frame if `returnTable=TRUE`
+#' @export
 scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"), returnTable=FALSE){
   co <- .mergeFilterOut(res[steps])
   co <- abs(as.matrix(co[,grep("^pcOut",colnames(co))]))

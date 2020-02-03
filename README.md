@@ -90,7 +90,7 @@ alternatives <- list(
   k=20,
   steps=4,
   resolution=c(0.01, 0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.2, 2),
-  min.size=50
+  min.size=50   
 )
 ```
 
