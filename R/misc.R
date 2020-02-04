@@ -54,6 +54,51 @@ parsePipNames <- function(x, setRowNames=FALSE, addcolumns=NULL){
 }
 
 
+#' buildCombMatrix
+#' 
+#' Builds a matrix of parameter combinations from a list of alternative values.
+#'
+#' @param alt A named list of alternative parameter values
+#' @param returnIndexMatrix Logical; whether to return a matrix of indices, 
+#' rather than a data.frame of factors.
+#'
+#' @return a matrix or data.frame
+#' @export
+#'
+#' @examples
+#' buildCombMatrix(list(param1=LETTERS[1:3], param2=1:2))
+buildCombMatrix <- function(alt, returnIndexMatrix=FALSE){
+  eg <- data.table(expand.grid(lapply(alt, FUN=function(x){ 1:length(x) })))
+  eg <- setorder(eg)
+  if(returnIndexMatrix) return(as.matrix(eg))
+  eg <- as.data.frame(setorder(eg))
+  for(f in names(alt)){
+    eg[,f] <- factor(alt[[f]][eg[,f]], levels=alt[[f]])
+  }
+  eg
+}
+
+.checkCombMatrix <- function(eg, alt){
+  if(is.null(dim(eg))) stop("`eg` should be a matrix or data.frame of indices or factors")
+  if(!all(names(alt) %in% colnames(eg))) stop("The columns of `eg` do not correspond to the arguments.")
+  eg <- eg[,names(alt)]
+  if(!is.matrix(eg) || !is.numeric(eg)){
+    for(f in colnames(eg)){
+      if(is.character(eg[,f])) eg[,f] <- factor(eg[,f])
+      if(is.factor(eg[,f])){
+        if(!all(levels(eg[,f])==alt[[f]])) 
+          stop("If `eg` contains factors, the levels should be identical to 
+                 the values of the corresponding element of `alternatives`")
+        eg[,f] <- as.numeric(eg[,f])
+      }
+    }
+  }
+  eg <- as.matrix(as.data.frame(setorder(data.table(eg))))
+  if(any(is.na(eg))) stop("Final `eg` contains missing values!")
+  eg
+}
+
+
 #' getQualitativePalette
 #'
 #' Returns a qualitative color palette of the given size. If less than 23 colors

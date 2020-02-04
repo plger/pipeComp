@@ -51,12 +51,10 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.pr
   # prepare the combinations of parameters to use
   alt <- alternatives[unlist(args)]
   if(is.null(eg)){
-    eg <- data.table(expand.grid(lapply(alt, FUN=function(x){ 1:length(x) })))
+    eg <- buildCombMatrix(alt, TRUE)
   }else{
-    if(!all(names(alt) %in% colnames(eg))) stop("The columns of `eg` do not correspond to the arguments.")
-    eg <- eg[,names(alt)]
+    eg <- .checkCombMatrix(eg, alt)
   }
-  eg <- as.matrix(setorder(eg))
   
   ## BEGIN .runPipelineF
   .runPipelineF <- function(dsi){
