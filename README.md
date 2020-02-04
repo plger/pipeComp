@@ -4,6 +4,14 @@
 
 `pipeComp` is a simple framework to facilitate the comparison of pipelines involving various steps and parameters. Given a `PipelineDefinition`, a set of alternative parameters (which might include different subroutines) and benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly to avoid storing potentially large intermediate data.
 
+`pipeComp` was initially developed to benchmark single-cell RNA sequencing pipelines:
+
+_pipeComp, a general framework for the evaluation of computational pipelines, reveals performant single-cell RNA-seq preprocessing tools_<br/>
+Pierre-Luc Germain, Anthony Sonrel & Mark D Robinson, 
+bioRxiv [2020.02.02.930578](https://doi.org/10.1101/2020.02.02.930578)
+
+However the framework can be applied to any other context.
+
 <br style="clear: right;"/>
 
 ## PipelineDefinition
