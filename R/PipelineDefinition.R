@@ -123,12 +123,25 @@ NULL
 
 #' @rdname PipelineDefinition-methods
 #' @importMethodsFrom methods show
+#' @importFrom knitr opts_current
 setMethod("show", signature("PipelineDefinition"), function(object){
+  # colors and bold are going to trigger errors when rendered in a knit, so
+  # we disable them when rendering
+  isKnit <- tryCatch( isTRUE(getOption('knitr.in.progress')) || 
+                        length(knitr::opts_current$get())>0,
+                      error=function(e) FALSE)
   fns <- sapply(names(object@functions), FUN=function(x){ 
-    y <- paste0("  - \033[1m",x,"\033[22m(",paste(names(formals(object@functions[[x]])),collapse=", "),")")
+    x2 <- x
+    if(!isKnit) x2 <- paste0("\033[1m",x,"\033[22m")
+    y <- paste(names(formals(object@functions[[x]])),collapse=", ")
+    y <- paste0("  - ", x2, "(", y, ")")
     if(!is.null(object@evaluation[[x]]) || !is.null(object@aggregation[[x]])) 
-      y <- paste0(y," \033[34m*\033[39m ")
-    if(!is.null(object@descriptions[[x]])) y <- paste(y,paste0("\033[3m",object@descriptions[[x]],"\033[23m"), sep="\n")
+      y <- paste0(y, ifelse(isKnit, " * ", " \033[34m*\033[39m "))
+    if(!is.null(object@descriptions[[x]])){
+      x2 <- object@descriptions[[x]]
+      if(!isKnit) x2 <- paste0("\033[3m",x2,"\033[23m")
+      y <- paste(y, x2, sep="\n")
+    }
     y
   })
   cat("A PipelineDefinition object with the following steps:\n")
