@@ -131,3 +131,38 @@ scrna_evalPlot_clustAtTrueK(res, what="ARI", show_heatmap_legend = FALSE) +
 ```
 
 <img src="inst/docs/clustK_stats_example.png"/>
+
+
+## Running only a subset of the combinations
+
+Rather than running all possible combinations of parameters, one can run only a subset of them through the `eg` parameter of `runPipeline`. The parameter accepts either a matrix (of argument indices) or data.frame (of factors) which can be built manually, but the simplest way is to first create all combinations, and then get rid of the undesired ones:
+
+```{r}
+eg <- buildCombMatrix(alternatives)
+head(eg)
+```
+
+```
+##   doubletmethod         filt        norm     sel selnb         dr
+## 1          none filt.lenient norm.seurat sel.vst  2000 seurat.pca
+## 2          none filt.lenient norm.seurat sel.vst  2000 seurat.pca
+## 3          none filt.lenient norm.seurat sel.vst  2000 seurat.pca
+## 4          none filt.lenient norm.seurat sel.vst  2000 seurat.pca
+## 5          none filt.lenient norm.seurat sel.vst  2000 seurat.pca
+## 6          none filt.lenient norm.seurat sel.vst  2000 seurat.pca
+##    clustmethod maxdim dims  k steps resolution min.size
+## 1 clust.seurat     30   10 20     4       0.01       50
+## 2 clust.seurat     30   10 20     4        0.1       50
+## 3 clust.seurat     30   10 20     4        0.2       50
+## 4 clust.seurat     30   10 20     4        0.3       50
+## 5 clust.seurat     30   10 20     4        0.5       50
+## 6 clust.seurat     30   10 20     4        0.8       50
+```
+
+And then we could remove some combinations before passing the argument to `runPipeline`:
+
+```{r}
+eg <- eg[ (eg$norm != "norm.scran" | eg$resolution != 2) ,]
+res <- runPipeline( datasets, alternatives, pipDef, nthreads=3, eg=eg,
+                    output.prefix="myfolder/" )
+```
