@@ -374,6 +374,7 @@ subsetFeatureByType <- function(g, classes=c("Mt","conding","ribo")){
 
 
 getDimensionality <- function(se, method, maxDims=50){
+  library(intrinsicDimension)
   x <- se@reductions$pca@cell.embeddings
   x <- switch(method,
          essLocal.a=essLocalDimEst(x),
