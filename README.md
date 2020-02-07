@@ -2,8 +2,6 @@
 
 # pipeComp
 
-***
-
 `pipeComp` is a simple framework to facilitate the comparison of pipelines involving various steps and parameters. Given a `PipelineDefinition`, a set of alternative parameters (which might include different subroutines) and benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly to avoid storing potentially large intermediate data.
 
 `pipeComp` was initially developed to benchmark single-cell RNA sequencing pipelines:
@@ -22,10 +20,14 @@ However the framework can be applied to any other context.
   * [Exploring the metrics](#exploring-the-metrics)
   * [Running a subset of combinations](#running-only-a-subset-of-the-combinations)
 
+<br/><br/>
+
 ## Recent changes
 
 `pipeComp` >=0.99.3 made important changes to the format of the output, and greatly simplified the evaluation outputs for the scRNA pipeline. 
 As a result, results produced with older version of the package are not anymore compatible with the current version's aggregation and plotting functions.
+
+<br/><br/>
 
 ## Installation
 
@@ -37,6 +39,8 @@ BiocManager::install("plger/pipeComp")
 
 Because `pipeComp` was meant as a general pipeline benchmarking framework, we have tried to restrict the package's dependencies to a minimum. 
 To use the scRNA-seq pipeline and wrappers, however, requires further packages to be installed. To check whether these dependencies are met for a given `pipelineDefinition` and set of alternatives, see `?checkPipelinePackages`.
+
+<br/><br/>
 
 ## Using _pipeComp_
 
@@ -158,6 +162,7 @@ scrna_evalPlot_clust(res, what="ARI", atTrueK=TRUE, show_heatmap_legend = FALSE)
 
 <img src="inst/docs/clustK_stats_example.png"/>
 
+<br/><br/>
 
 ### Running only a subset of the combinations
 
