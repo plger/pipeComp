@@ -100,9 +100,9 @@ evaluateClustering <- function(x, tl){
 #' @export
 evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   if(is(x,"Seurat")){
-    if(is.null(covars)) covars <- x@meta.data[,c("log10_total_features", "log10_total_counts", "total_features")]
+    if(is.null(covars)) covars <- x[[]][,c("log10_total_features", "log10_total_counts", "total_features")] 
     if(is.null(clusters)) clusters <- x$phenoid
-    x <- x@reductions$pca@cell.embeddings
+    x <- x[["pca"]]@cell.embeddings
   }else if(is(x, "SingleCellExperiment")){
     if(is.null(covars)) covars <- as.data.frame(colData(x[,c("log10_total_features", "log10_total_counts", "total_features")]))
     if(is.null(clusters)) clusters <- x$phenoid
@@ -381,9 +381,9 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
 
 evaluateNorm <- function(x, clusters=NULL, covars=NULL){
   if(is(x,"Seurat")){
-    if(is.null(covars)) covars <- x@meta.data[,c("log10_total_counts", "total_features")]
+    if(is.null(covars)) covars <- x[[]][,c("log10_total_counts", "total_features")]
     if(is.null(clusters)) clusters <- x$phenoid
-    x <- x@assays$RNA@data
+    x <- GetAssayData(x, assay = "RNA", slot = "data")
   }else if(is(x, "SingleCellExperiment")){
     if(is.null(covars)) covars <- as.data.frame(colData(x)[,c("log10_total_counts", "total_features")])
     if(is.null(clusters)) clusters <- x$phenoid
