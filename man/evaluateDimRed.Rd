@@ -13,14 +13,15 @@ as columns}
 \item{clusters}{The vector indicating each cell's cluster.}
 
 \item{n}{A numeric vector indiciating the number of top dimensions at which 
-to gather statistics (default `c(10,20,50)`). Will use all available dimensions
-if a higher number is given.}
+to gather statistics (default `c(10,20,50)`). Will use all available 
+dimensions if a higher number is given.}
 }
 \value{
 A list with the following components:
 * silhouettes: a matrix of the silhouette for each cell-cluster pair at each 
 value of `n`
-* clust.avg.silwidth: a matrix of the cluster average width at each value of `n`
+* clust.avg.silwidth: a matrix of the cluster average width at each value of 
+`n`
 * R2: the proportion of variance in each component (up to `max(n)`) that is 
 explained by the clusters (i.e. R-squared of a linear model).
 }

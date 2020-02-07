@@ -5,7 +5,7 @@
 \title{scrna_evalPlot_filtering}
 \usage{
 scrna_evalPlot_filtering(res, steps = c("doublet", "filtering"),
-  returnTable = FALSE)
+  clustMetric = "mean_F1", returnTable = FALSE)
 }
 \arguments{
 \item{res}{Aggregated pipeline results (i.e. the output of `runPipeline` or
@@ -13,6 +13,8 @@ scrna_evalPlot_filtering(res, steps = c("doublet", "filtering"),
 
 \item{steps}{Steps to include (default 'doublet' and 'filtering'); other 
 steps will be averaged.}
+
+\item{clustMetric}{Clustering accuracy metric to use (default `mean_F1``)}
 
 \item{returnTable}{Logical; whether to return the data.frame rather than plot.}
 }

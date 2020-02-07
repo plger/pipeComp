@@ -1,13 +1,14 @@
 #' runPipeline
 #' 
-#' This function runs a pipeline with combinations of parameter variations on nested steps.
-#' The pipeline has to be defined as a list of functions applied consecutively on their 
-#' respective outputs. See `defaultPipelineDef()` for indications about how to build one.
+#' This function runs a pipeline with combinations of parameter variations on 
+#' nested steps. The pipeline has to be defined as a list of functions applied 
+#' consecutively on their respective outputs. See `defaultPipelineDef()` for 
+#' indications about how to build one.
 #'
 #' @param datasets A named vector of initial objects or paths to rds files.
 #' @param alternatives The (named) list of alternative values for each parameters.
 #' @param pipelineDef An object of class `PipelineDefinition`.
-#' @param eg An optional matrix of indexes indicating the combination to run. 
+#' @param comb An optional matrix of indexes indicating the combination to run. 
 #' Each column should correspond to an element of `alternatives`, and contain 
 #' indexes relative to this element. If omitted, all combinations will be 
 #' performed.
@@ -16,15 +17,17 @@
 #' @param saveEndResults Logical; whether to save the output of the last step.
 #' @param debug Logical (default FALSE). When enabled, disables multithreading 
 #' and prints extra information.
-#' @param ... passed to MulticoreParam. Can for instance be used to set `makeCluster` 
-#' arguments, or set `threshold="TRACE"` when debugging in a multithreaded context.
+#' @param ... passed to MulticoreParam. Can for instance be used to set 
+#' `makeCluster` arguments, or set `threshold="TRACE"` when debugging in a 
+#' multithreaded context.
 #'
-#' @return 
+#' @return A SimpleList.
 #' 
-#' @import methods BiocParallel data.table
+#' @import methods BiocParallel data.table S4Vectors
 #' @export
-runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.prefix="",
-                         nthreads=length(datasets), saveEndResults=TRUE, debug=FALSE, ...){
+runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL, 
+                         output.prefix="", nthreads=length(datasets), 
+                         saveEndResults=TRUE, debug=FALSE, ...){
   mcall <- match.call()
   if(!is(pipelineDef,"PipelineDefinition")) 
     pipelineDef <- PipelineDefinition(pipelineDef)
@@ -50,10 +53,10 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.pr
   
   # prepare the combinations of parameters to use
   alt <- alternatives[unlist(args)]
-  if(is.null(eg)){
+  if(is.null(comb)){
     eg <- buildCombMatrix(alt, TRUE)
   }else{
-    eg <- .checkCombMatrix(eg, alt)
+    eg <- .checkCombMatrix(comb, alt)
   }
   
   ## BEGIN .runPipelineF
@@ -162,49 +165,36 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.pr
       names(x) <- xn
       x
     })
+
+    if(saveEndResults)
+      saveRDS(res, file=paste0(output.prefix,"res.",dsi,".endOutputs.rds"))
     
-    if(saveEndResults){
-      resfile <- paste0(output.prefix,"res.",dsi,".endOutputs.rds")
-      saveRDS(res, file=resfile)
-    }else{
-      resfile <- NULL
-    }
+    res <- SimpleList( evaluation=intermediate_return_objects,
+                       elapsed=list( stepwise=elapsed, total=elapsed.total ) )
+    metadata(res)$PipelineDefinition <- pipelineDef
     
-    res <- list( res=resfile, elapsed=elapsed, elapsed.total=elapsed.total )
-    ifile <- paste0(output.prefix,"res.",dsi,".stepIntermediateReturnObjects.rds")
-    if(sum(sapply(intermediate_return_objects,length))>0){
-      saveRDS(intermediate_return_objects, file=ifile)
-      res[["intermediate"]] <- ifile
-    }
-    res
+    ifile <- paste0(output.prefix,"res.",dsi,".evaluation.rds")
+    saveRDS(res, file=ifile)
+    return(ifile)
   }
   ## END .runPipelineF
   
   names(dsnames) <- dsnames <- names(datasets)
   if(!debug && nthreads>1 && length(datasets)>1){
     nthreads <- min(nthreads, length(datasets))
-    message(paste("Using",nthreads,"threads"))
-    res <- bplapply( dsnames, 
-                     BPPARAM=MulticoreParam(nthreads, ...), 
-                     FUN=.runPipelineF )
+    message(paste("Running", nrow(eg), "pipeline settings on", length(datasets),
+                  "datasets using",nthreads,"threads"))
+    resfiles <- bplapply( dsnames, 
+                          BPPARAM=MulticoreParam(nthreads, ...), 
+                          FUN=.runPipelineF )
   }else{
     nthreads <- 1
     if(debug) message("Running in debug mode (single thread)")
-    res <- lapply( dsnames, FUN=.runPipelineF)
+    resfiles <- lapply( dsnames, FUN=.runPipelineF)
   }
-  
-  names(res) <- names(datasets)
-  elapsed <- lapply(res, FUN=function(x) x$elapsed)
-  names(steps) <- steps <- names(elapsed[[1]])
-  elapsed <- lapply(steps, FUN=function(x){
-    x <- do.call(cbind, lapply(elapsed, FUN=function(y) unlist(y[[x]])))
-    colnames(x) <- names(datasets)
-    x
-  })
-  elapsed.total <- do.call(cbind, lapply(res, FUN=function(x) unlist(x$elapsed.total)))
-  colnames(elapsed.total) <- names(datasets)
-  
-  res <- lapply(res, FUN=function(x) x$res)
+
+  message("
+                  Finished running on all datasets, now aggregating results...")
   
   # save pipeline and resolved functions
   pipinfo <- list( pipDef=pipelineDef,
@@ -222,16 +212,14 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.pr
                    sessionInfo=sessionInfo(),
                    call=mcall
   )
-  saveRDS(pipinfo, file=paste0(output.prefix,"pipelineInfo.rds"))
+  saveRDS(pipinfo, file=paste0(output.prefix,"runPipelineInfo.rds"))
   
-  # running time
-  elapsed <- list( stepwise=elapsed, total=elapsed.total )
-  saveRDS(elapsed, file=paste0(output.prefix,"elapsed.rds"))
-
-  message("
-                  Finished running on all datasets, now aggregating results...")
-    
-  aggregateResults(output.prefix, pipDef = pipelineDef)
+  names(resfiles) <- names(datasets)
+  res <- lapply(resfiles, readRDS)
+  res <- aggregatePipelineResults(res, pipelineDef)
+  saveRDS(res, file=paste0(output.prefix,"aggregated.rds"))
+  
+  res
 }
 
 

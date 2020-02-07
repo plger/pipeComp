@@ -1,3 +1,35 @@
+#' checkPipelinePackages
+#' 
+#' Checks whether the packages required by a pipeline and its alternative 
+#' methods are available.
+#'
+#' @param alternatives A named list of alternative parameter values
+#' @param pipDef An object of class `PipelineDefinition`.
+#'
+#' @return Logical.
+#' @export
+#'
+#' @examples
+#' checkPipelinePackages(list(argument1="mean"), scrna_seurat_pipeline())
+checkPipelinePackages <- function(alternatives, pipDef=NULL){
+  fns <- unlist(alternatives[sapply(alternatives, class)=="character"])
+  fns <- lapply(fns, FUN=function(x){
+    if(exists(x) && is.function(get(x))) return(get(x))
+    ""
+  })
+  fns <- paste(unlist(fns),collapse="\n")
+  if(!is.null(pipDef)) fns <- paste(fns, paste(pd@functions, collapse="\n"), paste(pd@evaluation, collapse="\n"))
+  pkg <- unique(regmatches(fns, gregexpr("library\\(([[:alnum:]])+\\)", fns))[[1]])
+  pkg <- gsub("\\)","",gsub("^library\\(","",pkg))
+  pkg <- gsub('"',"",pkg)
+  misspkg <- setdiff(pkg, row.names(installed.packages()))
+  if(length(misspkg)>0) message("The following packages appear to be missing:",
+       paste(misspkg, collapse=", "))
+  return(length(misspkg)==0)
+}
+
+
+
 #' parsePipNames
 #' 
 #' Parses the names of analyses performed through `runPipeline` to extract a 

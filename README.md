@@ -1,4 +1,4 @@
-<img align="right" src="sticker.png"/>
+<img align="right" style="margin-left: 20px;" src="sticker.png"/>
 
 # pipeComp
 
@@ -12,9 +12,39 @@ bioRxiv [2020.02.02.930578](https://doi.org/10.1101/2020.02.02.930578)
 
 However the framework can be applied to any other context.
 
-<br style="clear: right;"/>
+* [Recent changes](#recent-changes)
+* [Installation](#installation)
+* [Using _pipeComp_](#using-pipecomp)
+  * [PipelineDefinition](#pipelinedefinition)
+  * [Running pipelines](#running-pipelines)
+  * [Exploring the metrics](#exploring-the-metrics)
+  * [Running a subset of combinations](#running-only-a-subset-of-the-combinations)
 
-## PipelineDefinition
+<br/><br/>
+
+## Recent changes
+
+`pipeComp` >=0.99.3 made important changes to the format of the output, and greatly simplified the evaluation outputs for the scRNA pipeline. 
+As a result, results produced with older version of the package are not anymore compatible with the current version's aggregation and plotting functions.
+
+<br/><br/>
+
+## Installation
+
+Install using:
+
+```{r}
+BiocManager::install("plger/pipeComp")
+```
+
+Because `pipeComp` was meant as a general pipeline benchmarking framework, we have tried to restrict the package's dependencies to a minimum. 
+To use the scRNA-seq pipeline and wrappers, however, requires further packages to be installed. To check whether these dependencies are met for a given `pipelineDefinition` and set of alternatives, see `?checkPipelinePackages`.
+
+<br/><br/>
+
+## Using _pipeComp_
+
+### PipelineDefinition
 
 The `PipelineDefinition` S4 class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. As simple pipeline can be constructed as follows:
 
@@ -73,9 +103,9 @@ A PipelineDefinition object with the following steps:
 
 A number of generic methods are implemented on the object, including `show`, `names`, `length`, `[`, `as.list`.
 
-## Running pipelines
+### Running pipelines
 
-### Preparing the other arguments
+#### Preparing the other arguments
 
 `runPipeline` requires 3 main arguments: i) the pipelineDefinition, ii) the list of alternative parameters values to try, and iii) the list of benchmark datasets.
 
@@ -102,7 +132,7 @@ alternatives <- list(
 )
 ```
 
-### Running the analyses
+#### Running the analyses
 
 ```{r}
 res <- runPipeline( datasets, alternatives, pipDef, nthreads=3,
@@ -120,26 +150,27 @@ scrna_evalPlot_DR(res, scale=FALSE)
 <img src="inst/docs/dr_stats_example.png"/>
 
 ```{r}
-scrna_evalPlot_clust(res)
+scrna_evalPlot_clust(res, agg.by=c("norm","resolution"))
 ```
 
 <img src="inst/docs/clust_stats_example.png"/>
 
 ```{r}
-scrna_evalPlot_clustAtTrueK(res, what="ARI", show_heatmap_legend = FALSE) + 
-  scrna_evalPlot_clustAtTrueK(res, what="NMI")
+scrna_evalPlot_clust(res, what="ARI", atTrueK=TRUE, show_heatmap_legend = FALSE) + 
+  scrna_evalPlot_clust(res, atTrueK=TRUE, what="NMI")
 ```
 
 <img src="inst/docs/clustK_stats_example.png"/>
 
+<br/><br/>
 
-## Running only a subset of the combinations
+### Running only a subset of the combinations
 
-Rather than running all possible combinations of parameters, one can run only a subset of them through the `eg` parameter of `runPipeline`. The parameter accepts either a matrix (of argument indices) or data.frame (of factors) which can be built manually, but the simplest way is to first create all combinations, and then get rid of the undesired ones:
+Rather than running all possible combinations of parameters, one can run only a subset of them through the `comb` parameter of `runPipeline`. The parameter accepts either a matrix (of argument indices) or data.frame (of factors) which can be built manually, but the simplest way is to first create all combinations, and then get rid of the undesired ones:
 
 ```{r}
-eg <- buildCombMatrix(alternatives)
-head(eg)
+comb <- buildCombMatrix(alternatives)
+head(comb)
 ```
 
 ```
@@ -162,7 +193,7 @@ head(eg)
 And then we could remove some combinations before passing the argument to `runPipeline`:
 
 ```{r}
-eg <- eg[ (eg$norm != "norm.scran" | eg$resolution != 2) ,]
-res <- runPipeline( datasets, alternatives, pipDef, nthreads=3, eg=eg,
+comb <- comb[ (comb$norm != "norm.scran" | comb$resolution != 2) ,]
+res <- runPipeline( datasets, alternatives, pipDef, nthreads=3, comb=comb,
                     output.prefix="myfolder/" )
 ```

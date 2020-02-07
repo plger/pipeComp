@@ -23,31 +23,25 @@ evaluateClustering <- function(x, tl){
   list( table=tt, excluded=setdiff(colnames(before), colnames(after)) )
 }
 
+#' @importFrom dplyr bind_rows
 .aggregateExcludedCells <- function(res){
-  cls <- sapply(res, FUN=function(x) ncol(x[[1]]$table))
-  nout <- do.call(cbind, lapply(names(res), FUN=function(ds){ 
-    t(sapply(res[[ds]], FUN=function(x){
-      x <- x$table
-      y <- as.numeric(x[1,])-as.numeric(x[2,])
-      names(y) <- paste0(ds,".",colnames(x))
-      y
+  pi <- parsePipNames(names(res[[1]]))
+  res <- lapply(res, FUN=function(x){
+    y <- pi[rep(seq_len(nrow(pi)), each=ncol(x[[1]]$table)),,drop=FALSE]
+    row.names(y) <- NULL
+    y$subpopulation <- rep(colnames(x[[1]]$table), length(x))
+    y$N.before <- unlist(lapply(x, FUN=function(x) as.numeric(x$table[1,])))
+    y$N.lost <- unlist(lapply(x, FUN=function(x){
+      as.numeric(x$table[1,]-x$table[2,])
     }))
-  }))
-  N <- unlist(lapply(res, FUN=function(x) x[[1]]$table[1,]))
-  pc <- do.call(cbind, lapply(names(res), FUN=function(ds){ 
-    t(sapply(res[[ds]], FUN=function(x){
-      x <- x$table
-      y <- (as.numeric(x[1,])-as.numeric(x[2,]))/as.numeric(x[1,])
-      names(y) <- paste0(ds,".",colnames(x))
-      round(y*100,2)
-    }))
-  }))
-  colnames(pc) <- paste0("pcOut.", colnames(pc))
-  colnames(nout) <- paste0("nOut.", colnames(nout))
-  res <- cbind(nout, pc, deparse.level=0)
-  attr(res, "initialNumbers") <- N
-  return(res)
+    y$pc.lost <- round(100*y$N.lost/y$N.before,3)
+    y
+  })
+  res <- dplyr::bind_rows(res, .id="dataset")
+  res$dataset <- factor(res$dataset)
+  res
 }
+
 
 #' @importFrom matrixStats rowMins
 #' @importFrom dplyr bind_cols bind_rows
@@ -67,8 +61,12 @@ evaluateClustering <- function(x, tl){
     y$true.nbClusts <- length(grep("^pr\\.", colnames(x)))
     y
   })
-  for(i in names(res)) colnames(res[[i]]) <- paste(i, colnames(res[[i]]))
-  as.data.frame(bind_cols(res), row.names=row.names(res[[1]]))
+  pi <- parsePipNames(row.names(res[[1]]))
+  pi <- pi[rep(seq_len(nrow(pi)), length(res)),,drop=FALSE]
+  res <- cbind(pi, dplyr::bind_rows(res, .id="dataset"))
+  res$dataset <- factor(res$dataset)
+  row.names(res) <- NULL
+  res
 }
 
 .getVE <- function(x, cl){
@@ -87,24 +85,27 @@ evaluateClustering <- function(x, tl){
 #' as columns
 #' @param clusters The vector indicating each cell's cluster.
 #' @param n A numeric vector indiciating the number of top dimensions at which 
-#' to gather statistics (default `c(10,20,50)`). Will use all available dimensions
-#' if a higher number is given.
+#' to gather statistics (default `c(10,20,50)`). Will use all available 
+#' dimensions if a higher number is given.
 #'
 #' @return A list with the following components:
 #' * silhouettes: a matrix of the silhouette for each cell-cluster pair at each 
 #' value of `n`
-#' * clust.avg.silwidth: a matrix of the cluster average width at each value of `n`
+#' * clust.avg.silwidth: a matrix of the cluster average width at each value of 
+#' `n`
 #' * R2: the proportion of variance in each component (up to `max(n)`) that is 
 #' explained by the clusters (i.e. R-squared of a linear model).
 #' 
 #' @export
 evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
+  if(is.null(covars)) covars <- c("log10_total_features", "log10_total_counts", 
+                                  "total_features")
   if(is(x,"Seurat")){
-    if(is.null(covars)) covars <- x@meta.data[,c("log10_total_features", "log10_total_counts", "total_features")]
+    if(is.character(covars)) covars <- x@meta.data[,covars]
     if(is.null(clusters)) clusters <- x$phenoid
     x <- x@reductions$pca@cell.embeddings
   }else if(is(x, "SingleCellExperiment")){
-    if(is.null(covars)) covars <- as.data.frame(colData(x[,c("log10_total_features", "log10_total_counts", "total_features")]))
+    if(is.character(covars)) covars <- as.data.frame(colData(x[,covars]))
     if(is.null(clusters)) clusters <- x$phenoid
     x <- reducedDim(x, "PCA")
   }else{
@@ -169,84 +170,87 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
     if("evaluation" %in% names(x[[1]])) x <- lapply(x, FUN=function(x) x$evaluation)
     x
   })
+  
+  pi <- parsePipNames(names(res[[1]]))
+  
+  agfns <- list(minSilWidth=min, meanSilWidth=mean, medianSilWidth=median, maxSilWidth=max)
+  
   allsi <- lapply(res, FUN=function(x){
-    si <- lapply(x,FUN=function(y) y$silhouettes[,3])
-    pp <- parsePipNames(names(x))
-    pp <- pp[rep(seq_len(nrow(pp)), sapply(si, length)),]
-    pp$silhouette <- unlist(si)
-    pp
-  })
-  allsi <- dplyr::bind_rows(allsi, .id = "dataset")
-  
-  perDS <- lapply(res, FUN=function(x){
-    # check if the dimensions are the same
-    ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
-    if((length(unique(table(ll)))>1) || nrow(x[[1]]$clust.avg.silwidth)==1){
-      # check if there's only one N per analysis
-      if(all(sapply(x, FUN=function(x) nrow(x$clust.avg.silwidth))==1)){
-        for(i in seq_along(x)) row.names(x[[i]]$clust.avg.silwidth) <- "selected"
-      }else{
-        x <- lapply(x, FUN=function(x){
-          row.names(x$clust.avg.silwidth)[grep("all",row.names(x$clust.avg.silwidth))] <- "all"
-          x
-        })
+    subpops <- colnames(x[[1]]$clust.avg.silwidth)
+    x <- lapply(x,FUN=function(y) y$silhouettes)
+    dims <- table(unlist(lapply(x, FUN=function(x) colnames(x)[-1:-2])))
+    if(length(unique(dims))==1 && ncol(x[[1]])==3){
+      # single dimensionality
+      if(length(dims)>=1){
+        x <- lapply(x, FUN=function(x) names(x)[3] <- "selected")
+        dims <- table(unlist(lapply(x, FUN=function(x) colnames(x)[-1:-2])))
       }
-      ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
     }
-    spn <- unique(unlist(lapply(x, FUN=function(x) colnames(x$clust.avg.silwidth))))
-    sw <- lapply(unique(ll), FUN=function(topX){
-      t(sapply(x, FUN=function(x){
-        x <- unlist(as.data.frame(x$clust.avg.silwidth)[topX,])
-        sapply(spn, FUN=function(y) ifelse(y %in% names(x), x[[y]], NA))
+    if(!any(dims==length(x))) 
+      stop("Silhouettes computed over incompatible dimensionalities")
+    
+    names(dims) <- dims <- intersect( unique(unlist(lapply(x, FUN=colnames))),
+                                      names(dims)[dims==length(x)] )
+    lapply(dims, FUN=function(dim){
+      sils <- dplyr::bind_rows(lapply(x, FUN=function(sil){ 
+        data.frame(subpopulation=subpops, sapply(agfns, FUN=function(agf){
+          aggregate(sil[,dim], by=list(cluster=sil[,1]), FUN=agf)[,2]
+        }), stringsAsFactors=FALSE)
       }))
+      sils <- cbind(pi[rep(seq_len(nrow(pi)),each=length(subpops)),,drop=FALSE],
+                    sils)
+      row.names(sils) <- NULL
+      sils
     })
-    names(sw) <- unique(ll)
-    R2 <- lapply(x, FUN=function(x) x$R2)
-    nn <- unique(unlist(lapply(R2,names)))
-    #nn <- nn[order(as.numeric(unlist(regmatches(nn,gregexpr("[[:digit:]]+$",nn)))))]
-    R2 <- sapply(nn, FUN=function(n){
-      sapply(R2, FUN=function(x) x[n])
-    })
-    list( clust.avg.silwidth=sw,
-          PC1.covar=tryCatch(sapply(x, FUN=function(x) x$covar.cor[1,]), 
-                             error=function(e) NULL),
-          PC1.covarR=tryCatch(sapply(x, FUN=function(x) x$covar.Rcor[1,]), 
-                              error=function(e) NULL),
-          PC.R2=R2 )
   })
   
-  if(dswise) return(perDS)
-  
-  sw <- lapply(names(perDS[[1]]$clust.avg.silwidth), FUN=function(n){
-    d <- lapply(perDS, FUN=function(x){ x$clust.avg.silwidth[[n]] })
-    for(f in names(perDS)) colnames(d[[f]]) <- paste(f,colnames(d[[f]]))
-    do.call(cbind, d)
+  dims <- unlist(lapply(allsi, names))
+  dims <- table(dims)[unique(dims)]
+  names(dims) <- dims <- names(dims)[dims==length(allsi)]
+  allsi <- lapply(dims, FUN=function(x){
+    x <- dplyr::bind_rows(lapply(allsi, FUN=function(y) y[[x]]), .id = "dataset")
+    x$dataset <- factor(x$dataset)
+    x
   })
-  names(sw) <- names(perDS[[1]]$clust.avg.silwidth)
   
-  if(is.null(perDS[[1]]$PC1.covar) | is.null(perDS[[1]]$PC1.covarR)){
-    PC1.covar <- NULL
-    PC1.covarR <- NULL
-  }else{
-    PC1.covar <- lapply(row.names(perDS[[1]]$PC1.covar), FUN=function(covar){
-      do.call(cbind, lapply(perDS, FUN=function(x) abs(x$PC1.covar[covar,])))
-    })
-    names(PC1.covar) <- paste0("PC1_covar.",row.names(perDS[[1]]$PC1.covar))
-    PC1.covarR <- lapply(row.names(perDS[[1]]$PC1.covarR), FUN=function(covar){
-      do.call(cbind, lapply(perDS, FUN=function(x) abs(x$PC1.covarR[covar,])))
-    })
-    names(PC1.covarR) <- paste0("PC1_covarR.",row.names(perDS[[1]]$PC1.covarR))
-  }
+  R2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
+    # find common PCs
+    x <- lapply(x, FUN=function(x) x$R2)
+    nn <- table(unlist(lapply(x, names)))
+    nn <- names(nn)[nn==length(x)]
+    x <- do.call(rbind, lapply(x, FUN=function(x) x[nn]))
+    cbind(pi, x)
+  }), .id="dataset")
   
-  PCtop5.R2 <- do.call(cbind, lapply(perDS, FUN=function(x){
-    if(!is.matrix(x$PC.R2)) return(t(x$PC.R2[1:min(5,nrow(x$PC.R2))]))
-    colMeans(x$PC.R2[1:min(5,nrow(x$PC.R2)),,drop=FALSE])
-  }))
+  covar <- dplyr::bind_rows(lapply(res, FUN=function(x){
+    a <- pi[rep(seq_len(nrow(pi)),each=ncol(x[[1]]$covar.cor)),,drop=FALSE]
+    a <- cbind(a, dplyr::bind_rows(lapply(x, FUN=function(x){
+      y <- t(x$covar.Rcor)
+      colnames(y) <- paste0("PC",seq_len(ncol(y)))
+      data.frame(covariate=colnames(x$covar.cor), y, stringsAsFactors=FALSE)
+    })))
+    row.names(a) <- NULL
+    a
+  }), .id="dataset")
+  covarR <- dplyr::bind_rows(lapply(res, FUN=function(x){
+    a <- pi[rep(seq_len(nrow(pi)),each=ncol(x[[1]]$covar.Rcor)),,drop=FALSE]
+    a <- cbind(a, dplyr::bind_rows(lapply(x, FUN=function(x){
+      y <- t(x$covar.Rcor)
+      colnames(y) <- paste0("PC",seq_len(ncol(y)))
+      data.frame(covariate=colnames(x$covar.Rcor), y, stringsAsFactors=FALSE)
+    })))
+    row.names(a) <- NULL
+    a
+  }), .id="dataset")
   
-  res <- list( silhouettes=allsi, clust.avg.silwidth=sw )
-  res <- c(res, PC1.covar, PC1.covarR)
-  res$PCtop5.R2 <- PCtop5.R2
-  res
+  top5.covarR <- dplyr::bind_rows(lapply(res, FUN=function(x){
+    cbind(pi, do.call(rbind, lapply(x, FUN=function(x){
+      colMeans(x$covar.Rcor[1:5,])
+    })))
+  }), .id="dataset")
+  
+  list( silhouette=allsi, varExpl.subpops=R2, corr.covariate=covar,
+        residualCorr.covariate=covarR, residualCorr.covariate.top5=top5.covarR )
 }
 
 
