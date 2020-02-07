@@ -151,7 +151,7 @@ norm.seurat <- function(x, vars=NULL, noscale=FALSE){
   }else{
     if(is.null(vars)) vars <- c()
     for(f in vars){
-      if(!(sd(x[[]][[f]])>0)) vars <- setdiff(vars,f)
+      if(!(sd(x@meta.data[[f]])>0)) vars <- setdiff(vars,f)
     }
     if(length(vars)==0) vars <- NULL
     x <- ScaleData(x, verbose=FALSE, vars.to.regress=vars)
@@ -165,7 +165,7 @@ norm.seurat.noscale <- function(x, ...){
 
 norm.scran <- function(x, vars=NULL, noscale=FALSE, min.mean=1){
   library(scran)
-  a <- GetAssayData(x, assay = "RNA", slot = "counts")
+  a <- x@assays$RNA@counts
   a <- SingleCellExperiment(assays=list(counts=a))
   clusters <- quickCluster(a, min.mean=min.mean, min.size=50)
   a <- computeSumFactors(a, min.mean=min.mean, clusters=clusters)
@@ -302,7 +302,7 @@ scran.denoisePCA <- function(x, dims=50, ...){
 
 seGlmPCA <- function(x, weight.by.var=TRUE, dims=20){
   library(glmpca)
-  dr <- glmpca(as.matrix(GetAssayData(x, assay = "RNA", slot = "counts")[VariableFeatures(x),]), dims)
+  dr <- glmpca(as.matrix(x@assays$RNA@counts[VariableFeatures(x),]), dims)
   e <- as.matrix(dr$factors)
   colnames(e) <- gsub("dim","dim_",colnames(e))
   if(weight.by.var=="both"){
@@ -333,7 +333,7 @@ sceDR2seurat <- function(embeddings, object, name){
 }
 
 clust.seurat <- function(x, rd=NULL, k=20, steps=8, dims=50, seed.use=1234, min.size=0, resolution=0.8){
-  dims <- min(dims,ncol(x[["pca"]]@cell.embeddings))
+  dims <- min(dims,ncol(x@reductions$pca@cell.embeddings))
   x <- FindNeighbors(x, k.param=k, dims=1:dims)
   x <- FindClusters(x, resolution=resolution, random.seed=seed.use, verbose=FALSE)
   Idents(x)
@@ -374,7 +374,7 @@ subsetFeatureByType <- function(g, classes=c("Mt","conding","ribo")){
 
 
 getDimensionality <- function(se, method, maxDims=50){
-  x <- se[["pca"]]@cell.embeddings
+  x <- se@reductions$pca@cell.embeddings
   x <- switch(method,
          essLocal.a=essLocalDimEst(x),
          essLocal.b=essLocalDimEst(x, ver="b"),
@@ -383,7 +383,7 @@ getDimensionality <- function(se, method, maxDims=50){
          pcaLocal.maxgap=pcaLocalDimEst(x, ver="maxgap"),
          maxLikGlobal=maxLikGlobalDimEst(x, k=20, unbiased=TRUE),
          pcaOtpmPointwise.max=pcaOtpmPointwiseDimEst(x,N=10),
-         elbow=farthestPoint(Stdev(se, "pca"))-1,
+         elbow=farthestPoint(se@reductions$pca@stdev)-1,
          fisherSeparability=FisherSeparability(x),
          scran.denoisePCA=scran.ndims.wrapper(se),
          jackstraw.elbow=js.wrapper(se,n.dims=ncol(x)-1,ret="ndims")
@@ -398,7 +398,7 @@ js.wrapper <- function(so, n.dims=50, n.rep=500, doplot=TRUE, ret=c("Seurat","pv
   so <- ScoreJackStraw(so, dims = 1:n.dims, verbose=FALSE)
   if(ret=="pvalues") return( Reductions(so,"pca")@jackstraw$overall.p.values[,2] )
   if(ret=="Seurat") return( so )
-  y <- so[["pca"]]@jackstraw$overall.p.values[,2]
+  y <- so@reductions$pca@jackstraw$overall.p.values[,2]
   nzeros <- which(y>0)[1]-1
   y <- y[-1*(1:nzeros)]
   farthestPoint(-log10(y))+nzeros
@@ -530,10 +530,10 @@ clust.scran <- function(ds, rd=NULL, method="walktrap", k=20, steps=8, dims=50, 
   if(is(ds,"Seurat")){
     ds <- SingleCellExperiment(
       assays=list(
-        counts=GetAssayData(ds, assay = "RNA", slot="counts"),
+        counts=ds@assays$RNA@counts,
         logcounts=GetAssayData(ds, slot="scale.data")
       ),
-      colData=ds[[]],
+      colData=ds@meta.data,
       reducedDims=lapply(ds@reductions, FUN=function(x) x@cell.embeddings)
     )
   }
