@@ -126,8 +126,8 @@ scrna_evalPlot_clust(res)
 <img src="inst/docs/clust_stats_example.png"/>
 
 ```{r}
-scrna_evalPlot_clustAtTrueK(res, what="ARI", show_heatmap_legend = FALSE) + 
-  scrna_evalPlot_clustAtTrueK(res, what="NMI")
+scrna_evalPlot_clust(res, what="ARI", atTrueK=TRUE, show_heatmap_legend = FALSE) + 
+  scrna_evalPlot_clust(res, atTrueK=TRUE, what="NMI")
 ```
 
 <img src="inst/docs/clustK_stats_example.png"/>
@@ -135,11 +135,11 @@ scrna_evalPlot_clustAtTrueK(res, what="ARI", show_heatmap_legend = FALSE) +
 
 ## Running only a subset of the combinations
 
-Rather than running all possible combinations of parameters, one can run only a subset of them through the `eg` parameter of `runPipeline`. The parameter accepts either a matrix (of argument indices) or data.frame (of factors) which can be built manually, but the simplest way is to first create all combinations, and then get rid of the undesired ones:
+Rather than running all possible combinations of parameters, one can run only a subset of them through the `comb` parameter of `runPipeline`. The parameter accepts either a matrix (of argument indices) or data.frame (of factors) which can be built manually, but the simplest way is to first create all combinations, and then get rid of the undesired ones:
 
 ```{r}
-eg <- buildCombMatrix(alternatives)
-head(eg)
+comb <- buildCombMatrix(alternatives)
+head(comb)
 ```
 
 ```
@@ -162,7 +162,7 @@ head(eg)
 And then we could remove some combinations before passing the argument to `runPipeline`:
 
 ```{r}
-eg <- eg[ (eg$norm != "norm.scran" | eg$resolution != 2) ,]
-res <- runPipeline( datasets, alternatives, pipDef, nthreads=3, eg=eg,
+comb <- comb[ (comb$norm != "norm.scran" | comb$resolution != 2) ,]
+res <- runPipeline( datasets, alternatives, pipDef, nthreads=3, comb=comb,
                     output.prefix="myfolder/" )
 ```

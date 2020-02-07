@@ -4,22 +4,18 @@
 \alias{scrna_evalPlot_DR}
 \title{scrna_evalPlot_DR}
 \usage{
-scrna_evalPlot_DR(res, what = c("auto", "silhouette", "covar",
-  "covarRes", "varExpl", "elapsed"), covar = c("log10_total_counts",
+scrna_evalPlot_DR(res, what = c("auto", "varExpl", "minSilWidth",
+  "meanSilWidth", "medianSilWidth", "maxSilWidth", "log10_total_counts",
   "log10_total_features", "total_features"), reorder_rows = TRUE,
-  reorder_columns = what == "silhouette", agg.by = NULL,
-  agg.fn = mean, scale = FALSE, show_heatmap_legend = FALSE,
-  value_format = "\%.2f", col = NULL, col_title_fontsize = 11,
-  anno_legend = TRUE, ...)
+  reorder_columns = NULL, agg.by = NULL, agg.fn = mean,
+  scale = FALSE, show_heatmap_legend = FALSE, value_format = "\%.2f",
+  col = NULL, col_title_fontsize = 11, anno_legend = TRUE, ...)
 }
 \arguments{
 \item{res}{Aggregated pipeline results (i.e. the output of `runPipeline` or
 `aggregateResults`)}
 
 \item{what}{What to plot (default plots main metrics)}
-
-\item{covar}{Covariate of interest (used only if `what` is  'covar' or 
-'covarRes'}
 
 \item{reorder_rows}{Logical; whether to sort rows (default TRUE)}
 
@@ -41,6 +37,9 @@ scrna_evalPlot_DR(res, what = c("auto", "silhouette", "covar",
 \item{col_title_fontsize}{Fontsite of the column titles}
 
 \item{...}{Passed to `Heatmap`}
+
+\item{covar}{Covariate of interest (used only if `what` is  'covar' or 
+'covarRes'}
 }
 \value{
 One or several `Heatmap` object.
