@@ -30,9 +30,11 @@
 setClass( "PipelineDefinition", 
           slots=representation( functions="list", descriptions="list", 
                                 evaluation="list", aggregation="list", 
+                                initiation="function",
                                 defaultArguments="list", misc="list" ),
           prototype=prototype( functions=list(), descriptions=list(), 
                                evaluation=list(), aggregation=list(), 
+                               initiation=identity,
                                defaultArguments=list(), misc=list() ),
           validity=.validatePipelineDef )
 
@@ -47,6 +49,7 @@ setClass( "PipelineDefinition",
 #' @param descriptions A list of descriptions for each step
 #' @param evaluation A list of optional evaluation functions for each step
 #' @param aggregation A list of optional aggregation functions for each step
+#' @param initiation A function ran when initiating a dataset
 #' @param defaultArguments A lsit of optional default arguments
 #' @param misc A list of whatever.
 #' @param verbose Whether to output additional warnings (default TRUE).
@@ -59,7 +62,8 @@ setClass( "PipelineDefinition",
 #' For an example pipeline, see \code{\link{scrna_seurat_pipeline}}.
 #' @export
 PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
-                                aggregation=NULL, defaultArguments=list(), 
+                                aggregation=NULL, initiation=identity, 
+                                defaultArguments=list(), 
                                 misc=list(), verbose=TRUE ){
   if(!is.list(functions) || !all(sapply(functions, is.function))) 
     stop("`functions` should be a (named) list of functions!")
@@ -98,8 +102,8 @@ PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
   names(aggregation)<-names(evaluation)<-names(descriptions)<-names(functions)
   if(is.null(misc)) misc <- list()
 	x <- new("PipelineDefinition", functions=functions, descriptions=descriptions,
-	         evaluation=evaluation, aggregation=aggregation, 
-	         defaultArguments=defaultArguments, misc=misc)
+	       evaluation=evaluation, aggregation=aggregation, initiation=initiation,
+	       defaultArguments=defaultArguments, misc=misc)
 
 	w <- which( !sapply(x@aggregation,is.null) & 
 	              sapply(x@evaluation,is.null) )
@@ -133,8 +137,12 @@ setMethod("show", signature("PipelineDefinition"), function(object){
   fns <- sapply(names(object@functions), FUN=function(x){ 
     x2 <- x
     if(!isKnit) x2 <- paste0("\033[1m",x,"\033[22m")
-    y <- paste(names(formals(object@functions[[x]])),collapse=", ")
-    y <- paste0("  - ", x2, "(", y, ")")
+    y <- sapply( names(formals(object@functions[[x]])), FUN=function(n){
+      if(!is.null(def <- object@defaultArguments[[n]]))
+        n <- paste0(n,"=",deparse(def,100,FALSE))
+      n
+    })
+    y <- paste0("  - ", x2, "(", paste(y, collapse=", "), ")")
     if(!is.null(object@evaluation[[x]]) || !is.null(object@aggregation[[x]])) 
       y <- paste0(y, ifelse(isKnit, " * ", " \033[34m*\033[39m "))
     if(!is.null(object@descriptions[[x]])){
