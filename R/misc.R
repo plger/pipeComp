@@ -97,19 +97,21 @@ parsePipNames <- function(x, setRowNames=FALSE, addcolumns=NULL){
 #' @return a matrix or data.frame
 #' @export
 #'
+#' @importFrom data.table data.table setorder
 #' @examples
 #' buildCombMatrix(list(param1=LETTERS[1:3], param2=1:2))
 buildCombMatrix <- function(alt, returnIndexMatrix=FALSE){
   eg <- data.table(expand.grid(lapply(alt, FUN=function(x){ 1:length(x) })))
   eg <- setorder(eg)
   if(returnIndexMatrix) return(as.matrix(eg))
-  eg <- as.data.frame(setorder(eg))
+  eg <- as.data.frame(eg)
   for(f in names(alt)){
     eg[,f] <- factor(alt[[f]][eg[,f]], levels=alt[[f]])
   }
   eg
 }
 
+#' @importFrom data.table data.table setorder
 .checkCombMatrix <- function(eg, alt){
   if(is.null(dim(eg))) stop("`eg` should be a matrix or data.frame of indices or factors")
   if(!all(names(alt) %in% colnames(eg))) stop("The columns of `eg` do not correspond to the arguments.")
@@ -143,7 +145,8 @@ buildCombMatrix <- function(alt, returnIndexMatrix=FALSE){
 #'
 #' @export
 #' @importFrom randomcoloR distinctColorPalette
-#' @example getQualitativePalette(5)
+#' @examples
+#' getQualitativePalette(5)
 getQualitativePalette <- function(nbcolors){
   nbcolors <- round(nbcolors)
   switch(as.character(nbcolors),

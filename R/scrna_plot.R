@@ -23,7 +23,7 @@
 #' @return One or several `Heatmap` object.
 #' @export
 #'
-#' @import ComplexHeatmap matrixStats grid
+#' @import ComplexHeatmap grid
 #' @importFrom viridisLite inferno
 scrna_evalPlot_DR <- function(res, 
                               what=c("auto", "varExpl", "minSilWidth", 
@@ -135,7 +135,7 @@ scrna_evalPlot_DR <- function(res,
 #' @return One or several `Heatmap` object.
 #' @export
 #'
-#' @import ComplexHeatmap matrixStats grid
+#' @import ComplexHeatmap grid
 #' @importFrom viridisLite inferno
 scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
                                  agg.by=NULL, agg.fn=mean, 
