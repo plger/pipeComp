@@ -31,8 +31,8 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   mcall <- match.call()
   if(!is(pipelineDef,"PipelineDefinition")) 
     pipelineDef <- PipelineDefinition(pipelineDef)
+  alternatives <- .checkPipArgs(alternatives, pipelineDef)
   pipDef <- pipelineDef@functions
-  alternatives <- .checkPipArgs(alternatives, pipDef)
   
   if(is.null(names(datasets)))
     names(datasets) <- paste0("dataset",seq_along(datasets))
@@ -231,19 +231,19 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
 
 .checkPipArgs <- function(alternatives, pipDef=NULL){
   if(any(grepl(";|=",names(alternatives)))) 
-    stop("Some of the pipeline arguments contain unaccepted characters (e.g. ';' or '=').")
+    stop("Some of the pipeline arguments contain unaccepted characters ",
+      "(e.g. ';' or '=').")
   if(any(sapply(alternatives, FUN=function(x) any(grepl(";|=",x)))))
-    stop("Some of the alternative argument values contain unaccepted characters (e.g. ';' or '=').")
+    stop("Some of the alternative argument values contain unaccepted ",
+      "characters (e.g. ';' or '=').")
   if(!is.null(pipDef)){
     def <- pipDef@defaultArguments
     for(f in names(alternatives)) def[[f]] <- alternatives[[f]]
-    args <- lapply(pipDef, FUN=function(x){ setdiff(names(formals(x)), "x") })
+    args <- arguments(pipDef)
     if(!all(unlist(args) %in% names(def))){
       missingParams <- setdiff(as.character(unlist(args)), names(def))
-      stop("`alternatives` should have the following slots defined in the pipeline:",
-           paste(as.character(unlist(args)),collapse=", "),"
-          The following are missing:
-          ", paste(missingParams ,collapse=", "))
+      stop("`alternatives` should have entries for the following slots defined",
+        " in the pipeline: ", paste(missingParams ,collapse=", "))
     }
     if(!all( sapply(def, FUN=length)>0)){
       stop("All steps of `alternatives` should contain at least one option.")
