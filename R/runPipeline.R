@@ -32,7 +32,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   if(!is(pipelineDef,"PipelineDefinition")) 
     pipelineDef <- PipelineDefinition(pipelineDef)
   pipDef <- pipelineDef@functions
-  .checkPipArgs(alternatives, pipDef)
+  alternatives <- .checkPipArgs(alternatives, pipDef)
   
   if(is.null(names(datasets)))
     names(datasets) <- paste0("dataset",seq_along(datasets))
@@ -61,13 +61,9 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   
   ## BEGIN .runPipelineF
   .runPipelineF <- function(dsi){
-    if(is.character(datasets[[dsi]])){
-      ds <- readRDS(datasets[[dsi]])
-    }else{
-      ds <- datasets[[dsi]]
-    }
-    dsname <- names(datasets)[dsi]
-
+    dsname <- dsi
+    ds <- pipelineDef@initiation(datasets[[dsi]])
+    
     if(debug) message(dsname)
 
     elapsed <- lapply(pipDef, FUN=function(x) list())
@@ -239,18 +235,22 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   if(any(sapply(alternatives, FUN=function(x) any(grepl(";|=",x)))))
     stop("Some of the alternative argument values contain unaccepted characters (e.g. ';' or '=').")
   if(!is.null(pipDef)){
+    def <- pipDef@defaultArguments
+    for(f in names(alternatives)) def[[f]] <- alternatives[[f]]
     args <- lapply(pipDef, FUN=function(x){ setdiff(names(formals(x)), "x") })
-    if(!all(unlist(args) %in% names(alternatives))){
-      missingParams <- setdiff(as.character(unlist(args)), names(alternatives))
+    if(!all(unlist(args) %in% names(def))){
+      missingParams <- setdiff(as.character(unlist(args)), names(def))
       stop("`alternatives` should have the following slots defined in the pipeline:",
            paste(as.character(unlist(args)),collapse=", "),"
           The following are missing:
           ", paste(missingParams ,collapse=", "))
     }
-    if(!all( sapply(alternatives, FUN=length)>0)){
+    if(!all( sapply(def, FUN=length)>0)){
       stop("All steps of `alternatives` should contain at least one option.")
     }
+    alternatives <- def
   }
+  alternatives
 }
 
 

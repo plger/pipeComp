@@ -9,14 +9,15 @@
 #' * doublet: `doubletmethod` (name of the doublet removal function)
 #' * filtering: `filt` (name of the filtering function, or filter string)
 #' * normalization: `norm` (name of the normalization function)
-#' * selection: `sel` (name of the selection function, or variable of rowData on which to select) and 
-#'  `selnb` (number of features to select)
-#' * dimreduction: `dr` (name of the dimensionality reduction function) and `maxdim` (maximum number 
-#' of components to compute)
-#' * clustering: `clustmethod` (name of the clustering function), `dims` (number of dimensions to use),
-#'  `k` (number of nearest neighbors to use, if applicable), `steps` (number of steps in the random 
-#'  walk, if applicable), `resolution` (resolution, if applicable), `min.size` (minimum cluster size,
-#'  if applicable)
+#' * selection: `sel` (name of the selection function, or variable of rowData on
+#'  which to select) and `selnb` (number of features to select)
+#' * dimreduction: `dr` (name of the dimensionality reduction function) and 
+#' `maxdim` (maximum number of components to compute)
+#' * clustering: `clustmethod` (name of the clustering function), 
+#' `dims` (number of dimensions to use), `k` (number of nearest neighbors to 
+#' use, if applicable), `steps` (number of steps in the random walk, if 
+#' applicable), `resolution` (resolution, if applicable), `min.size` (minimum 
+#' cluster size, if applicable)
 #' 
 #' @param saveDimRed Logical; whether to save the dimensionality reduction for 
 #' each analysis (default FALSE)
@@ -82,7 +83,11 @@ using the `dr` function.",
         # },
         clustering=function(x, clustmethod, dims, k, steps, resolution, min.size){
           tl <- x$phenoid
-          dims <- pipeComp:::.parseDims(x,dims)
+          if(!is.na(suppressWarnings(as.numeric(dims)))){
+            dims <- as.integer(dims)
+          }else{
+            dims <- getDimensionality(x, dims)
+          }
           x <- get(clustmethod)(x, dims=dims, resolution=resolution, k=k, steps=steps, min.size=min.size)
           list( x=x, intermediate_return=evaluateClustering(x,tl) )
         }
@@ -97,12 +102,15 @@ using the `dr` function.",
                selection=NULL,
                dimreduction=.aggregateDR,
                clustering=.aggregateClusterEvaluation )
-  
+  # default arguments
+  def <- list( selnb=2000, maxdim=50, dims=20, k=20, steps=8, min.size=50,
+               resolution=c(0.01, 0.1, 0.5, 0.8, 1) )
+  # initiation function
+  initf <- function(x){
+    if(is.character(x) && length(x)==1) return(readRDS(x))
+    x
+  }
   PipelineDefinition(functions=f, descriptions=desc, evaluation=eva,
-                            aggregation=agg, verbose=FALSE)
-}
-
-.parseDims <- function(x, dims){
-  if(!is.na(suppressWarnings(as.numeric(dims)))) return(as.integer(dims))
-  getDimensionality(x, dims)
+                      aggregation=agg, initiation=initf, 
+                     defaultArguments=def, verbose=FALSE)
 }
