@@ -48,7 +48,7 @@ using the `dr` function.",
   if(saveDimRed){
     DRfun <- function(x, dr, maxdim){ 
       x <- get(dr)(x, dims=maxdim)
-      list( x=x, intermediate_return=list( cell.embeddings=x@reductions$pca@cell.embeddings,
+      list( x=x, intermediate_return=list( cell.embeddings=x[["pca"]]@cell.embeddings,
                                            evaluation=evaluateDimRed(x) ) )
     }
   }else{
@@ -79,7 +79,7 @@ using the `dr` function.",
         #   }else{
         #     dims <- getDimensionality(x, dims)
         #   }
-        #   x@reductions$pca@cell.embeddings <- x@reductions$pca@cell.embeddings[,seq_len(dims)]
+        #   x[["pca"]]@cell.embeddings <- x[["pca"]]@cell.embeddings[,seq_len(dims)]
         # },
         clustering=function(x, clustmethod, dims, k, steps, resolution, min.size){
           tl <- x$phenoid
