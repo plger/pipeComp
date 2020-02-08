@@ -23,7 +23,7 @@
 #'
 #' @return A SimpleList.
 #' 
-#' @import methods BiocParallel data.table S4Vectors
+#' @import methods BiocParallel S4Vectors
 #' @export
 runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL, 
                          output.prefix="", nthreads=length(datasets), 
