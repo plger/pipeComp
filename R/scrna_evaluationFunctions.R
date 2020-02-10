@@ -383,11 +383,12 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
     # set to 0 if no matching cluster (too few detected clusters); use character
     #  names for row and column indices in case subsampling completely removes 
     # some clusters
-    pr[i] <- ifelse(is.na(labels_matched[i]), 0, pr_mat[as.character(labels_matched[i]), names(labels_matched)[i]])
-    re[i] <- ifelse(is.na(labels_matched[i]), 0, re_mat[as.character(labels_matched[i]), names(labels_matched)[i]])
-    F1[i] <- ifelse(is.na(labels_matched[i]), 0, F1_mat[as.character(labels_matched[i]), names(labels_matched)[i]])
+    im <- labels_matched[i]
+    pr[i] <- ifelse(is.na(im), 0, pr_mat[as.character(im), names(im)])
+    re[i] <- ifelse(is.na(im), 0, re_mat[as.character(im), names(im)])
+    F1[i] <- ifelse(is.na(im), 0, F1_mat[as.character(im), names(im)])
     
-    n_cells_matched[i] <- sum(clus_algorithm == labels_matched[i], na.rm = TRUE)
+    n_cells_matched[i] <- sum(clus_algorithm == labels_matched[i], na.rm=TRUE)
   }
   
   # means across populations
