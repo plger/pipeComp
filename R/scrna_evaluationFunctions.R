@@ -139,6 +139,15 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   # correlation of each component with covariates
   covar.cor <- sapply( covars, FUN=function(y) cor(x,y) )
   
+  covar.adjR2 <- sapply(covars, FUN=function(co){
+    apply(x[,1:min(5,ncol(x))],2,FUN=function(x){ 
+      tryCatch({
+        summary(lm(x~co+factor(clusters)))$adj.r.squared -
+          summary(lm(x~factor(clusters)))$adj.r.squared
+      }, error=function(e) NA)
+    })
+  })
+  
   # per-subpopuluation correlation of each component with covariates
   ii <- split(seq_len(nrow(x)), clusters)
   covar.cor2 <- lapply( covars, FUN=function(y){
@@ -164,6 +173,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
         cellDistsToMedian=dists,
         covar.cor=covar.cor,
         covar.cor2=covar.cor2,
+        covar.adjR2=covar.adjR2,
         R2=R2 )
 }
 
@@ -237,6 +247,8 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
     a
   }), .id="dataset")
   
+  top5 <- covar.cor2 <- covar.adjR2 <- NULL
+  
   if(!is.null(res[[1]][[1]]$covar.cor2)){
     covar.cor2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
       x <- lapply(x, FUN=function(x){
@@ -256,13 +268,18 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
                  ,"~covariate")
     top5 <- reshape2::dcast( top5, as.formula(ff), value.var="x", 
                              fun.aggregate=mean)
-    
-  }else{
-    top5 <- covar.cor2 <- NULL
   }
-  
+  if(!is.null(res[[1]][[1]]$covar.adjR2)){
+    covar.adjR2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
+      pi <- parsePipNames(names(x))
+      x <- do.call(rbind, lapply(x, FUN=function(x) x$covar.adjR2[1,,drop=FALSE]))
+      row.names(x) <- NULL
+      cbind(pi, x)
+    }), .id="dataset")
+  }
+
   list( silhouette=allsi, varExpl.subpops=R2, corr.covariate=covar,
-        corr.covariate2=covar.cor2, meanAbsCorr.covariate2=top5 )
+        meanAbsCorr.covariate2=top5, PC1.covar.adjR2=covar.adjR2 )
 }
 
 

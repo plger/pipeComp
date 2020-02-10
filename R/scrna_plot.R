@@ -67,8 +67,8 @@ scrna_evalPlot_DR <- function(res,
     sname <- "silhouette\nwidth"
   }else if(what %in% 
            c("log10_total_counts","log10_total_features","total_features")){
-    title <- paste0("mean(abs(corr))\n", what)
-    res <- res$meanAbsCorr.covariate2
+    title <- paste0("adj.R^2 diff\n", what)
+    res <- res$PC1.covar.adjR2
     sname <- "correlation"
   }else if(what=="varExpl"){
     title <- "var explained by\nsubpopulations"
