@@ -378,7 +378,7 @@ sceDR2seurat <- function(embeddings, object, name){
 
 clust.seurat <- function(x, rd=NULL, k=20, steps=8, dims=50, seed.use=1234, min.size=0, resolution=0.8){
   dims <- min(dims,ncol(x[["pca"]]@cell.embeddings))
-  x <- FindNeighbors(x, k.param=k, dims=1:dims)
+  x <- FindNeighbors(x, k.param=k, dims=1:dims, verbose=FALSE)
   x <- FindClusters(x, resolution=resolution, random.seed=seed.use, verbose=FALSE)
   Idents(x)
 }
