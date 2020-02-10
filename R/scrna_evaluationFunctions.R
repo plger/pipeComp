@@ -96,6 +96,7 @@ evaluateClustering <- function(x, tl){
 #' * R2: the proportion of variance in each component (up to `max(n)`) that is 
 #' explained by the clusters (i.e. R-squared of a linear model).
 #' 
+#' @importFrom cluster silhouette
 #' @export
 evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   if(is.null(covars)) covars <- c("log10_total_features", "log10_total_counts", 
@@ -111,11 +112,10 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   }else{
     if(is.null(clusters)) stop("`clusters` must be given!")
   }
-  library(cluster)
   clusters <- as.factor(clusters)
   n <- unique(sapply(n, y=ncol(x), FUN=function(x,y) min(x,y)))
   si <- lapply(n, FUN=function(dims){
-    silhouette(as.integer(clusters), dist(x[,1:dims]))
+    cluster::silhouette(as.integer(clusters), dist(x[,1:dims]))
   })
   names(si) <- sapply(n, FUN=function(i){
     if(i==ncol(x)) return(paste0("all_", i,"_dims"))
@@ -139,11 +139,15 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   # correlation of each component with covariates
   covar.cor <- sapply( covars, FUN=function(y) cor(x,y) )
   
-  # correlation of the residuals (after regression on clusters) explained by each covariates
-  res <- apply(x[,seq_len(max(n))], 2, cl=clusters, FUN=function(x, cl){
-    lm(x~cl)$residuals
+  # per-subpopuluation correlation of each component with covariates
+  ii <- split(seq_len(nrow(x)), clusters)
+  covar.cor2 <- lapply( covars, FUN=function(y){
+    z <- sapply(ii, FUN=function(i){
+      t(cor(x[i,],y[i]))
+    })
+    row.names(z) <- colnames(x)
+    z
   })
-  covar.Rcor <- sapply( covars, FUN=function(y) cor(res,y) )
   
   # each cell's distance to the cluster median
   cs <- split(row.names(x),clusters)
@@ -159,7 +163,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
         clust.avg.silwidth=csw,
         cellDistsToMedian=dists,
         covar.cor=covar.cor,
-        covar.Rcor=covar.Rcor,
+        covar.cor2=covar.cor2,
         R2=R2 )
 }
 
@@ -225,32 +229,40 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   covar <- dplyr::bind_rows(lapply(res, FUN=function(x){
     a <- pi[rep(seq_len(nrow(pi)),each=ncol(x[[1]]$covar.cor)),,drop=FALSE]
     a <- cbind(a, dplyr::bind_rows(lapply(x, FUN=function(x){
-      y <- t(x$covar.Rcor)
+      y <- t(x$covar.cor)
       colnames(y) <- paste0("PC",seq_len(ncol(y)))
       data.frame(covariate=colnames(x$covar.cor), y, stringsAsFactors=FALSE)
     })))
     row.names(a) <- NULL
     a
   }), .id="dataset")
-  covarR <- dplyr::bind_rows(lapply(res, FUN=function(x){
-    a <- pi[rep(seq_len(nrow(pi)),each=ncol(x[[1]]$covar.Rcor)),,drop=FALSE]
-    a <- cbind(a, dplyr::bind_rows(lapply(x, FUN=function(x){
-      y <- t(x$covar.Rcor)
-      colnames(y) <- paste0("PC",seq_len(ncol(y)))
-      data.frame(covariate=colnames(x$covar.Rcor), y, stringsAsFactors=FALSE)
-    })))
-    row.names(a) <- NULL
-    a
-  }), .id="dataset")
   
-  top5.covarR <- dplyr::bind_rows(lapply(res, FUN=function(x){
-    cbind(pi, do.call(rbind, lapply(x, FUN=function(x){
-      colMeans(abs(as.matrix(x$covar.Rcor[1:5,])))
-    })))
-  }), .id="dataset")
+  if(!is.null(res[[1]][[1]]$covar.cor2)){
+    covar.cor2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
+      x <- lapply(x, FUN=function(x){
+        reshape2::melt(sapply(x$covar.cor2, FUN=function(x){
+          rowMeans(x[1:min(nrow(x),5),,drop=FALSE])
+        }), value.name = "meanCor")
+      })
+      cbind( pi[rep(seq_len(nrow(pi)),sapply(x,nrow)),,drop=FALSE], 
+             dplyr::bind_rows(x) )
+    }), .id="dataset")
+    colnames(covar.cor2)[ncol(pi)+2:3] <- c("component","covariate")
+    w <- which(covar.cor2$component %in% paste0(c("PC","PC_"),rep(1:5,each=2)))
+    top5 <- aggregate( covar.cor2$meanCor[w],
+                       by=covar.cor2[,c("dataset","covariate", colnames(pi))],
+                       FUN=function(x) mean(abs(x)) )
+    ff <- paste( paste(setdiff(colnames(top5),c("x","covariate")),collapse="+")
+                 ,"~covariate")
+    top5 <- reshape2::dcast( top5, as.formula(ff), value.var="x", 
+                             fun.aggregate=mean)
+    
+  }else{
+    top5 <- covar.cor2 <- NULL
+  }
   
   list( silhouette=allsi, varExpl.subpops=R2, corr.covariate=covar,
-        residualCorr.covariate=covarR, residualCorr.covariate.top5=top5.covarR )
+        corr.covariate2=covar.cor2, meanAbsCorr.covariate2=top5 )
 }
 
 
@@ -407,18 +419,19 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
 #' @return a data.frame.
 #' @export
 #' @importFrom matrixStats rowMedians
+#' @importFrom Matrix rowMeans
 evaluateNorm <- function(x, clusters=NULL, covars=NULL){
   if(is.null(covars)) covars <- c("log10_total_counts", "total_features")
   if(is(x,"Seurat")){
     if(is.character(covars)) covars <- x[[]][,covars]
     if(is.null(clusters)) clusters <- x$phenoid
-    x <- GetAssayData(x, assay = "RNA", slot = "data")
-    meanCount <- rowMeans(GetAssayData(x, assay = "RNA", slot = "counts"))
+    meanCount <- Matrix::rowMeans(Seurat::GetAssayData(x, assay="RNA", slot="counts"))
+    x <- Seurat::GetAssayData(x, assay="RNA", slot="data")
   }else if(is(x, "SingleCellExperiment")){
     if(is.character(covars)) covars <- as.data.frame(colData(x)[,covars])
     if(is.null(clusters)) clusters <- x$phenoid
+    meanCount <- Matrix::rowMeans(counts(x))
     x <- logcounts(x)
-    meanCount <- rowMeans(counts(x))
   }
   x <- as.matrix(x)
   ve <- round(as.numeric(apply(x, 1, cl=clusters, FUN=.getVE)),2)
@@ -428,11 +441,11 @@ evaluateNorm <- function(x, clusters=NULL, covars=NULL){
     ii <- split(seq_len(ncol(x)), clusters)
     for( f in names(covars) ){
       tmp <- sapply(ii, FUN=function(i){
-        cor(t(x[,i]), as.numeric(covars[[f]]))
+        cor(t(x[,i]), as.numeric(covars[[f]][i]))
       })
-      res[[paste0(f,".medianCorr"]] <- round(matrixStats::rowMedians(tmp),2)
-      res[[paste0(f,".meanCorr"]] <- round(matrixStats::rowMeans(tmp),2)
-      res[[paste0(f,".meanAbsCorr"]] <- round(matrixStats::rowMeans(abs(tmp)),2)
+      res[[paste0(f,".medianCorr")]] <- round(matrixStats::rowMedians(tmp),2)
+      res[[paste0(f,".meanCorr")]] <- round(rowMeans(tmp),2)
+      res[[paste0(f,".meanAbsCorr")]] <- round(rowMeans(abs(tmp)),2)
     }
   }
   return(res)
