@@ -148,12 +148,18 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   if(is.null(agg.by)) agg.by <- .getClustAggFields(res)
   if(what=="auto"){
     return( 
-      scrna_evalPlot_clust(res, "ARI", agg.by=agg.by, atTrueK=atTrueK, scale=scale, reorder_rows=FALSE, ...) + 
-      scrna_evalPlot_clust(res, "NMI", agg.by=agg.by, atTrueK=atTrueK, scale=scale, reorder_rows=FALSE, ...) + 
-      scrna_evalPlot_clust(res, "mean_re", agg.by=agg.by, atTrueK=atTrueK, scale=scale, reorder_rows=FALSE, ...) + 
-      scrna_evalPlot_clust(res, "min_re", agg.by=agg.by, atTrueK=atTrueK, scale=scale, reorder_rows=FALSE, ...) +
-      scrna_evalPlot_clust(res, "mean_pr", agg.by=agg.by, atTrueK=atTrueK, scale=scale, reorder_rows=FALSE, ...) + 
-      scrna_evalPlot_clust(res, "min_pr", agg.by=agg.by, atTrueK=atTrueK, scale=scale, reorder_rows=FALSE, ...)
+      scrna_evalPlot_clust(res, "ARI", agg.by=agg.by, atTrueK=atTrueK, 
+                           scale=scale, reorder_rows=FALSE, ...) + 
+      scrna_evalPlot_clust(res, "NMI", agg.by=agg.by, atTrueK=atTrueK, 
+                           scale=scale, reorder_rows=FALSE, ...) + 
+      scrna_evalPlot_clust(res, "mean_re", agg.by=agg.by, atTrueK=atTrueK, 
+                           scale=scale, reorder_rows=FALSE, ...) + 
+      scrna_evalPlot_clust(res, "min_re", agg.by=agg.by, atTrueK=atTrueK, 
+                           scale=scale, reorder_rows=FALSE, ...) +
+      scrna_evalPlot_clust(res, "mean_pr", agg.by=agg.by, atTrueK=atTrueK, 
+                           scale=scale, reorder_rows=FALSE, ...) + 
+      scrna_evalPlot_clust(res, "min_pr", agg.by=agg.by, atTrueK=atTrueK, 
+                           scale=scale, reorder_rows=FALSE, ...)
     )
   }
   if("evaluation" %in% names(res)) res <- res$evaluation
@@ -166,7 +172,8 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   }
   
   if(scale) res2 <- .safescale(res)
-  row.names(res2) <- row.names(res) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
+  row.names(res2) <- row.names(res) <- 
+    gsub("resolution=", "res=", gsub("norm=norm\\.","",row.names(res2)))
   if(is(reorder_rows, "Heatmap")){
     ro <- row.names(reorder_rows@matrix)
   }else{
@@ -191,10 +198,12 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   cellfn <- .getCellFn(res,res2,value_format)
   title <- gsub("_re$","\nrecall",gsub("_pr$","\nprecision",what))
   if(atTrueK) title <- paste(title, "\nat true #\nof clusters")
-  Heatmap( res2, name=what, cluster_rows=FALSE, show_heatmap_legend=show_heatmap_legend, 
-           cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res),anno_legend), 
+  Heatmap( res2, name=what, cluster_rows=FALSE, 
+           show_heatmap_legend=show_heatmap_legend, cluster_columns=FALSE, 
+           bottom_annotation=.ds_anno(colnames(res),anno_legend), 
            show_column_names = FALSE, cell_fun=cellfn, col=col,
-           column_title=title, column_title_gp=gpar(fontisze=col_title_fontsize), ...)
+           column_title=title, 
+           column_title_gp=gpar(fontisze=col_title_fontsize), ...)
 }
 
 
@@ -203,7 +212,8 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   if("evaluation" %in% names(res)) res <- res$evaluation
   if("clustering" %in% names(res)) res <- res$clustering
   fields <- unlist(arguments(pipDef))
-  fields <- intersect(colnames(res), setdiff(fields, c("k", "dims", "steps","resolution","min.size")))
+  fields <- setdiff(fields, c("k", "dims", "steps","resolution","min.size"))
+  fields <- intersect(colnames(res), fields)
   fields[sapply(res[,fields,drop=FALSE], FUN=function(x){
     length(unique(x))>1
   })]
@@ -245,7 +255,8 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   y
 }
 
-.prepRes <- function(res, what=NULL, agg.by=NULL, agg.fn=mean, pipDef=NULL, long=FALSE){
+.prepRes <- function(res, what=NULL, agg.by=NULL, agg.fn=mean, pipDef=NULL, 
+                     long=FALSE){
   if(is.null(what) && !long) stop("`what` should be defined.")
   if(!is.null(agg.by)){
     agg.by2 <- c(agg.by, intersect(colnames(res),c("dataset","subpopulation")))
@@ -253,7 +264,8 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
       what <- colnames(res)[which(sapply(res,class) %in% c("integer","numeric"))]
       what <- setdiff(what, agg.by)
     }
-    res <- aggregate(res[,what,drop=FALSE], by=res[,agg.by2,drop=FALSE], FUN=agg.fn)
+    res <- aggregate(res[,what,drop=FALSE], by=res[,agg.by2,drop=FALSE], 
+                     FUN=agg.fn)
     pp <- res[,agg.by,drop=FALSE]
   }else{
     if(is.null(pipDef)) stop("Either `agg.by` or `pipDef` should be given.")
@@ -288,13 +300,15 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   resmid <- range(res2, na.rm=TRUE)
   resmid <- resmid[1]+(resmid[2]-resmid[1])/2
   function(j, i, x, y, width, height, fill){
-    if(value_format=="" || is.null(value_format) || is.na(value_format)) return(NULL)
+    if(value_format=="" || is.null(value_format) || is.na(value_format))
+      return(NULL)
     lab <- sprintf(value_format, res[i,j])
     if(!any(abs(res)>1, na.rm=TRUE)){
       lab <- gsub("^0\\.",".",lab)
       lab <- gsub("^-0\\.","-.",lab)
     } 
-    grid.text(lab, x, y, gp = gpar(fontsize = 10, col=ifelse(res2[i,j]>resmid,cols[1],cols[2])))
+    cols <- ifelse(res2[i,j]>resmid,cols[1],cols[2])
+    grid.text(lab, x, y, gp = gpar(fontsize = 10, col=cols))
   }
 }
 
@@ -313,7 +327,8 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   }
   mm$N <- mm[,grep("N\\.before",colnames(mm))[1]]
   mm$N.lost <- rowSums(mm[,grep("N\\.lost",colnames(mm))])
-  mm$pc.lost <- 100*rowSums(mm[,grep("N\\.lost",colnames(mm))])/mm[,grep("N\\.before",colnames(mm))[1]]
+  mm$pc.lost <- 100*rowSums(mm[,grep("N\\.lost",colnames(mm))])/
+    mm[,grep("N\\.before",colnames(mm))[1]]
   mm
 }
 
@@ -342,7 +357,7 @@ scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"),
     sapply(ci, function(x) agf(co[x,"pc.lost"]) )
   })))
   x$total.lost <- sapply(ci, FUN=function(x) sum(co[x,"N.lost"]))
-  x$pc.lost <- sapply(ci, FUN=function(x) 100*sum(co[x,"N.lost"])/sum(co[x,"N"]))
+  x$pc.lost <- sapply(ci,FUN=function(x) 100*sum(co[x,"N.lost"])/sum(co[x,"N"]))
   x <- cbind(coI[sapply(ci,FUN=function(x) x[1]),], x)
   # get clustering data
   cl <- aggregate( res$clustering[,clustMetric,drop=FALSE], 
@@ -395,7 +410,8 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
     names(y) <- names(x)
     y
   })
-  for(i in seq_along(sces)) sces[[i]]$cluster <- cols[[i]][as.character(sces[[i]]$phenoid)]
+  for(i in seq_along(sces)) 
+    sces[[i]]$cluster <- cols[[i]][as.character(sces[[i]]$phenoid)]
   cd <- lapply(sces, FUN=function(x) as.data.frame(colData(x)))
   names(cols2) <- cols2 <- unique(unlist(cols))
   noy <- theme( axis.line=element_blank(),axis.text.y=element_blank(),
@@ -404,11 +420,14 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
                   aspect.ratio = 1, axis.text=element_text(size=10),
                   plot.margin=margin(l=0,r=0))
   cs <- scale_fill_manual(values=cols2)
-  d <- data.frame(dataset=rep(names(sces),sapply(tt,length)), cluster=unlist(cols), nb=unlist(tt))
-  p1 <- ggplot(d, aes(x=cluster, y=nb, fill=cluster)) + geom_bar(stat = "identity") + 
-    scale_y_log10() + facet_wrap(~dataset, scales="free_y", ncol=1, strip.position = "left") + 
+  d <- data.frame(dataset=rep(names(sces),sapply(tt,length)), 
+                  cluster=unlist(cols), nb=unlist(tt))
+  p1 <- ggplot(d, aes(x=cluster, y=nb, fill=cluster)) +
+    geom_bar(stat = "identity") + scale_y_log10() + 
+    facet_wrap(~dataset, scales="free_y", ncol=1, strip.position = "left") + 
     coord_flip() + ylab("Number of cells") + xlab("") +  noy + cs
-  for(x in names(sces)) sces[[x]]$cluster <- unlist(cols)[paste(x, sces[[x]]$phenoid,sep=".")]
+  for(x in names(sces))
+    sces[[x]]$cluster <- unlist(cols)[paste(x, sces[[x]]$phenoid,sep=".")]
   d <- suppressWarnings(dplyr::bind_rows(lapply(cd, FUN=function(x) 
     x[,c("total_counts","total_features","cluster")]))
   )
@@ -421,7 +440,9 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
     scale_y_continuous( trans = 'log10', breaks=10^pretty(log10(d[[x]]),n=3), 
                         labels=trans_format('log10', math_format(10^.x)) )
   rd <- function(dimred,...){
-    d2 <- cbind(d, do.call(rbind, lapply(sces, FUN=function(x) reducedDim(x,dimred) )))
+    d2 <- cbind(d, do.call(rbind, lapply(sces, FUN=function(x){
+      reducedDim(x,dimred)
+    })))
     colnames(d2)[5:6] <- c("x","y")
     ggplot(d2, aes(x,y,col=cluster)) + geom_point(...) + 
       facet_wrap(~dataset, scales="free", ncol=1) + 
@@ -451,6 +472,7 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
     h@ht_list <- lapply(h@ht_list, f=f, FUN=.renameHrows)
     return(h)
   }
-  h@row_names_param$anno@var_env$value <- f(h@row_names_param$anno@var_env$value)
+  h@row_names_param$anno@var_env$value <- 
+    f(h@row_names_param$anno@var_env$value)
   h
 }

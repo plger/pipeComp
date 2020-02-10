@@ -48,8 +48,9 @@ using the `dr` function.",
   if(saveDimRed){
     DRfun <- function(x, dr, maxdim){ 
       x <- get(dr)(x, dims=maxdim)
-      list( x=x, intermediate_return=list( cell.embeddings=x[["pca"]]@cell.embeddings,
-                                           evaluation=evaluateDimRed(x) ) )
+      list( x=x, 
+            intermediate_return=list(cell.embeddings=x[["pca"]]@cell.embeddings,
+                                     evaluation=evaluateDimRed(x)) )
     }
   }else{
     DRfun <- function(x, dr, maxdim){ 
@@ -59,11 +60,11 @@ using the `dr` function.",
   f <- list(
         doublet=function(x, doubletmethod){ 
           x2 <- pipeComp:::.runf(doubletmethod, x)
-          list( x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2) )
+          list(x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2))
         },
         filtering=function(x, filt){
           x2 <- pipeComp:::.runf(filt, x, alt=applyFilterString)
-          list( x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2) )
+          list(x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2))
         },
         normalization=function(x, norm){ 
           get(norm)(x)
@@ -88,7 +89,8 @@ using the `dr` function.",
           }else{
             dims <- getDimensionality(x, dims)
           }
-          x <- get(clustmethod)(x, dims=dims, resolution=resolution, k=k, steps=steps, min.size=min.size)
+          x <- get(clustmethod)(x, dims=dims, resolution=resolution, k=k, 
+                                steps=steps, min.size=min.size)
           list( x=x, intermediate_return=evaluateClustering(x,tl) )
         }
   )

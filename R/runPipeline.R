@@ -6,7 +6,8 @@
 #' indications about how to build one.
 #'
 #' @param datasets A named vector of initial objects or paths to rds files.
-#' @param alternatives The (named) list of alternative values for each parameters.
+#' @param alternatives The (named) list of alternative values for each 
+#' parameter.
 #' @param pipelineDef An object of class `PipelineDefinition`.
 #' @param comb An optional matrix of indexes indicating the combination to run. 
 #' Each column should correspond to an element of `alternatives`, and contain 
@@ -69,7 +70,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
     elapsed <- lapply(pipDef, FUN=function(x) list())
     elapsed.total <- list()
     
-    objects <- c(list(BASE=ds), lapply(args[-length(args)],FUN=function(x) NULL))
+    objects <- c(list(BASE=ds), lapply(args[-length(args)],FUN=function(x)NULL))
     intermediate_return_objects <- lapply(args, FUN=function(x) list() )
     rm(ds)
     
@@ -99,10 +100,12 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
       for(step in names(args)[wStep:length(args)]){
         if(debug) message(step)
         # prepare the arguments
-        a <- lapply(args[[step]], FUN=function(a) alt[[a]][newPar[which(colnames(eg)==a)]] )
+        a <- lapply(args[[step]], FUN=function(a){
+          alt[[a]][newPar[which(colnames(eg)==a)]]
+        })
         names(a) <- args[[step]]
         #a$x <- x
-        #x <- do.call(pipDef[[step]], a)   ## unknown issue with do.call... we use a custom eval function:
+        #x <- do.call(pipDef[[step]], a)   ## unknown issue with do.call...
         fcall <- .mycall(pipDef[[step]], a)
         if(debug) message(fcall)
         st <- Sys.time()
@@ -112,9 +115,11 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
    if(debug) save(x, step, pipDef, fcall, newPar, 
                   file=paste0(output.prefix,"runPipeline_error_TMPdump.RData"))
    msg <- paste0("Error in dataset `", dsi, "` with parameters:\n", aa, 
-                "\nin step `", step, "`, evaluating command:\n`", fcall, "`\nError:\n", 
-                e, "\n", ifelse(debug, paste("Current variables dumped in", 
-                                             paste0(output.prefix,"runPipeline_error_TMPdump.RData")), ""))
+                "\nin step `", step, "`, evaluating command:\n`", fcall, "`
+                Error:\n", e, "\n", 
+                ifelse(debug, paste0("Current variables dumped in ", 
+                                     output.prefix,
+                                     "runPipeline_error_TMPdump.RData"), ""))
    if(!debug || nthreads>1) print(msg)
    stop( msg )
   ## end error report
@@ -131,7 +136,8 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
           x <- x$x
         }else{
           if(!is.null(pipelineDef@evaluation[[step]])){
-            intermediate_return_objects[[step]][[ename]] <- pipelineDef@evaluation[[step]](x)
+            intermediate_return_objects[[step]][[ename]] <- 
+              pipelineDef@evaluation[[step]](x)
           }
         }
         objects[[step]] <- x

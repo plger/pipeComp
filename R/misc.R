@@ -18,8 +18,10 @@ checkPipelinePackages <- function(alternatives, pipDef=NULL){
     ""
   })
   fns <- paste(unlist(fns),collapse="\n")
-  if(!is.null(pipDef)) fns <- paste(fns, paste(pd@functions, collapse="\n"), paste(pd@evaluation, collapse="\n"))
-  pkg <- unique(regmatches(fns, gregexpr("library\\(([[:alnum:]])+\\)", fns))[[1]])
+  if(!is.null(pipDef)) fns <- paste(fns, paste(pd@functions, collapse="\n"), 
+                                    paste(pd@evaluation, collapse="\n"))
+  pkg <- gregexpr("library\\(([[:alnum:]])+\\)", fns)
+  pkg <- unique(regmatches(fns, pkg)[[1]])
   pkg <- gsub("\\)","",gsub("^library\\(","",pkg))
   pkg <- gsub('"',"",pkg)
   misspkg <- setdiff(pkg, row.names(installed.packages()))
@@ -75,7 +77,8 @@ parsePipNames <- function(x, setRowNames=FALSE, addcolumns=NULL){
   y
 }
 
-# run function `x` on object `o`; if there is no function `x`, run `alt` passing `x` as second argument
+# run function `x` on object `o`; if there is no function `x`, run `alt` passing
+# `x` as second argument
 .runf <- function(x, o, alt=NULL, ...){
   if(exists(x) && is.function(get(x))){
     return(get(x)(o, ...))
@@ -113,8 +116,10 @@ buildCombMatrix <- function(alt, returnIndexMatrix=FALSE){
 
 #' @importFrom data.table data.table setorder
 .checkCombMatrix <- function(eg, alt){
-  if(is.null(dim(eg))) stop("`eg` should be a matrix or data.frame of indices or factors")
-  if(!all(names(alt) %in% colnames(eg))) stop("The columns of `eg` do not correspond to the arguments.")
+  if(is.null(dim(eg))) 
+    stop("`eg` should be a matrix or data.frame of indices or factors")
+  if(!all(names(alt) %in% colnames(eg))) 
+    stop("The columns of `eg` do not correspond to the arguments.")
   eg <- eg[,names(alt)]
   if(!is.matrix(eg) || !is.numeric(eg)){
     for(f in colnames(eg)){
