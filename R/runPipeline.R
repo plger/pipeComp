@@ -1,13 +1,15 @@
 #' runPipeline
 #' 
-#' This function runs a pipeline with combinations of parameter variations on nested steps.
-#' The pipeline has to be defined as a list of functions applied consecutively on their 
-#' respective outputs. See `defaultPipelineDef()` for indications about how to build one.
+#' This function runs a pipeline with combinations of parameter variations on 
+#' nested steps. The pipeline has to be defined as a list of functions applied 
+#' consecutively on their respective outputs. See `defaultPipelineDef()` for 
+#' indications about how to build one.
 #'
 #' @param datasets A named vector of initial objects or paths to rds files.
-#' @param alternatives The (named) list of alternative values for each parameters.
+#' @param alternatives The (named) list of alternative values for each 
+#' parameter.
 #' @param pipelineDef An object of class `PipelineDefinition`.
-#' @param eg An optional matrix of indexes indicating the combination to run. 
+#' @param comb An optional matrix of indexes indicating the combination to run. 
 #' Each column should correspond to an element of `alternatives`, and contain 
 #' indexes relative to this element. If omitted, all combinations will be 
 #' performed.
@@ -16,20 +18,22 @@
 #' @param saveEndResults Logical; whether to save the output of the last step.
 #' @param debug Logical (default FALSE). When enabled, disables multithreading 
 #' and prints extra information.
-#' @param ... passed to MulticoreParam. Can for instance be used to set `makeCluster` 
-#' arguments, or set `threshold="TRACE"` when debugging in a multithreaded context.
+#' @param ... passed to MulticoreParam. Can for instance be used to set 
+#' `makeCluster` arguments, or set `threshold="TRACE"` when debugging in a 
+#' multithreaded context.
 #'
-#' @return 
+#' @return A SimpleList.
 #' 
-#' @import methods BiocParallel data.table
+#' @import methods BiocParallel S4Vectors
 #' @export
-runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.prefix="",
-                         nthreads=length(datasets), saveEndResults=TRUE, debug=FALSE, ...){
+runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL, 
+                         output.prefix="", nthreads=length(datasets), 
+                         saveEndResults=TRUE, debug=FALSE, ...){
   mcall <- match.call()
   if(!is(pipelineDef,"PipelineDefinition")) 
     pipelineDef <- PipelineDefinition(pipelineDef)
+  alternatives <- .checkPipArgs(alternatives, pipelineDef)
   pipDef <- pipelineDef@functions
-  .checkPipArgs(alternatives, pipDef)
   
   if(is.null(names(datasets)))
     names(datasets) <- paste0("dataset",seq_along(datasets))
@@ -50,27 +54,23 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.pr
   
   # prepare the combinations of parameters to use
   alt <- alternatives[unlist(args)]
-  if(is.null(eg)){
+  if(is.null(comb)){
     eg <- buildCombMatrix(alt, TRUE)
   }else{
-    eg <- .checkCombMatrix(eg, alt)
+    eg <- .checkCombMatrix(comb, alt)
   }
   
   ## BEGIN .runPipelineF
   .runPipelineF <- function(dsi){
-    if(is.character(datasets[[dsi]])){
-      ds <- readRDS(datasets[[dsi]])
-    }else{
-      ds <- datasets[[dsi]]
-    }
-    dsname <- names(datasets)[dsi]
-
+    dsname <- dsi
+    ds <- pipelineDef@initiation(datasets[[dsi]])
+    
     if(debug) message(dsname)
 
     elapsed <- lapply(pipDef, FUN=function(x) list())
     elapsed.total <- list()
     
-    objects <- c(list(BASE=ds), lapply(args[-length(args)],FUN=function(x) NULL))
+    objects <- c(list(BASE=ds), lapply(args[-length(args)],FUN=function(x)NULL))
     intermediate_return_objects <- lapply(args, FUN=function(x) list() )
     rm(ds)
     
@@ -100,10 +100,12 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.pr
       for(step in names(args)[wStep:length(args)]){
         if(debug) message(step)
         # prepare the arguments
-        a <- lapply(args[[step]], FUN=function(a) alt[[a]][newPar[which(colnames(eg)==a)]] )
+        a <- lapply(args[[step]], FUN=function(a){
+          alt[[a]][newPar[which(colnames(eg)==a)]]
+        })
         names(a) <- args[[step]]
         #a$x <- x
-        #x <- do.call(pipDef[[step]], a)   ## unknown issue with do.call... we use a custom eval function:
+        #x <- do.call(pipDef[[step]], a)   ## unknown issue with do.call...
         fcall <- .mycall(pipDef[[step]], a)
         if(debug) message(fcall)
         st <- Sys.time()
@@ -113,9 +115,11 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.pr
    if(debug) save(x, step, pipDef, fcall, newPar, 
                   file=paste0(output.prefix,"runPipeline_error_TMPdump.RData"))
    msg <- paste0("Error in dataset `", dsi, "` with parameters:\n", aa, 
-                "\nin step `", step, "`, evaluating command:\n`", fcall, "`\nError:\n", 
-                e, "\n", ifelse(debug, paste("Current variables dumped in", 
-                                             paste0(output.prefix,"runPipeline_error_TMPdump.RData")), ""))
+                "\nin step `", step, "`, evaluating command:\n`", fcall, "`
+                Error:\n", e, "\n", 
+                ifelse(debug, paste0("Current variables dumped in ", 
+                                     output.prefix,
+                                     "runPipeline_error_TMPdump.RData"), ""))
    if(!debug || nthreads>1) print(msg)
    stop( msg )
   ## end error report
@@ -132,7 +136,8 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.pr
           x <- x$x
         }else{
           if(!is.null(pipelineDef@evaluation[[step]])){
-            intermediate_return_objects[[step]][[ename]] <- pipelineDef@evaluation[[step]](x)
+            intermediate_return_objects[[step]][[ename]] <- 
+              pipelineDef@evaluation[[step]](x)
           }
         }
         objects[[step]] <- x
@@ -162,49 +167,36 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.pr
       names(x) <- xn
       x
     })
+
+    if(saveEndResults)
+      saveRDS(res, file=paste0(output.prefix,"res.",dsi,".endOutputs.rds"))
     
-    if(saveEndResults){
-      resfile <- paste0(output.prefix,"res.",dsi,".endOutputs.rds")
-      saveRDS(res, file=resfile)
-    }else{
-      resfile <- NULL
-    }
+    res <- SimpleList( evaluation=intermediate_return_objects,
+                       elapsed=list( stepwise=elapsed, total=elapsed.total ) )
+    metadata(res)$PipelineDefinition <- pipelineDef
     
-    res <- list( res=resfile, elapsed=elapsed, elapsed.total=elapsed.total )
-    ifile <- paste0(output.prefix,"res.",dsi,".stepIntermediateReturnObjects.rds")
-    if(sum(sapply(intermediate_return_objects,length))>0){
-      saveRDS(intermediate_return_objects, file=ifile)
-      res[["intermediate"]] <- ifile
-    }
-    res
+    ifile <- paste0(output.prefix,"res.",dsi,".evaluation.rds")
+    saveRDS(res, file=ifile)
+    return(ifile)
   }
   ## END .runPipelineF
   
   names(dsnames) <- dsnames <- names(datasets)
   if(!debug && nthreads>1 && length(datasets)>1){
     nthreads <- min(nthreads, length(datasets))
-    message(paste("Using",nthreads,"threads"))
-    res <- bplapply( dsnames, 
-                     BPPARAM=MulticoreParam(nthreads, ...), 
-                     FUN=.runPipelineF )
+    message(paste("Running", nrow(eg), "pipeline settings on", length(datasets),
+                  "datasets using",nthreads,"threads"))
+    resfiles <- bplapply( dsnames, 
+                          BPPARAM=MulticoreParam(nthreads, ...), 
+                          FUN=.runPipelineF )
   }else{
     nthreads <- 1
     if(debug) message("Running in debug mode (single thread)")
-    res <- lapply( dsnames, FUN=.runPipelineF)
+    resfiles <- lapply( dsnames, FUN=.runPipelineF)
   }
-  
-  names(res) <- names(datasets)
-  elapsed <- lapply(res, FUN=function(x) x$elapsed)
-  names(steps) <- steps <- names(elapsed[[1]])
-  elapsed <- lapply(steps, FUN=function(x){
-    x <- do.call(cbind, lapply(elapsed, FUN=function(y) unlist(y[[x]])))
-    colnames(x) <- names(datasets)
-    x
-  })
-  elapsed.total <- do.call(cbind, lapply(res, FUN=function(x) unlist(x$elapsed.total)))
-  colnames(elapsed.total) <- names(datasets)
-  
-  res <- lapply(res, FUN=function(x) x$res)
+
+  message("
+                  Finished running on all datasets, now aggregating results...")
   
   # save pipeline and resolved functions
   pipinfo <- list( pipDef=pipelineDef,
@@ -222,16 +214,14 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.pr
                    sessionInfo=sessionInfo(),
                    call=mcall
   )
-  saveRDS(pipinfo, file=paste0(output.prefix,"pipelineInfo.rds"))
+  saveRDS(pipinfo, file=paste0(output.prefix,"runPipelineInfo.rds"))
   
-  # running time
-  elapsed <- list( stepwise=elapsed, total=elapsed.total )
-  saveRDS(elapsed, file=paste0(output.prefix,"elapsed.rds"))
-
-  message("
-                  Finished running on all datasets, now aggregating results...")
-    
-  aggregateResults(output.prefix, pipDef = pipelineDef)
+  names(resfiles) <- names(datasets)
+  res <- lapply(resfiles, readRDS)
+  res <- aggregatePipelineResults(res, pipelineDef)
+  saveRDS(res, file=paste0(output.prefix,"aggregated.rds"))
+  
+  res
 }
 
 
@@ -247,22 +237,26 @@ runPipeline <- function( datasets, alternatives, pipelineDef, eg=NULL, output.pr
 
 .checkPipArgs <- function(alternatives, pipDef=NULL){
   if(any(grepl(";|=",names(alternatives)))) 
-    stop("Some of the pipeline arguments contain unaccepted characters (e.g. ';' or '=').")
+    stop("Some of the pipeline arguments contain unaccepted characters ",
+      "(e.g. ';' or '=').")
   if(any(sapply(alternatives, FUN=function(x) any(grepl(";|=",x)))))
-    stop("Some of the alternative argument values contain unaccepted characters (e.g. ';' or '=').")
+    stop("Some of the alternative argument values contain unaccepted ",
+      "characters (e.g. ';' or '=').")
   if(!is.null(pipDef)){
-    args <- lapply(pipDef, FUN=function(x){ setdiff(names(formals(x)), "x") })
-    if(!all(unlist(args) %in% names(alternatives))){
-      missingParams <- setdiff(as.character(unlist(args)), names(alternatives))
-      stop("`alternatives` should have the following slots defined in the pipeline:",
-           paste(as.character(unlist(args)),collapse=", "),"
-          The following are missing:
-          ", paste(missingParams ,collapse=", "))
+    def <- pipDef@defaultArguments
+    for(f in names(alternatives)) def[[f]] <- alternatives[[f]]
+    args <- arguments(pipDef)
+    if(!all(unlist(args) %in% names(def))){
+      missingParams <- setdiff(as.character(unlist(args)), names(def))
+      stop("`alternatives` should have entries for the following slots defined",
+        " in the pipeline: ", paste(missingParams ,collapse=", "))
     }
-    if(!all( sapply(alternatives, FUN=length)>0)){
+    if(!all( sapply(def, FUN=length)>0)){
       stop("All steps of `alternatives` should contain at least one option.")
     }
+    alternatives <- def
   }
+  alternatives
 }
 
 

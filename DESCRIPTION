@@ -1,10 +1,10 @@
 Package: pipeComp
 Type: Package
 Title: pipeComp pipeline benchmarking framework
-Version: 0.99.2
+Version: 0.99.4
 Authors@R: as.person("Pierre-Luc Germain <germain@hifo.uzh.ch> [aut, cre]")
-Description: A simple framework to facilitate the comparison of pipelines involving various steps and parameters. The `pipelineDefinition` class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. Given such an object, a set of alternative parameters (which might include different subroutines) and benchmark datasets, the `runPipeline` function then proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly to avoid storing potentially large intermediate data.
+Description: A simple framework to facilitate the comparison of pipelines involving various steps and parameters. The `pipelineDefinition` class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by step-wise evaluation and aggregation functions. Given such an object, a set of alternative parameters/methods, and benchmark datasets, the `runPipeline` function then proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly to avoid storing potentially large intermediate data.
 License: GPL
-Imports: data.table, matrixStats, cluster, aricode, methods, BiocParallel, utils
+Imports: BiocParallel, S4Vectors, ComplexHeatmap, SingleCellExperiment, data.table, matrixStats, cluster, aricode, methods, BiocParallel, utils, dplyr, grid, scales, scran, viridisLite, randomcoloR, ggplot2, cowplot
 Encoding: UTF-8
 RoxygenNote: 6.1.1

@@ -30,9 +30,11 @@
 setClass( "PipelineDefinition", 
           slots=representation( functions="list", descriptions="list", 
                                 evaluation="list", aggregation="list", 
+                                initiation="function",
                                 defaultArguments="list", misc="list" ),
           prototype=prototype( functions=list(), descriptions=list(), 
                                evaluation=list(), aggregation=list(), 
+                               initiation=identity,
                                defaultArguments=list(), misc=list() ),
           validity=.validatePipelineDef )
 
@@ -47,6 +49,7 @@ setClass( "PipelineDefinition",
 #' @param descriptions A list of descriptions for each step
 #' @param evaluation A list of optional evaluation functions for each step
 #' @param aggregation A list of optional aggregation functions for each step
+#' @param initiation A function ran when initiating a dataset
 #' @param defaultArguments A lsit of optional default arguments
 #' @param misc A list of whatever.
 #' @param verbose Whether to output additional warnings (default TRUE).
@@ -59,7 +62,8 @@ setClass( "PipelineDefinition",
 #' For an example pipeline, see \code{\link{scrna_seurat_pipeline}}.
 #' @export
 PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
-                                aggregation=NULL, defaultArguments=list(), 
+                                aggregation=NULL, initiation=identity, 
+                                defaultArguments=list(), 
                                 misc=list(), verbose=TRUE ){
   if(!is.list(functions) || !all(sapply(functions, is.function))) 
     stop("`functions` should be a (named) list of functions!")
@@ -98,8 +102,8 @@ PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
   names(aggregation)<-names(evaluation)<-names(descriptions)<-names(functions)
   if(is.null(misc)) misc <- list()
 	x <- new("PipelineDefinition", functions=functions, descriptions=descriptions,
-	         evaluation=evaluation, aggregation=aggregation, 
-	         defaultArguments=defaultArguments, misc=misc)
+	       evaluation=evaluation, aggregation=aggregation, initiation=initiation,
+	       defaultArguments=defaultArguments, misc=misc)
 
 	w <- which( !sapply(x@aggregation,is.null) & 
 	              sapply(x@evaluation,is.null) )
@@ -133,8 +137,12 @@ setMethod("show", signature("PipelineDefinition"), function(object){
   fns <- sapply(names(object@functions), FUN=function(x){ 
     x2 <- x
     if(!isKnit) x2 <- paste0("\033[1m",x,"\033[22m")
-    y <- paste(names(formals(object@functions[[x]])),collapse=", ")
-    y <- paste0("  - ", x2, "(", y, ")")
+    y <- sapply( names(formals(object@functions[[x]])), FUN=function(n){
+      if(!is.null(def <- object@defaultArguments[[n]]))
+        n <- paste0(n,"=",deparse(def,100,FALSE))
+      n
+    })
+    y <- paste0("  - ", x2, "(", paste(y, collapse=", "), ")")
     if(!is.null(object@evaluation[[x]]) || !is.null(object@aggregation[[x]])) 
       y <- paste0(y, ifelse(isKnit, " * ", " \033[34m*\033[39m "))
     if(!is.null(object@descriptions[[x]])){
@@ -194,11 +202,28 @@ setMethod("arguments",signature("PipelineDefinition"), function(object){
   lapply(object@functions, FUN=function(x){ setdiff(names(formals(x)), "x") })
 })
 
+#' @exportMethod defaultArguments
+setGeneric("defaultArguments", function(object) NULL)
+#' @exportMethod defaultArguments<-
+setGeneric("defaultArguments<-", function(object, value) NULL)
+#' @rdname PipelineDefinition-methods
+setMethod("defaultArguments",signature("PipelineDefinition"), function(object){
+  object@defaultArguments
+})
+#' @rdname PipelineDefinition-methods
+setMethod( "defaultArguments<-",signature("PipelineDefinition"), 
+           function(object, value){
+  object@defaultArguments <- value
+  validObject(object)
+  object
+})
+
 #' @exportMethod stepFn
 setGeneric("stepFn", function(object, step, type) standardGeneric("stepFn"))
 #' @param step The name of the step for which to set or get the function
-#' @param type The type of function to set/get (either `functions`, `evaluation`,
-#' `aggregation`, or `descriptions` - will parse partial matches)
+#' @param type The type of function to set/get, either `functions`, 
+#' `evaluation`, `aggregation`, `descriptions`, or `initiation` (will parse 
+#' partial matches)
 #' @rdname PipelineDefinition-methods
 setMethod("stepFn", signature("PipelineDefinition"), function(object, step, type){
   type <- match.arg(type, c("functions","evaluation","aggregation","descriptions"))
@@ -209,10 +234,15 @@ setMethod("stepFn", signature("PipelineDefinition"), function(object, step, type
 setGeneric("stepFn<-", function(object, step, type, value) standardGeneric("stepFn<-"))
 #' @rdname PipelineDefinition-methods
 setMethod("stepFn<-", signature("PipelineDefinition"), function(object, step, type, value){
-  type <- match.arg(type, c("functions","evaluation","aggregation","descriptions"))
-  step <- match.arg(step, names(object))
-  slot(object, type)[[step]] <- value
-  validObject(object)
+  type <- match.arg(type, c("functions","evaluation","aggregation","descriptions","initiation"))
+  if(type!="descriptions" &&  !is.function(value)) 
+    stop("Replacement value should be a function.")
+  if(type=="initiation"){
+    slot(object, type) <- value
+  }else{
+    step <- match.arg(step, names(object))
+    slot(object, type)[[step]] <- value
+  }
   object
 })
 
@@ -246,8 +276,8 @@ addPipelineStep <- function(object, name, after=NULL, slots=list()){
     stop("`after` should either be null or the name of a step.")
   n <- c("functions","evaluation","aggregation","descriptions")
   if(length(slots)>0) names(slots) <- sapply(names(slots), choices=n, FUN=match.arg)
-  if(!all(names(slots) %in% n)) stop( paste("fns should be a function or a list of", 
-    "functions with one or more of the following names:\n", paste(n,collapse=", ")) )
+  if(!all(names(slots) %in% n)) stop( paste("fns should be a function or a list", 
+    "with one or more of the following names:\n", paste(n,collapse=", ")) )
   
   if(is.null(after)){
     i1 <- vector("integer")
@@ -264,7 +294,6 @@ addPipelineStep <- function(object, name, after=NULL, slots=list()){
   for(f in names(slots)) stepFn(object, name, f) <- slots[[f]]
   if(is.null(stepFn(object, name, "functions"))) 
     stepFn(object, name, "functions") <- identity
-
   validObject(object)
   object
 }

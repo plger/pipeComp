@@ -23,38 +23,61 @@
 #' @return One or several `Heatmap` object.
 #' @export
 #'
-#' @import ComplexHeatmap matrixStats grid
+#' @import ComplexHeatmap grid
 #' @importFrom viridisLite inferno
-scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRes", "varExpl", "elapsed"),
-                              covar=c("log10_total_counts","log10_total_features",
-                                      "total_features"), reorder_rows=TRUE,
-                              reorder_columns=what=="silhouette",
+scrna_evalPlot_DR <- function(res, 
+                              what=c("auto", "varExpl", "minSilWidth", 
+                                     "meanSilWidth", "medianSilWidth", 
+                                     "maxSilWidth", "log10_total_counts", 
+                                     "log10_total_features","total_features"),
+                              reorder_rows=TRUE,
+                              reorder_columns=NULL,
                               agg.by=NULL, agg.fn=mean, scale=FALSE, 
                               show_heatmap_legend=FALSE, value_format="%.2f", 
                               col=NULL, col_title_fontsize=11, 
                               anno_legend=TRUE, ...){
   what <- match.arg(what)
-  covar <- covar[1]
-  if("dimreduction" %in% names(res)) res <- res$dimreduction
+  pipDef <- metadata(res)$PipelineDefinition
   if(what=="auto"){
-    H <- scrna_evalPlot_DR(res, "silhouette", scale=FALSE, reorder_rows=reorder_rows, value_format=value_format, show_heatmap_legend=TRUE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...)
+    H <- scrna_evalPlot_DR(res, "meanSilWidth", scale=FALSE, 
+                           reorder_rows=reorder_rows, value_format=value_format,
+                           show_heatmap_legend=TRUE, 
+                           col_title_fontsize=col_title_fontsize, agg.by=agg.by, 
+                           agg.fn=agg.fn, ...)
     ro <- row.names(H@matrix)
     return( H +
-      scrna_evalPlot_DR(res, "covarRes", scale=scale, reorder_rows=ro, value_format=value_format, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...) +
-      scrna_evalPlot_DR(res, "covarRes", covar="total_features", scale=scale, reorder_rows=ro, value_format=value_format, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...)
+      scrna_evalPlot_DR(res, "log10_total_counts", scale=scale, reorder_rows=ro,
+                        value_format=value_format, show_heatmap_legend=FALSE, 
+                        col_title_fontsize=col_title_fontsize, agg.by=agg.by, 
+                        agg.fn=agg.fn, ...) +
+      scrna_evalPlot_DR(res, "total_features", scale=scale, reorder_rows=ro, 
+                        value_format=value_format, show_heatmap_legend=FALSE, 
+                        col_title_fontsize=col_title_fontsize, agg.by=agg.by, 
+                        agg.fn=agg.fn, ...)
     )
   }
-  el <- grep("^stepElapsed\\.", colnames(res[[1]]), value=TRUE)
-  res <- switch( what,
-                 silhouette=res[[grep("clust\\.avg\\.silwidth",names(res))[[1]]]],
-                 covar=res[[paste0("PC1_covar.",covar)]],
-                 covarRes=res[[paste0("PC1_covarR.",covar)]],
-                 varExpl=res$PCtop5.R2,
-                 elapsed=res$PCtop5.R2[,el],
-                 stop("Unknown plot type requested")
-                 )
-  if(is(res, "list")) res <- res[[1]]
-  res2 <- res <- .prepRes(res, agg.by, agg.fn, elapsed=what=="elapsed")
+  if("evaluation" %in% names(res)) res <- res$evaluation
+  if("dimreduction" %in% names(res)) res <- res$dimreduction
+  isSil <- FALSE
+  if( what %in% 
+      c("minSilWidth", "meanSilWidth", "medianSilWidth", "maxSilWidth")){
+    res <- res$silhouette[[1]]
+    title <- "Subpopulation silhouette"
+    isSil <- TRUE
+    sname <- "silhouette\nwidth"
+  }else if(what %in% 
+           c("log10_total_counts","log10_total_features","total_features")){
+    title <- paste0("adj.R^2 diff\n", what)
+    res <- res$PC1.covar.adjR2
+    sname <- "correlation"
+  }else if(what=="varExpl"){
+    title <- "var explained by\nsubpopulations"
+    res <- res$varExpl.subpops
+    sname <- "variance\nexplained"
+  }else{
+    stop("Unknown metric!")
+  }
+  res2 <- res <- .prepRes(res, what=what, agg.by, agg.fn, pipDef=pipDef)
   if(scale) res2 <- base::scale(res)
   res2 <- as.matrix(res2)
   if(is(reorder_rows, "Heatmap")){
@@ -64,8 +87,8 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
       ro <- reorder_rows
     }else{
       if(reorder_rows){
-        if(what=="silhouette"){
-          ro <- order( colSums(apply(res2,1,prob=c(0.05,0.5),FUN=quantile))+
+        if(isSil){
+          ro <- order( colSums(apply(res2,1,prob=c(0.05,0.5),FUN=quantile)) +
                          rowMeans(res2), decreasing=TRUE)
         }else{
           ro <- order(rowMeans(res2), decreasing=TRUE)
@@ -75,6 +98,7 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
       }
     }
   }
+  if(is.null(reorder_columns)) reorder_columns <- isSil
   if(reorder_columns){
     co <- order(colMeans(res), decreasing=TRUE)
   }else{
@@ -82,24 +106,8 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
   }
   res <- res[ro,co]
   res2 <- res2[ro,co]
-  name <- switch( what,
-                 silhouette="silhouette\nwidth",
-                 covar=covar,
-                 covarRes=covar,
-                 varExpl="Variance\nexplained",
-                 elapsed="Running\ntime (s)",
-                 NULL
-  )
-  title <- switch( what,
-                 silhouette="average silhouette width\nper subpopluation",
-                 covar=paste0("correlation with\n",covar),
-                 covarRes=paste0("residual corr with\n",covar),
-                 varExpl="var explained by\nsubpopulations",
-                 elapsed="Running time (s)",
-                 NULL
-  )
-  if(what=="silhouette" && (is.null(col) || length(col)==11) && !scale) return(
-    Heatmap( res2, name=name, cluster_rows=FALSE, col=.silScale(res2, col), 
+  if(isSil && (is.null(col) || length(col)==11) && !scale) return(
+    Heatmap( res2, name=sname, cluster_rows=FALSE, col=.silScale(res2, col), 
              cluster_columns=FALSE, show_column_names = FALSE, 
              bottom_annotation=.ds_anno(colnames(res),anno_legend), 
              cell_fun=.getCellFn(res,res2,value_format,c("white","black")), 
@@ -107,9 +115,9 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
              column_title_gp=gpar(fontsize=col_title_fontsize), ...))
 
   if(is.null(col)) col <- viridisLite::inferno(100)
-  Heatmap( res2, name=name, cluster_rows=FALSE, cluster_columns=FALSE, 
+  Heatmap( res2, name=sname, cluster_rows=FALSE, cluster_columns=FALSE, 
            bottom_annotation=.ds_anno(colnames(res), anno_legend), 
-           show_column_names = FALSE, cell_fun=.getCellFn(res,res2,value_format),
+           show_column_names=FALSE, cell_fun=.getCellFn(res,res2,value_format),
            col=col, show_heatmap_legend=show_heatmap_legend, column_title=title, 
            column_title_gp=gpar(fontsize=col_title_fontsize), ...)
 }
@@ -137,31 +145,45 @@ scrna_evalPlot_DR <- function(res, what=c("auto","silhouette", "covar", "covarRe
 #' @return One or several `Heatmap` object.
 #' @export
 #'
-#' @import ComplexHeatmap matrixStats grid
+#' @import ComplexHeatmap grid
 #' @importFrom viridisLite inferno
-scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean, 
+scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
+                                 agg.by=NULL, agg.fn=mean, 
                                  scale=FALSE, value_format="%.2f", 
                                  reorder_rows=TRUE, reorder_columns=FALSE,
                                  show_heatmap_legend=FALSE,
                                  col=viridisLite::inferno(100), 
                                  col_title_fontsize=12, anno_legend=TRUE, ...){
-  if("clustering" %in% names(res)) res <- res$clustering
-  what_options <- sapply(strsplit(colnames(res)[grep(" ",colnames(res))]," "),FUN=function(x) x[[2]])
-  what <- match.arg(what, c(what_options, "elapsed", "auto"))
+  pipDef <- tryCatch(metadata(res)$PipelineDefinition, error=function(e) NULL)
+  if(is.null(agg.by)) agg.by <- .getClustAggFields(res)
   if(what=="auto"){
     return( 
-      scrna_evalPlot_clust(res, "ARI", scale=scale, reorder_rows=FALSE, ...) + 
-      scrna_evalPlot_clust(res, "NMI", scale=scale, reorder_rows=FALSE, ...) + 
-      scrna_evalPlot_clust(res, "mean_re", scale=scale, reorder_rows=FALSE, ...) + 
-      scrna_evalPlot_clust(res, "min_re", scale=scale, reorder_rows=FALSE, ...) +
-      scrna_evalPlot_clust(res, "mean_pr", scale=scale, reorder_rows=FALSE, ...) + 
-      scrna_evalPlot_clust(res, "min_pr", scale=scale, reorder_rows=FALSE, ...)
+      scrna_evalPlot_clust(res, "ARI", agg.by=agg.by, atTrueK=atTrueK, 
+                           scale=scale, reorder_rows=FALSE, ...) + 
+      scrna_evalPlot_clust(res, "NMI", agg.by=agg.by, atTrueK=atTrueK, 
+                           scale=scale, reorder_rows=FALSE, ...) + 
+      scrna_evalPlot_clust(res, "mean_re", agg.by=agg.by, atTrueK=atTrueK, 
+                           scale=scale, reorder_rows=FALSE, ...) + 
+      scrna_evalPlot_clust(res, "min_re", agg.by=agg.by, atTrueK=atTrueK, 
+                           scale=scale, reorder_rows=FALSE, ...) +
+      scrna_evalPlot_clust(res, "mean_pr", agg.by=agg.by, atTrueK=atTrueK, 
+                           scale=scale, reorder_rows=FALSE, ...) + 
+      scrna_evalPlot_clust(res, "min_pr", agg.by=agg.by, atTrueK=atTrueK, 
+                           scale=scale, reorder_rows=FALSE, ...)
     )
   }
-  res <- res[,grep(ifelse(what=="elapsed","stepElapsed",paste0(" ",what)), colnames(res))]
-  res2 <- res <- .prepRes(res, agg.by, agg.fn, elapsed=what=="elapsed")
+  if("evaluation" %in% names(res)) res <- res$evaluation
+  if("clustering" %in% names(res)) res <- res$clustering
+  if(atTrueK){
+    res2 <- res <- .prepRes(res[which(res$n_clus==res$true.nbClusts),], 
+                            what=what, agg.by, agg.fn, pipDef=pipDef)
+  }else{
+    res2 <- res <- .prepRes(res, what=what, agg.by, agg.fn, pipDef=pipDef)
+  }
+  
   if(scale) res2 <- .safescale(res)
-  row.names(res2) <- row.names(res) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res2),fixed=TRUE))
+  row.names(res2) <- row.names(res) <- 
+    gsub("resolution=", "res=", gsub("norm=norm\\.","",row.names(res2)))
   if(is(reorder_rows, "Heatmap")){
     ro <- row.names(reorder_rows@matrix)
   }else{
@@ -184,108 +206,27 @@ scrna_evalPlot_clust <- function(res, what="auto", agg.by=NULL, agg.fn=mean,
   res2 <- res2[ro,co]
   res2 <- as.matrix(res2)
   cellfn <- .getCellFn(res,res2,value_format)
-  title <- switch( what,
-                   elapsed="Running time (s)",
-                   gsub("_re$","\nrecall",gsub("_pr$","\nprecision",what))
-  )
-  Heatmap( res2, name=what, cluster_rows=FALSE, show_heatmap_legend=show_heatmap_legend, 
-           cluster_columns=FALSE, bottom_annotation=.ds_anno(colnames(res),anno_legend), 
-           show_column_names = FALSE, cell_fun=cellfn, col=col,
-           column_title=title, column_title_gp=gpar(fontisze=col_title_fontsize), ...)
-}
-
-#' scrna_evalPlot_clustAtTrueK
-#' 
-#' Plotting aggregated evaluation results at the level of clustering for the 
-#' scRNA pipelines, restricting to those analysis that have the right number of
-#' clusters.
-#'
-#' @param res Aggregated pipeline results (i.e. the output of `runPipeline` or
-#' `aggregateResults`)
-#' @param what Metric to plot
-#' @param agg.by Aggregate results by these columns (default no aggregation)
-#' @param agg.fn Function for aggregation (default mean)
-#' @param scale Logical; whether to scale columns (default FALSE)
-#' @param value_format Format for displaying cells' values (use 
-#' `value_format=""` to disable)
-#' @param reorder_rows Logical; whether to sort rows (default TRUE)
-#' @param reorder_columns Logical; whether to sort columns
-#' @param show_heatmap_legend Passed to `Heatmap`
-#' @param col Colors for the heatmap
-#' @param col_title_fontsize Fontsize of the column titles
-#' @param ... Passed to `Heatmap`
-#'
-#' @return A `Heatmap` object.
-#' @export
-#'
-#' @import ComplexHeatmap matrixStats grid
-#' @importFrom viridisLite inferno
-scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL, 
-                                        agg.fn=mean, scale=FALSE, 
-                                        value_format="%.2f", reorder_rows=TRUE, 
-                                        reorder_columns=FALSE,
-                                        show_heatmap_legend=FALSE,
-                                        col=viridisLite::inferno(100), 
-                                        col_title_fontsize=11, title=NULL,
-                                        name=NULL, anno_legend=TRUE, 
-                                        closest=FALSE, ...){
-  if("clustering" %in% names(res)) res <- res$clustering
-  pp <- parsePipNames(row.names(res))
-  if(is.null(agg.by)){
-    pp <- pp[,setdiff(colnames(pp), c("dims","k","steps","resolution","min.size"))]
-    pp <- pp[,apply(pp,2,FUN=function(x) length(unique(x)))>1,drop=FALSE]
-    agg.by <- colnames(pp)
-  }
-  if(length(agg.by)>0){
-    ds <- gsub(paste0(" ",what), "", grep(paste0(" ",what), colnames(res), value=TRUE, fixed=TRUE), fixed=TRUE)
-    pp <- pp[,agg.by,drop=FALSE]
-    ps <- split(seq_len(nrow(pp)), .getReducedNames(pp))
-    res <- t(sapply(ps, FUN=function(x){
-      x <- vapply(ds, FUN.VALUE=double(1), FUN=function(y){
-        res <- res[x,]
-        w <- which(res[,paste(y,"n_clus")]==res[,paste(y,"true.nbClusts")])
-        if(length(w)==0 && closest){
-          di <- abs(res[,paste(y,"n_clus")]-res[,paste(y,"true.nbClusts")])
-          w <- which(di==min(di))
-        }
-        suppressWarnings(agg.fn( res[w,paste(y,what)] ))
-      })
-      names(x) <- ds
-      x
-    }))
-  }else{
-    res <- res[,grep(paste0(" ",what), colnames(res))]
-  }
-  row.names(res) <- gsub("resolution=", "res=", gsub("norm=norm.","",row.names(res),fixed=TRUE))
-  res2 <- res
-  if(scale) res2 <- .safescale(res)
-  if(is(reorder_rows, "Heatmap")){
-    ro <- row.names(reorder_rows@matrix)
-  }else{
-    if(length(reorder_rows)>1){
-      ro <- reorder_rows
-    }else{
-      if(reorder_rows){
-        ro <- order(rowMeans(res2, na.rm=TRUE), decreasing=TRUE)
-      }else{
-        ro <- seq_len(nrow(res2))
-      }
-    }
-  }
-  if(reorder_columns){
-    co <- order(colMeans(res, na.rm=TRUE), decreasing=TRUE)
-  }else{
-    co <- 1:ncol(res)
-  }
-  res <- res[ro,co]
-  res2 <- res2[ro,co]
-  cellfn <- .getCellFn(res,res2,value_format)
-  if(is.null(title)) title <- paste(what, "at true\n# of clusters")
-  Heatmap( res2, name=ifelse(is.null(name),what,name), cluster_rows=FALSE, 
+  title <- gsub("_re$","\nrecall",gsub("_pr$","\nprecision",what))
+  if(atTrueK) title <- paste(title, "\nat true #\nof clusters")
+  Heatmap( res2, name=what, cluster_rows=FALSE, 
            show_heatmap_legend=show_heatmap_legend, cluster_columns=FALSE, 
            bottom_annotation=.ds_anno(colnames(res),anno_legend), 
            show_column_names = FALSE, cell_fun=cellfn, col=col,
-           column_title=title, column_title_gp=gpar(fontisze=col_title_fontsize), ...)
+           column_title=title, 
+           column_title_gp=gpar(fontisze=col_title_fontsize), ...)
+}
+
+
+.getClustAggFields <- function(res, pipDef=NULL){
+  if(is.null(pipDef)) pipDef <- metadata(res)$PipelineDefinition
+  if("evaluation" %in% names(res)) res <- res$evaluation
+  if("clustering" %in% names(res)) res <- res$clustering
+  fields <- unlist(arguments(pipDef))
+  fields <- setdiff(fields, c("k", "dims", "steps","resolution","min.size"))
+  fields <- intersect(colnames(res), fields)
+  fields[sapply(res[,fields,drop=FALSE], FUN=function(x){
+    length(unique(x))>1
+  })]
 }
 
 .safescale <- function(x){
@@ -300,12 +241,13 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   rep(0,length(x))
 }
 
-
+#' @importFrom ComplexHeatmap HeatmapAnnotation
 .ds_anno <- function(x, legend=TRUE){
   y <- sapply(strsplit(gsub("stepElapsed\\.","",x)," "),FUN=function(x) x[[1]])
   cols <- getQualitativePalette(length(unique(y)))
   names(cols) <- sort(unique(y))
-  ComplexHeatmap::HeatmapAnnotation(dataset=y, col=list(dataset=cols), show_annotation_name = FALSE, show_legend=legend)
+  HeatmapAnnotation(dataset=y, col=list(dataset=cols), 
+                    show_annotation_name = FALSE, show_legend=legend)
 }
 
 .getReducedNames <- function(res){
@@ -323,26 +265,36 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   y
 }
 
-.prepRes <- function(res, agg.by, agg.fn, elapsed=FALSE){
-  if(elapsed){
-    res <- as.matrix(res[,grep("stepElapsed",colnames(res))])
-  }else{
-    res <- as.matrix(res[,grep("stepElapsed",colnames(res),invert=TRUE)])
-  }
-  pp <- parsePipNames(row.names(res))
+.prepRes <- function(res, what=NULL, agg.by=NULL, agg.fn=mean, pipDef=NULL, 
+                     long=FALSE){
+  if(is.null(what) && !long) stop("`what` should be defined.")
   if(!is.null(agg.by)){
-    ag <- aggregate(res, by=pp[,agg.by,drop=FALSE], FUN=agg.fn)
-    pp <- ag[,agg.by,drop=FALSE]
-    res <- ag[,setdiff(colnames(ag),agg.by)]
+    agg.by2 <- c(agg.by, intersect(colnames(res),c("dataset","subpopulation")))
+    if(is.null(what)){
+      what <- colnames(res)[which(sapply(res,class) %in% c("integer","numeric"))]
+      what <- setdiff(what, agg.by)
+    }
+    res <- aggregate(res[,what,drop=FALSE], by=res[,agg.by2,drop=FALSE], 
+                     FUN=agg.fn)
+    pp <- res[,agg.by,drop=FALSE]
+  }else{
+    if(is.null(pipDef)) stop("Either `agg.by` or `pipDef` should be given.")
+    pp <- res[,intersect(colnames(res), unlist(arguments(pipDef)))]
   }
-  row.names(res) <- .getReducedNames(pp)
-  res
+  res$method <- .getReducedNames(pp)
+  if(long) return(res)
+  
+  if("subpopulation" %in% colnames(res))
+    res$dataset <- paste(res$dataset, res$subpopulation)
+  r2 <- reshape2::dcast( res, method~dataset, value.var=what,  
+                         drop=FALSE, fun.aggregate=agg.fn)
+  row.names(r2) <- r2[,1]
+  as.matrix(r2[,-1])
 }
 
 .getReducedNames <- function(res){
   if(is.character(res)) res <- parsePipNames(res)
-  pp <- res[,grep("^stepElapsed\\.",colnames(res),invert=TRUE),drop=FALSE]
-  pp <- pp[,apply(pp,2,FUN=function(x) length(unique(x))>1),drop=FALSE]
+  pp <- res[,sapply(res, FUN=function(x) length(unique(x))>1),drop=FALSE]
   if(ncol(pp)>1){
     y <- apply(pp,1,FUN=function(x){
       x <- paste0(colnames(pp),"=",x)
@@ -357,50 +309,36 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
   resmid <- range(res2, na.rm=TRUE)
   resmid <- resmid[1]+(resmid[2]-resmid[1])/2
   function(j, i, x, y, width, height, fill){
-    if(value_format=="" || is.null(value_format) || is.na(value_format)) return(NULL)
+    if(value_format=="" || is.null(value_format) || is.na(value_format))
+      return(NULL)
     lab <- sprintf(value_format, res[i,j])
     if(!any(abs(res)>1, na.rm=TRUE)){
       lab <- gsub("^0\\.",".",lab)
       lab <- gsub("^-0\\.","-.",lab)
     } 
-    grid.text(lab, x, y, gp = gpar(fontsize = 10, col=ifelse(res2[i,j]>resmid,cols[1],cols[2])))
+    cols <- ifelse(res2[i,j]>resmid,cols[1],cols[2])
+    grid.text(lab, x, y, gp = gpar(fontsize = 10, col=cols))
   }
 }
 
 .mergeFilterOut <- function(ll){
-  if(length(ll)==1) return(ll[[1]])
+  if(length(ll)==1){
+    ll[[1]]$N <- ll[[1]]$N.before
+    return(ll[[1]])
+  }
   # get back the initial number of cells
-  N <- attr(ll[[1]],"initialNumbers")
-  if(is.null(N)){
-    x <- abs(as.matrix(ll[[1]]))
-    pc <- x[,grep("^pcOut",colnames(x))]
-    n <- x[,grep("^nOut",colnames(x))]
-    N <- matrixStats::colMedians(round(100*n/pc), na.rm = TRUE)
-    N[is.na(N)] <- 100
+  mm <- ll[[1]]
+  for(i in 1:(length(ll)-1)){
+    f <- setdiff(colnames(ll[[i]]), c("N.before","N.lost","pc.lost"))
+    suf <- paste0(".",names(ll)[i:(i+1)])
+    if(i>1) suf[1] <- ""
+    mm <- merge(mm, ll[[i+1]], by=f, suffixes=suf)
   }
-  ll2 <- lapply(ll, FUN=function(x){
-    x <- x[,grep("^nOut",colnames(x))]
-    attr(x, "initialNumbers") <- NULL
-    cbind(parsePipNames(row.names(x)), x)
-  })
-  x <- rev(ll2)[[1]]
-  for(i in seq.int(length(ll)-1,1)){
-    y <- ll2[[i]]
-    of <- intersect(colnames(x),colnames(y))
-    of <- of[grep("^nOut", of, invert=TRUE)]
-    p1 <- apply(x[,of,drop=FALSE],1,FUN=function(x) 
-      paste(paste0(of,"=",x), collapse=";"))
-    y <- y[,grep("^nOut", colnames(y))]
-    row.names(y) <- apply(ll2[[i]][,of,drop=FALSE],1,FUN=function(x) 
-      paste(paste0(of,"=",x), collapse=";"))
-    colnames(y) <- NULL
-    x <- x[,grep("^nOut", colnames(x))]
-    x+y[p1,]
-  }
-  pc <- round(100*t(t(x)/N),3)
-  pc[pc>100] <- 100
-  colnames(pc) <- gsub("^nOut","pcOut", colnames(pc))
-  cbind(x, pc, deparse.level=0)
+  mm$N <- mm[,grep("N\\.before",colnames(mm))[1]]
+  mm$N.lost <- rowSums(mm[,grep("N\\.lost",colnames(mm))])
+  mm$pc.lost <- 100*rowSums(mm[,grep("N\\.lost",colnames(mm))])/
+    mm[,grep("N\\.before",colnames(mm))[1]]
+  mm
 }
 
 
@@ -411,43 +349,41 @@ scrna_evalPlot_clustAtTrueK <- function(res, what="ARI", agg.by=NULL,
 #' `aggregateResults`)
 #' @param steps Steps to include (default 'doublet' and 'filtering'); other 
 #' steps will be averaged.
+#' @param clustMetric Clustering accuracy metric to use (default `mean_F1``)
 #' @param returnTable Logical; whether to return the data.frame rather than plot.
 #'
 #' @return A ggplot, or a data.frame if `returnTable=TRUE`
 #' @export
-scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"), returnTable=FALSE){
+scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"), 
+                                     clustMetric="mean_F1", returnTable=FALSE){
+  param_fields <- unlist(arguments(metadata(res)$PipelineDefinition)[steps])
+  res <- res$evaluation
   co <- .mergeFilterOut(res[steps])
-  co <- abs(as.matrix(co[,grep("^pcOut",colnames(co))]))
-  ds <- sapply(strsplit(colnames(co),"\\."), FUN=function(x) x[2])
-  ds <- split(seq_len(ncol(co)), ds)
-  df <- data.frame(
-    method=rep(row.names(co), length(ds)),
-    dataset=rep(names(ds), each=nrow(co)),
-    maxPCout=unlist(lapply(ds, FUN=function(x) rowMaxs(co[,x]))),
-    medianPCout=unlist(lapply(ds, FUN=function(x) rowMedians(co[,x])))
-  )
-  ds <- sapply(strsplit(colnames(res$clustering)," "), FUN=function(x) x[1])
-  ds <- split(seq_len(ncol(res$clustering)), ds)
-  ds <- ds[grep("stepElapsed",names(ds),invert=TRUE)]
-  ds <- lapply(ds, FUN=function(x){
-    cl <- res$clustering[,x]
-    by <- sapply(strsplit(row.names(cl),";"), FUN=function(x) paste(x[1:2],collapse=";"))
-    meanF1 <- aggregate(cl[[grep("mean_F1",colnames(cl))]], by=list(by), na.rm=TRUE, FUN=mean)
-    topF1 <- aggregate(cl[[grep("mean_F1",colnames(cl))]], by=list(by), na.rm=TRUE, FUN=max)
-    w <- which(cl[[grep("n_clus",colnames(cl))]]==cl[[grep("nbClusts",colnames(cl))]])
-    cl <- cl[w,]
-    tmp <- aggregate(cl[[grep("mean_F1",colnames(cl))]], by=list(by[w]), na.rm=TRUE, FUN=mean)
-    F1atK <- tmp[,2]
-    names(F1atK) <- tmp[,1]
-    d <- data.frame(method=meanF1[,1], meanF1=as.numeric(meanF1[,2]), 
-                    topF1=as.numeric(topF1[,2]), F1atK=F1atK[as.character(meanF1[,1])])
-    d
-  })
-  ds2 <- bind_rows(ds,.id="dataset")
-  m <- merge(df, ds2, by=c("dataset","method"))
+  coI <- co[,c("dataset",param_fields)]
+  ci <- split(seq_len(nrow(co)), coI, drop=TRUE)
+  agfns <- list(min.lost=min, mean.lost=mean, median.lost=median, max.lost=max)
+  x <- as.data.frame(do.call(cbind, lapply( agfns, FUN=function(agf){
+    sapply(ci, function(x) agf(co[x,"pc.lost"]) )
+  })))
+  x$total.lost <- sapply(ci, FUN=function(x) sum(co[x,"N.lost"]))
+  x$pc.lost <- sapply(ci,FUN=function(x) 100*sum(co[x,"N.lost"])/sum(co[x,"N"]))
+  x <- cbind(coI[sapply(ci,FUN=function(x) x[1]),], x)
+  # get clustering data
+  cl <- aggregate( res$clustering[,clustMetric,drop=FALSE], 
+                   by=res$clustering[,c("dataset",param_fields)], FUN=mean )
+  m <- merge(cl, x, by=c("dataset",param_fields))
+  m$method <- apply( m[,param_fields,drop=FALSE], 1, collapse="+", FUN=paste )
+  
   if(returnTable) return(m)
-  ggplot(m, aes(maxPCout, meanF1, group=method, colour=method)) + geom_point(size=3) + 
-    facet_wrap(~dataset, scales="free") + xlab("Proportion") + 
+  if( length(param_fields)==2 && 
+      all(sort(param_fields)==c("doubletmethod","filt")) ){
+    return(ggplot(m, aes(max.lost, mean_F1, colour=filt, shape=doubletmethod)) + 
+      geom_point(size=3) + facet_wrap(~dataset, scales="free") + 
+      xlab("Max proportion of subpopulation excluded") +
+      labs(colour="filterset", shape="doublet method"))
+  }
+  ggplot(m, aes(max.lost, mean_F1, colour=method, shape=method)) + 
+    geom_point(size=3) + facet_wrap(~dataset, scales="free") + 
     xlab("Max proportion of subpopulation excluded")
 }
 
@@ -483,7 +419,8 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
     names(y) <- names(x)
     y
   })
-  for(i in seq_along(sces)) sces[[i]]$cluster <- cols[[i]][as.character(sces[[i]]$phenoid)]
+  for(i in seq_along(sces)) 
+    sces[[i]]$cluster <- cols[[i]][as.character(sces[[i]]$phenoid)]
   cd <- lapply(sces, FUN=function(x) as.data.frame(colData(x)))
   names(cols2) <- cols2 <- unique(unlist(cols))
   noy <- theme( axis.line=element_blank(),axis.text.y=element_blank(),
@@ -492,11 +429,14 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
                   aspect.ratio = 1, axis.text=element_text(size=10),
                   plot.margin=margin(l=0,r=0))
   cs <- scale_fill_manual(values=cols2)
-  d <- data.frame(dataset=rep(names(sces),sapply(tt,length)), cluster=unlist(cols), nb=unlist(tt))
-  p1 <- ggplot(d, aes(x=cluster, y=nb, fill=cluster)) + geom_bar(stat = "identity") + 
-    scale_y_log10() + facet_wrap(~dataset, scales="free_y", ncol=1, strip.position = "left") + 
+  d <- data.frame(dataset=rep(names(sces),sapply(tt,length)), 
+                  cluster=unlist(cols), nb=unlist(tt))
+  p1 <- ggplot(d, aes(x=cluster, y=nb, fill=cluster)) +
+    geom_bar(stat = "identity") + scale_y_log10() + 
+    facet_wrap(~dataset, scales="free_y", ncol=1, strip.position = "left") + 
     coord_flip() + ylab("Number of cells") + xlab("") +  noy + cs
-  for(x in names(sces)) sces[[x]]$cluster <- unlist(cols)[paste(x, sces[[x]]$phenoid,sep=".")]
+  for(x in names(sces))
+    sces[[x]]$cluster <- unlist(cols)[paste(x, sces[[x]]$phenoid,sep=".")]
   d <- suppressWarnings(dplyr::bind_rows(lapply(cd, FUN=function(x) 
     x[,c("total_counts","total_features","cluster")]))
   )
@@ -509,7 +449,9 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
     scale_y_continuous( trans = 'log10', breaks=10^pretty(log10(d[[x]]),n=3), 
                         labels=trans_format('log10', math_format(10^.x)) )
   rd <- function(dimred,...){
-    d2 <- cbind(d, do.call(rbind, lapply(sces, FUN=function(x) reducedDim(x,dimred) )))
+    d2 <- cbind(d, do.call(rbind, lapply(sces, FUN=function(x){
+      reducedDim(x,dimred)
+    })))
     colnames(d2)[5:6] <- c("x","y")
     ggplot(d2, aes(x,y,col=cluster)) + geom_point(...) + 
       facet_wrap(~dataset, scales="free", ncol=1) + 
@@ -539,6 +481,7 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
     h@ht_list <- lapply(h@ht_list, f=f, FUN=.renameHrows)
     return(h)
   }
-  h@row_names_param$anno@var_env$value <- f(h@row_names_param$anno@var_env$value)
+  h@row_names_param$anno@var_env$value <- 
+    f(h@row_names_param$anno@var_env$value)
   h
 }

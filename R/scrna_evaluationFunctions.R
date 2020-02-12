@@ -23,31 +23,25 @@ evaluateClustering <- function(x, tl){
   list( table=tt, excluded=setdiff(colnames(before), colnames(after)) )
 }
 
+#' @importFrom dplyr bind_rows
 .aggregateExcludedCells <- function(res){
-  cls <- sapply(res, FUN=function(x) ncol(x[[1]]$table))
-  nout <- do.call(cbind, lapply(names(res), FUN=function(ds){ 
-    t(sapply(res[[ds]], FUN=function(x){
-      x <- x$table
-      y <- as.numeric(x[1,])-as.numeric(x[2,])
-      names(y) <- paste0(ds,".",colnames(x))
-      y
+  pi <- parsePipNames(names(res[[1]]))
+  res <- lapply(res, FUN=function(x){
+    y <- pi[rep(seq_len(nrow(pi)), each=ncol(x[[1]]$table)),,drop=FALSE]
+    row.names(y) <- NULL
+    y$subpopulation <- rep(colnames(x[[1]]$table), length(x))
+    y$N.before <- unlist(lapply(x, FUN=function(x) as.numeric(x$table[1,])))
+    y$N.lost <- unlist(lapply(x, FUN=function(x){
+      as.numeric(x$table[1,]-x$table[2,])
     }))
-  }))
-  N <- unlist(lapply(res, FUN=function(x) x[[1]]$table[1,]))
-  pc <- do.call(cbind, lapply(names(res), FUN=function(ds){ 
-    t(sapply(res[[ds]], FUN=function(x){
-      x <- x$table
-      y <- (as.numeric(x[1,])-as.numeric(x[2,]))/as.numeric(x[1,])
-      names(y) <- paste0(ds,".",colnames(x))
-      round(y*100,2)
-    }))
-  }))
-  colnames(pc) <- paste0("pcOut.", colnames(pc))
-  colnames(nout) <- paste0("nOut.", colnames(nout))
-  res <- cbind(nout, pc, deparse.level=0)
-  attr(res, "initialNumbers") <- N
-  return(res)
+    y$pc.lost <- round(100*y$N.lost/y$N.before,3)
+    y
+  })
+  res <- dplyr::bind_rows(res, .id="dataset")
+  res$dataset <- factor(res$dataset)
+  res
 }
+
 
 #' @importFrom matrixStats rowMins
 #' @importFrom dplyr bind_cols bind_rows
@@ -67,8 +61,12 @@ evaluateClustering <- function(x, tl){
     y$true.nbClusts <- length(grep("^pr\\.", colnames(x)))
     y
   })
-  for(i in names(res)) colnames(res[[i]]) <- paste(i, colnames(res[[i]]))
-  as.data.frame(bind_cols(res), row.names=row.names(res[[1]]))
+  pi <- parsePipNames(row.names(res[[1]]))
+  pi <- pi[rep(seq_len(nrow(pi)), length(res)),,drop=FALSE]
+  res <- cbind(pi, dplyr::bind_rows(res, .id="dataset"))
+  res$dataset <- factor(res$dataset)
+  row.names(res) <- NULL
+  res
 }
 
 .getVE <- function(x, cl){
@@ -87,34 +85,37 @@ evaluateClustering <- function(x, tl){
 #' as columns
 #' @param clusters The vector indicating each cell's cluster.
 #' @param n A numeric vector indiciating the number of top dimensions at which 
-#' to gather statistics (default `c(10,20,50)`). Will use all available dimensions
-#' if a higher number is given.
+#' to gather statistics (default `c(10,20,50)`). Will use all available 
+#' dimensions if a higher number is given.
 #'
 #' @return A list with the following components:
 #' * silhouettes: a matrix of the silhouette for each cell-cluster pair at each 
 #' value of `n`
-#' * clust.avg.silwidth: a matrix of the cluster average width at each value of `n`
+#' * clust.avg.silwidth: a matrix of the cluster average width at each value of 
+#' `n`
 #' * R2: the proportion of variance in each component (up to `max(n)`) that is 
 #' explained by the clusters (i.e. R-squared of a linear model).
 #' 
+#' @importFrom cluster silhouette
 #' @export
 evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
+  if(is.null(covars)) covars <- c("log10_total_features", "log10_total_counts", 
+                                  "total_features")
   if(is(x,"Seurat")){
-    if(is.null(covars)) covars <- x@meta.data[,c("log10_total_features", "log10_total_counts", "total_features")]
+    if(is.character(covars)) covars <- x[[]][,covars]
     if(is.null(clusters)) clusters <- x$phenoid
-    x <- x@reductions$pca@cell.embeddings
+    x <- x[["pca"]]@cell.embeddings
   }else if(is(x, "SingleCellExperiment")){
-    if(is.null(covars)) covars <- as.data.frame(colData(x[,c("log10_total_features", "log10_total_counts", "total_features")]))
+    if(is.character(covars)) covars <- as.data.frame(colData(x[,covars]))
     if(is.null(clusters)) clusters <- x$phenoid
     x <- reducedDim(x, "PCA")
   }else{
     if(is.null(clusters)) stop("`clusters` must be given!")
   }
-  library(cluster)
   clusters <- as.factor(clusters)
   n <- unique(sapply(n, y=ncol(x), FUN=function(x,y) min(x,y)))
   si <- lapply(n, FUN=function(dims){
-    silhouette(as.integer(clusters), dist(x[,1:dims]))
+    cluster::silhouette(as.integer(clusters), dist(x[,1:dims]))
   })
   names(si) <- sapply(n, FUN=function(i){
     if(i==ncol(x)) return(paste0("all_", i,"_dims"))
@@ -124,26 +125,38 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
   if(length(n)==1){
     silhouettes <- si[[1]][,1:3]
   }else{
-    silhouettes <- cbind(si[[1]][,1:2], do.call(cbind, lapply(si,FUN=function(x) as.numeric(x[,3]))))
+    silhouettes <- lapply(si,FUN=function(x) as.numeric(x[,3]))
+    silhouettes <- cbind(si[[1]][,1:2], do.call(cbind, silhouettes))
   }
   
   # cluster average silhouette width
-  csw <- t(sapply(si, FUN=function(x) clus.avg.widths=summary(x)$clus.avg.widths))
+  csw <- t(sapply(si, FUN=function(x) summary(x)$clus.avg.widths))
   colnames(csw) <- levels(clusters)
   
   # variance in each component explained by clusters
-  cat("\n",n,"\n")
-  cat(seq_len(max(n)))
-  cat("\n")
   R2 <- apply(x[,seq_len(max(n))], 2, cl=clusters, FUN=.getVE)
   
   # correlation of each component with covariates
   covar.cor <- sapply( covars, FUN=function(y) cor(x,y) )
-  # correlation of the residuals (after regression on clusters) explained by each covariates
-  res <- apply(x[,seq_len(max(n))], 2, cl=clusters, FUN=function(x, cl){
-    lm(x~cl)$residuals
+  
+  covar.adjR2 <- sapply(covars, FUN=function(co){
+    apply(x[,1:min(5,ncol(x))],2,FUN=function(x){ 
+      tryCatch({
+        summary(lm(x~co+factor(clusters)))$adj.r.squared -
+          summary(lm(x~factor(clusters)))$adj.r.squared
+      }, error=function(e) NA)
+    })
   })
-  covar.Rcor <- sapply( covars, FUN=function(y) cor(res,y) )
+  
+  # per-subpopuluation correlation of each component with covariates
+  ii <- split(seq_len(nrow(x)), clusters)
+  covar.cor2 <- lapply( covars, FUN=function(y){
+    z <- sapply(ii, FUN=function(i){
+      t(cor(x[i,],y[i]))
+    })
+    row.names(z) <- colnames(x)
+    z
+  })
   
   # each cell's distance to the cluster median
   cs <- split(row.names(x),clusters)
@@ -159,96 +172,115 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
         clust.avg.silwidth=csw,
         cellDistsToMedian=dists,
         covar.cor=covar.cor,
-        covar.Rcor=covar.Rcor,
+        covar.cor2=covar.cor2,
+        covar.adjR2=covar.adjR2,
         R2=R2 )
 }
 
-.aggregateDR <- function(res, dswise=FALSE){
+.aggregateDR <- function(res){
   res <- lapply(res, FUN=function(x){
+    if("evaluation" %in% names(x)) x <- x$evaluation
     if("dimreduction" %in% names(x)) x <- x$dimreduction
-    if("evaluation" %in% names(x[[1]])) x <- lapply(x, FUN=function(x) x$evaluation)
+    if("evaluation" %in% names(x)) x <- x$evaluation
     x
   })
+  
+  pi <- parsePipNames(names(res[[1]]))
+  
+  agfns <- list(minSilWidth=min, meanSilWidth=mean, medianSilWidth=median, maxSilWidth=max)
+  
   allsi <- lapply(res, FUN=function(x){
-    si <- lapply(x,FUN=function(y) y$silhouettes[,3])
-    pp <- parsePipNames(names(x))
-    pp <- pp[rep(seq_len(nrow(pp)), sapply(si, length)),]
-    pp$silhouette <- unlist(si)
-    pp
-  })
-  allsi <- dplyr::bind_rows(allsi, .id = "dataset")
-  
-  perDS <- lapply(res, FUN=function(x){
-    # check if the dimensions are the same
-    ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
-    if((length(unique(table(ll)))>1) || nrow(x[[1]]$clust.avg.silwidth)==1){
-      # check if there's only one N per analysis
-      if(all(sapply(x, FUN=function(x) nrow(x$clust.avg.silwidth))==1)){
-        for(i in seq_along(x)) row.names(x[[i]]$clust.avg.silwidth) <- "selected"
-      }else{
-        x <- lapply(x, FUN=function(x){
-          row.names(x$clust.avg.silwidth)[grep("all",row.names(x$clust.avg.silwidth))] <- "all"
-          x
-        })
+    subpops <- colnames(x[[1]]$clust.avg.silwidth)
+    x <- lapply(x,FUN=function(y) y$silhouettes)
+    dims <- table(unlist(lapply(x, FUN=function(x) colnames(x)[-1:-2])))
+    if(length(unique(dims))==1 && ncol(x[[1]])==3){
+      # single dimensionality
+      if(length(dims)>=1){
+        x <- lapply(x, FUN=function(x) names(x)[3] <- "selected")
+        dims <- table(unlist(lapply(x, FUN=function(x) colnames(x)[-1:-2])))
       }
-      ll <- unlist(lapply(x, FUN=function(x){ row.names(x$clust.avg.silwidth) }))
     }
-    spn <- unique(unlist(lapply(x, FUN=function(x) colnames(x$clust.avg.silwidth))))
-    sw <- lapply(unique(ll), FUN=function(topX){
-      t(sapply(x, FUN=function(x){
-        x <- unlist(as.data.frame(x$clust.avg.silwidth)[topX,])
-        sapply(spn, FUN=function(y) ifelse(y %in% names(x), x[[y]], NA))
+    if(!any(dims==length(x))) 
+      stop("Silhouettes computed over incompatible dimensionalities")
+    
+    names(dims) <- dims <- intersect( unique(unlist(lapply(x, FUN=colnames))),
+                                      names(dims)[dims==length(x)] )
+    lapply(dims, FUN=function(dim){
+      sils <- dplyr::bind_rows(lapply(x, FUN=function(sil){ 
+        data.frame(subpopulation=subpops, sapply(agfns, FUN=function(agf){
+          aggregate(sil[,dim], by=list(cluster=sil[,1]), FUN=agf)[,2]
+        }), stringsAsFactors=FALSE)
       }))
+      sils <- cbind(pi[rep(seq_len(nrow(pi)),each=length(subpops)),,drop=FALSE],
+                    sils)
+      row.names(sils) <- NULL
+      sils
     })
-    names(sw) <- unique(ll)
-    R2 <- lapply(x, FUN=function(x) x$R2)
-    nn <- unique(unlist(lapply(R2,names)))
-    #nn <- nn[order(as.numeric(unlist(regmatches(nn,gregexpr("[[:digit:]]+$",nn)))))]
-    R2 <- sapply(nn, FUN=function(n){
-      sapply(R2, FUN=function(x) x[n])
-    })
-    list( clust.avg.silwidth=sw,
-          PC1.covar=tryCatch(sapply(x, FUN=function(x) x$covar.cor[1,]), 
-                             error=function(e) NULL),
-          PC1.covarR=tryCatch(sapply(x, FUN=function(x) x$covar.Rcor[1,]), 
-                              error=function(e) NULL),
-          PC.R2=R2 )
   })
   
-  if(dswise) return(perDS)
-  
-  sw <- lapply(names(perDS[[1]]$clust.avg.silwidth), FUN=function(n){
-    d <- lapply(perDS, FUN=function(x){ x$clust.avg.silwidth[[n]] })
-    for(f in names(perDS)) colnames(d[[f]]) <- paste(f,colnames(d[[f]]))
-    do.call(cbind, d)
+  dims <- unlist(lapply(allsi, names))
+  dims <- table(dims)[unique(dims)]
+  names(dims) <- dims <- names(dims)[dims==length(allsi)]
+  allsi <- lapply(dims, FUN=function(x){
+    x <- dplyr::bind_rows(lapply(allsi, FUN=function(y) y[[x]]), .id = "dataset")
+    x$dataset <- factor(x$dataset)
+    x
   })
-  names(sw) <- names(perDS[[1]]$clust.avg.silwidth)
   
-  if(is.null(perDS[[1]]$PC1.covar) | is.null(perDS[[1]]$PC1.covarR)){
-    PC1.covar <- NULL
-    PC1.covarR <- NULL
-  }else{
-    PC1.covar <- lapply(row.names(perDS[[1]]$PC1.covar), FUN=function(covar){
-      do.call(cbind, lapply(perDS, FUN=function(x) abs(x$PC1.covar[covar,])))
-    })
-    names(PC1.covar) <- paste0("PC1_covar.",row.names(perDS[[1]]$PC1.covar))
-    PC1.covarR <- lapply(row.names(perDS[[1]]$PC1.covarR), FUN=function(covar){
-      do.call(cbind, lapply(perDS, FUN=function(x) abs(x$PC1.covarR[covar,])))
-    })
-    names(PC1.covarR) <- paste0("PC1_covarR.",row.names(perDS[[1]]$PC1.covarR))
+  R2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
+    # find common PCs
+    x <- lapply(x, FUN=function(x) x$R2)
+    nn <- table(unlist(lapply(x, names)))
+    nn <- names(nn)[nn==length(x)]
+    x <- do.call(rbind, lapply(x, FUN=function(x) x[nn]))
+    cbind(pi, x)
+  }), .id="dataset")
+  
+  covar <- dplyr::bind_rows(lapply(res, FUN=function(x){
+    a <- pi[rep(seq_len(nrow(pi)),each=ncol(x[[1]]$covar.cor)),,drop=FALSE]
+    a <- cbind(a, dplyr::bind_rows(lapply(x, FUN=function(x){
+      y <- t(x$covar.cor)
+      colnames(y) <- paste0("PC",seq_len(ncol(y)))
+      data.frame(covariate=colnames(x$covar.cor), y, stringsAsFactors=FALSE)
+    })))
+    row.names(a) <- NULL
+    a
+  }), .id="dataset")
+  
+  top5 <- covar.cor2 <- covar.adjR2 <- NULL
+  
+  if(!is.null(res[[1]][[1]]$covar.cor2)){
+    covar.cor2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
+      x <- lapply(x, FUN=function(x){
+        reshape2::melt(sapply(x$covar.cor2, FUN=function(x){
+          rowMeans(x[1:min(nrow(x),5),,drop=FALSE])
+        }), value.name = "meanCor")
+      })
+      cbind( pi[rep(seq_len(nrow(pi)),sapply(x,nrow)),,drop=FALSE], 
+             dplyr::bind_rows(x) )
+    }), .id="dataset")
+    colnames(covar.cor2)[ncol(pi)+2:3] <- c("component","covariate")
+    w <- which(covar.cor2$component %in% paste0(c("PC","PC_"),rep(1:5,each=2)))
+    top5 <- aggregate( covar.cor2$meanCor[w],
+                       by=covar.cor2[,c("dataset","covariate", colnames(pi))],
+                       FUN=function(x) mean(abs(x)) )
+    ff <- paste( paste(setdiff(colnames(top5),c("x","covariate")),collapse="+")
+                 ,"~covariate")
+    top5 <- reshape2::dcast( top5, as.formula(ff), value.var="x", 
+                             fun.aggregate=mean)
   }
-  
-  PCtop5.R2 <- do.call(cbind, lapply(perDS, FUN=function(x){
-    if(!is.matrix(x$PC.R2)) return(t(x$PC.R2[1:min(5,nrow(x$PC.R2))]))
-    colMeans(x$PC.R2[1:min(5,nrow(x$PC.R2)),,drop=FALSE])
-  }))
-  
-  res <- list( silhouettes=allsi, clust.avg.silwidth=sw )
-  res <- c(res, PC1.covar, PC1.covarR)
-  res$PCtop5.R2 <- PCtop5.R2
-  res
-}
+  if(!is.null(res[[1]][[1]]$covar.adjR2)){
+    covar.adjR2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
+      pi <- parsePipNames(names(x))
+      x <- do.call(rbind, lapply(x, FUN=function(x) x$covar.adjR2[1,,drop=FALSE]))
+      row.names(x) <- NULL
+      cbind(pi, x)
+    }), .id="dataset")
+  }
 
+  list( silhouette=allsi, varExpl.subpops=R2, corr.covariate=covar,
+        meanAbsCorr.covariate2=top5, PC1.covar.adjR2=covar.adjR2 )
+}
 
 
 #' match_evaluate_multiple
@@ -279,7 +311,8 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
     }
   }
   if(!is.numeric(clus_truth)) clus_truth <- as.integer(as.factor(clus_truth))
-  if(!is.numeric(clus_algorithm)) clus_algorithm <- as.integer(as.factor(clus_algorithm))
+  if(!is.numeric(clus_algorithm)) 
+    clus_algorithm <- as.integer(as.factor(clus_algorithm))
   
   # number of detected clusters
   n_clus <- length(table(clus_algorithm))
@@ -288,20 +321,23 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
   unassigned <- is.na(clus_truth)
   clus_algorithm <- clus_algorithm[!unassigned]
   clus_truth <- clus_truth[!unassigned]
-  if (length(clus_algorithm) != length(clus_truth)) warning("vector lengths are not equal")
+  if (length(clus_algorithm) != length(clus_truth)) 
+    warning("vector lengths are not equal")
   
   tbl_algorithm <- table(clus_algorithm)
   tbl_truth <- table(clus_truth)
   
   # detected clusters in rows, true populations in columns
-  pr_mat <- re_mat <- F1_mat <- matrix(NA, nrow = length(tbl_algorithm), ncol = length(tbl_truth))
+  pr_mat <- re_mat <- F1_mat <- 
+    matrix(NA, nrow = length(tbl_algorithm), ncol = length(tbl_truth))
   
   for (i in 1:length(tbl_algorithm)) {
     for (j in 1:length(tbl_truth)) {
       i_int <- as.integer(names(tbl_algorithm))[i]  # cluster number from algorithm
       j_int <- as.integer(names(tbl_truth))[j]  # cluster number from true labels
       
-      true_positives <- sum(clus_algorithm == i_int & clus_truth == j_int, na.rm = TRUE)
+      true_positives <- sum(clus_algorithm == i_int & 
+                              clus_truth == j_int, na.rm = TRUE)
       detected <- sum(clus_algorithm == i_int, na.rm = TRUE)
       truth <- sum(clus_truth == j_int, na.rm = TRUE)
       
@@ -318,48 +354,58 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
     }
   }
   
-  # put back cluster labels (note some row names may be missing due to removal of unassigned cells)
+  # put back cluster labels (note some row names may be missing due to removal 
+  # of unassigned cells)
   rownames(pr_mat) <- rownames(re_mat) <- rownames(F1_mat) <- names(tbl_algorithm)
   colnames(pr_mat) <- colnames(re_mat) <- colnames(F1_mat) <- names(tbl_truth)
   
-  # match labels using Hungarian algorithm applied to matrix of F1 scores (Hungarian
-  # algorithm calculates an optimal one-to-one assignment)
+  # match labels using Hungarian algorithm applied to matrix of F1 scores 
+  # (Hungarian algorithm calculates an optimal one-to-one assignment)
   
   # use transpose matrix (Hungarian algorithm assumes n_rows <= n_cols)
   F1_mat_trans <- t(F1_mat)
   
   if (nrow(F1_mat_trans) <= ncol(F1_mat_trans)) {
-    # if fewer (or equal no.) true populations than detected clusters, can match all true populations
+    # if fewer (or equal no.) true populations than detected clusters, can match
+    # all true populations
     labels_matched <- clue::solve_LSAP(F1_mat_trans, maximum = TRUE)
-    # use row and column names since some labels may have been removed due to unassigned cells
-    labels_matched <- as.numeric(colnames(F1_mat_trans)[as.numeric(labels_matched)])
+    # use row and column names since some labels may have been removed due to 
+    # unassigned cells
+    labels_matched <- 
+      as.numeric(colnames(F1_mat_trans)[as.numeric(labels_matched)])
     names(labels_matched) <- rownames(F1_mat_trans)
     
   } else {
-    # if fewer detected clusters than true populations, use transpose matrix and assign
-    # NAs for true populations without any matching clusters
+    # if fewer detected clusters than true populations, use transpose matrix and
+    #  assign NAs for true populations without any matching clusters
     labels_matched_flipped <- clue::solve_LSAP(F1_mat, maximum = TRUE)
-    # use row and column names since some labels may have been removed due to unassigned cells
-    labels_matched_flipped <- as.numeric(rownames(F1_mat_trans)[as.numeric(labels_matched_flipped)])
+    # use row and column names since some labels may have been removed due to 
+    # unassigned cells
+    labels_matched_flipped <- 
+      as.numeric(rownames(F1_mat_trans)[as.numeric(labels_matched_flipped)])
     names(labels_matched_flipped) <- rownames(F1_mat)
     
     labels_matched <- rep(NA, ncol(F1_mat))
     names(labels_matched) <- rownames(F1_mat_trans)
-    labels_matched[as.character(labels_matched_flipped)] <- as.numeric(names(labels_matched_flipped))
+    labels_matched[as.character(labels_matched_flipped)] <- 
+      as.numeric(names(labels_matched_flipped))
   }
   
   # precision, recall, F1 score, and number of cells for each matched cluster
   pr <- re <- F1 <- n_cells_matched <- rep(NA, ncol(F1_mat))
-  names(pr) <- names(re) <- names(F1) <- names(n_cells_matched) <- names(labels_matched)
+  names(pr) <- names(re) <- names(F1) <- names(n_cells_matched) <- 
+    names(labels_matched)
   
   for (i in 1:ncol(F1_mat)) {
-    # set to 0 if no matching cluster (too few detected clusters); use character names 
-    # for row and column indices in case subsampling completely removes some clusters
-    pr[i] <- ifelse(is.na(labels_matched[i]), 0, pr_mat[as.character(labels_matched[i]), names(labels_matched)[i]])
-    re[i] <- ifelse(is.na(labels_matched[i]), 0, re_mat[as.character(labels_matched[i]), names(labels_matched)[i]])
-    F1[i] <- ifelse(is.na(labels_matched[i]), 0, F1_mat[as.character(labels_matched[i]), names(labels_matched)[i]])
+    # set to 0 if no matching cluster (too few detected clusters); use character
+    #  names for row and column indices in case subsampling completely removes 
+    # some clusters
+    im <- labels_matched[i]
+    pr[i] <- ifelse(is.na(im), 0, pr_mat[as.character(im), names(im)])
+    re[i] <- ifelse(is.na(im), 0, re_mat[as.character(im), names(im)])
+    F1[i] <- ifelse(is.na(im), 0, F1_mat[as.character(im), names(im)])
     
-    n_cells_matched[i] <- sum(clus_algorithm == labels_matched[i], na.rm = TRUE)
+    n_cells_matched[i] <- sum(clus_algorithm == labels_matched[i], na.rm=TRUE)
   }
   
   # means across populations
@@ -379,27 +425,66 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
 }
 
 
+#' evaluateNorm
+#' 
+#' @param x An object of class 'Seurat' or 'SingleCellExperiment' with 
+#' normalized data
+#' @param clusters A vector of true cluster identities. If missing, will attempt
+#' to fetch it from the `phenoid` colData.
+#' @param covars Covariates to include, either as data.frame or as colData
+#' columns of `x`
+#'
+#' @return a data.frame.
+#' @export
+#' @importFrom matrixStats rowMedians
+#' @importFrom Matrix rowMeans
 evaluateNorm <- function(x, clusters=NULL, covars=NULL){
+  if(is.null(covars)) covars <- c("log10_total_counts", "total_features")
   if(is(x,"Seurat")){
-    if(is.null(covars)) covars <- x@meta.data[,c("log10_total_counts", "total_features")]
+    if(is.character(covars)) covars <- x[[]][,covars]
     if(is.null(clusters)) clusters <- x$phenoid
-    x <- x@assays$RNA@data
+    meanCount <- Matrix::rowMeans(Seurat::GetAssayData(x, assay="RNA", slot="counts"))
+    x <- Seurat::GetAssayData(x, assay="RNA", slot="data")
   }else if(is(x, "SingleCellExperiment")){
-    if(is.null(covars)) covars <- as.data.frame(colData(x)[,c("log10_total_counts", "total_features")])
+    if(is.character(covars)) covars <- as.data.frame(colData(x)[,covars])
     if(is.null(clusters)) clusters <- x$phenoid
+    meanCount <- Matrix::rowMeans(counts(x))
     x <- logcounts(x)
   }
   x <- as.matrix(x)
-  res <- data.frame( row.names=row.names(x),
-            varExpByCluster=as.numeric(apply(x, 1, cl=clusters, FUN=.getVE)) ) 
+  ve <- round(as.numeric(apply(x, 1, cl=clusters, FUN=.getVE)),2)
+  res <- data.frame( row.names=row.names(x), meanCount=meanCount,
+                     varExpByCluster=ve )
   if(!is.null(covars) && length(covars)>0){
-    resid <- t(apply(x,1,FUN=function(x){
-      lm(x~clusters)$residuals
-    }))
+    ii <- split(seq_len(ncol(x)), clusters)
     for( f in names(covars) ){
-      res[[f]] <- suppressWarnings(as.numeric(cor(t(x),as.numeric(covars[[f]]))))
+      tmp <- sapply(ii, FUN=function(i){
+        cor(t(x[,i]), as.numeric(covars[[f]][i]))
+      })
+      res[[paste0(f,".medianCorr")]] <- round(matrixStats::rowMedians(tmp),2)
+      res[[paste0(f,".meanCorr")]] <- round(rowMeans(tmp),2)
+      res[[paste0(f,".meanAbsCorr")]] <- round(rowMeans(abs(tmp)),2)
     }
   }
   return(res)
+}
+
+
+.aggregateNorm <- function(){
+  res <- lapply(res, FUN=function(x){
+    if("evaluation" %in% names(x)) x <- x$evaluation
+    if("normalization" %in% names(x)) x <- x$normalization
+    x
+  })
+  res2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
+    x <- t(sapply(x, FUN=function(x) sapply(x, FUN=function(x) mean(abs(x)))))
+    parsePipNames(as.data.frame(x))
+  }), .id="dataset")
+  cor2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
+    parsePipNames(as.data.frame(t(sapply(x,FUN=function(x){
+      sapply(x[,-1],y=x[,1],method="spearman",FUN=cor)
+    }))))
+  }), .id="dataset")
+  list( meanAbsCorr=res2, spearman.with.meanCount=cor2 )
 }
 

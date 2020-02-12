@@ -151,7 +151,7 @@ norm.seurat <- function(x, vars=NULL, noscale=FALSE){
   }else{
     if(is.null(vars)) vars <- c()
     for(f in vars){
-      if(!(sd(x@meta.data[[f]])>0)) vars <- setdiff(vars,f)
+      if(!(sd(x[[]][[f]])>0)) vars <- setdiff(vars,f)
     }
     if(length(vars)==0) vars <- NULL
     x <- ScaleData(x, verbose=FALSE, vars.to.regress=vars)
@@ -159,31 +159,35 @@ norm.seurat <- function(x, vars=NULL, noscale=FALSE){
   x
 }
 
-norm.seurat.noscale <- function(x, ...){
-  norm.seurat(x, noscale=TRUE, ...)
-}
-
-norm.scran <- function(x, vars=NULL, noscale=FALSE, min.mean=1){
+norm.scran <- function(x, vars=NULL, noscale=TRUE, min.mean=1){
   library(scran)
-  a <- x@assays$RNA@counts
+  if(is(x,"Seurat")){
+    a <- GetAssayData(x, assay = "RNA", slot = "counts")
+  }else{
+    a <- counts(x)
+  }
   a <- SingleCellExperiment(assays=list(counts=a))
   clusters <- quickCluster(a, min.mean=min.mean, min.size=50)
   a <- computeSumFactors(a, min.mean=min.mean, clusters=clusters)
   a <- normalize(a)
-  x <- SetAssayData(x, slot="data", new.data=logcounts(a))
-  if(noscale){
-    x <- SetAssayData(x, slot="scale.data", as.matrix(GetAssayData(x)))
+  if(is(x,"Seurat")){
+    x <- SetAssayData(x, slot="data", new.data=logcounts(a))
+    if(noscale){
+      x <- SetAssayData(x, slot="scale.data", as.matrix(GetAssayData(x)))
+    }else{
+      x <- ScaleData(x, verbose=FALSE, vars.to.regress=vars)
+    }
   }else{
-    x <- ScaleData(x, verbose=FALSE, vars.to.regress=vars)
+    if(!noscale) a <- t(scale(t(a)))
+    logcounts(x) <- a
   }
   x
 }
-
-norm.scran.noscale <- function(x, ...){
-  norm.scran(x, noscale=TRUE, ...)
+norm.scran.scaled <- function(x, ...){
+  norm.scran(x, noscale=FALSE, ...)
 }
 
-norm.none <- function(x, vars=NULL, noscale=FALSE){
+norm.none <- function(x, vars=NULL, noscale=TRUE){
   x <- SetAssayData(x, slot="data", log1p(GetAssayData(x, slot="counts")))
   if(noscale){
     x <- SetAssayData(x, slot="scale.data", as.matrix(GetAssayData(x)))
@@ -192,9 +196,8 @@ norm.none <- function(x, vars=NULL, noscale=FALSE){
   }
   x
 }
-
-norm.none.noscale <- function(x){
-  norm.none(x, noscale=TRUE)
+norm.none.scaled <- function(x){
+  norm.none(x, noscale=FALSE)
 }
 
 #' norm.seuratvst
@@ -207,13 +210,51 @@ norm.none.noscale <- function(x){
 #' @param variable.features.n Passed to `SCTransform`, default 5000
 #'
 #' @return A Seurat object with updated data slot.
-#' @export
 norm.seuratvst <- function(x, vars=NULL, noscale=FALSE, variable.features.n=5000){
   library(sctransform)
-  x <- SCTransform(x, vars.to.regress=vars, verbose=FALSE, variable.features.n=variable.features.n, return.only.var.genes=FALSE)
+  x <- SCTransform(x, vars.to.regress=vars, verbose=FALSE, 
+                   variable.features.n=variable.features.n, 
+                   return.only.var.genes=FALSE)
   x@misc$vst.var.feat <- VariableFeatures(x)
   x
 }
+norm.sctransform <- norm.seuratvst
+
+
+#' norm.scnorm
+#'
+#' A wrapper around `SCnorm` normalization.
+#' 
+#' @param x A SCE or Seurat object.
+#' @param vars A vector of variables to regress when scaling (default none). Ignored if `noscale`.
+#' @param noscale Logical; whether to disable scaling (default FALSE)
+#'
+#' @return An object of the same class as `x` with updated slots.
+norm.scnorm <- function(x, vars=NULL, noscale=TRUE, nthreads=1){
+  library(SCnorm)
+  if(is(x,"Seurat")){
+    a <- Seurat::GetAssayData(x, slot="counts")
+    a <- SCnorm(a, rep("A",ncol(a)), NCores=nthreads)
+    a <- log1p(assays(a)$normcounts)
+    x <- SetAssayData(x, slot="data", new.data=a)
+    if(noscale){
+      x <- SetAssayData(x, slot="scale.data", as.matrix(GetAssayData(x)))
+    }else{
+      x <- ScaleData(x, verbose=FALSE, vars.to.regress=vars)
+    }
+    return(x)
+  }
+  a <- counts(x)
+  a <- SCnorm(a, rep("A",ncol(a)), NCores=nthreads)
+  a <- log1p(assays(a)$normcounts)
+  if(!noscale) a <- t(scale(t(a)))
+  logcounts(x) <- a
+  x
+}
+norm.scnorm.scaled <- function(x, ...){
+  norm.scnorm(x, noscale=FALSE, ...)
+}
+
 
 
 sel.vst <- function(dat, n=2000, excl=c()){
@@ -282,27 +323,30 @@ seurat.pca.noweight <- function(x, dims=50, weight.by.var=FALSE, seed.use=42){
          weight.by.var=weight.by.var, npcs=dims, seed.use = seed.use)
 }
 
-scran.denoisePCA <- function(x, dims=50, ...){
+scran.denoisePCA <- function(x, dims=50, pca.method=c("exact","irlba"), ...){
   library(scran)
+  BSPARAM <- switch(match.arg(pca.method),
+                    exact=ExactParam(),
+                    irlba=IrlbaParam() )
   if(is(x, "Seurat")){
     sce <- SingleCellExperiment( list( counts=GetAssayData(x, slot="counts"),
                                        logcounts=GetAssayData(x, slot="data")) )
-    if(packageVersion("scran") >= "1.13"){
-      var.stats <- modelGeneVar(sce)
-      sce <- denoisePCA(sce, technical=var.stats, min.rank=2, max.rank=dims, ...)
-    }else{
-      td <- trendVar(sce, use.spikes=FALSE)
-      sce <- denoisePCA(sce, technical=td$trend, min.rank=2, max.rank=dims, ...)
-    }
     return(sceDR2seurat(reducedDim(sce, "PCA"), x, "pca"))
   }
+  if(packageVersion("scran") >= "1.13"){
+    var.stats <- modelGeneVar(sce)
+    sce <- denoisePCA(sce, technical=var.stats, min.rank=2, max.rank=dims, BSPARAM=BSPARAM, ...)
+  }else{
+    td <- trendVar(sce, use.spikes=FALSE)
+    sce <- denoisePCA(sce, technical=td$trend, min.rank=2, max.rank=dims, BSPARAM=BSPARAM, ...)
+  }
+  if(is(x, "Seurat")) return(sceDR2seurat(reducedDim(sce, "PCA"), x, "pca"))
+  return(sce)
 }
-
-
 
 seGlmPCA <- function(x, weight.by.var=TRUE, dims=20){
   library(glmpca)
-  dr <- glmpca(as.matrix(x@assays$RNA@counts[VariableFeatures(x),]), dims)
+  dr <- glmpca(as.matrix(GetAssayData(x, assay = "RNA", slot = "counts")[VariableFeatures(x),]), dims)
   e <- as.matrix(dr$factors)
   colnames(e) <- gsub("dim","dim_",colnames(e))
   if(weight.by.var=="both"){
@@ -333,8 +377,8 @@ sceDR2seurat <- function(embeddings, object, name){
 }
 
 clust.seurat <- function(x, rd=NULL, k=20, steps=8, dims=50, seed.use=1234, min.size=0, resolution=0.8){
-  dims <- min(dims,ncol(x@reductions$pca@cell.embeddings))
-  x <- FindNeighbors(x, k.param=k, dims=1:dims)
+  dims <- min(dims,ncol(x[["pca"]]@cell.embeddings))
+  x <- FindNeighbors(x, k.param=k, dims=1:dims, verbose=FALSE)
   x <- FindClusters(x, resolution=resolution, random.seed=seed.use, verbose=FALSE)
   Idents(x)
 }
@@ -351,8 +395,7 @@ clust.seurat <- function(x, rd=NULL, k=20, steps=8, dims=50, seed.use=1234, min.
 subsetFeatureByType <- function(g, classes=c("Mt","conding","ribo")){
   if(length(classes)==0) return(g)
   classes <- match.arg(gsub("ribosomal","ribo",classes), c("Mt","coding","ribo"), several.ok=T)
-  #data("ctrlgenes")
-  ctrlgenes <- readRDS("/home/Shared_taupo/plger/mm_hs_control_genes_for_scRNAseq.rds")
+  data("ctrlgenes", package="pipeComp")
   go <- g
   if(any(grepl("^ENSG|^ENSMUSG",head(g,n=100)))){
     ## we assume ^ENSEMBL\.whatever rownames
@@ -374,7 +417,8 @@ subsetFeatureByType <- function(g, classes=c("Mt","conding","ribo")){
 
 
 getDimensionality <- function(se, method, maxDims=50){
-  x <- se@reductions$pca@cell.embeddings
+  library(intrinsicDimension)
+  x <- se[["pca"]]@cell.embeddings
   x <- switch(method,
          essLocal.a=essLocalDimEst(x),
          essLocal.b=essLocalDimEst(x, ver="b"),
@@ -383,7 +427,7 @@ getDimensionality <- function(se, method, maxDims=50){
          pcaLocal.maxgap=pcaLocalDimEst(x, ver="maxgap"),
          maxLikGlobal=maxLikGlobalDimEst(x, k=20, unbiased=TRUE),
          pcaOtpmPointwise.max=pcaOtpmPointwiseDimEst(x,N=10),
-         elbow=farthestPoint(se@reductions$pca@stdev)-1,
+         elbow=farthestPoint(Stdev(se, "pca"))-1,
          fisherSeparability=FisherSeparability(x),
          scran.denoisePCA=scran.ndims.wrapper(se),
          jackstraw.elbow=js.wrapper(se,n.dims=ncol(x)-1,ret="ndims")
@@ -398,7 +442,7 @@ js.wrapper <- function(so, n.dims=50, n.rep=500, doplot=TRUE, ret=c("Seurat","pv
   so <- ScoreJackStraw(so, dims = 1:n.dims, verbose=FALSE)
   if(ret=="pvalues") return( Reductions(so,"pca")@jackstraw$overall.p.values[,2] )
   if(ret=="Seurat") return( so )
-  y <- so@reductions$pca@jackstraw$overall.p.values[,2]
+  y <- so[["pca"]]@jackstraw$overall.p.values[,2]
   nzeros <- which(y>0)[1]-1
   y <- y[-1*(1:nzeros)]
   farthestPoint(-log10(y))+nzeros
@@ -461,7 +505,6 @@ filt.stringent <- function(x){
 #' @param dirs A vector of directions (higher/lower/both)
 #'
 #' @return A vector of filtering strings.
-#' @export
 getFilterStrings <- function(mads=c(2,2.5,3,5), times=1:2, dirs=c("higher","both")){
   varCombs <- c("","mt","lcounts","mt,lcounts","lfeat,lcounts","mt,lfeat","mt,lfeat,lcounts",
                 "mt,lfeat,lcounts,top50","mt,top50","lcounts,top50")
@@ -487,7 +530,8 @@ doublet.scDblFinder <- function(x){
 }
 
 doublet.scds <- function(x){
-  x <- scds::cxds_bcds_hybrid(x, list(verb=FALSE), list(verb=FALSE))
+  library(scds)
+  x <- cxds_bcds_hybrid(x, list(verb=FALSE), list(verb=FALSE))
   dbn <- ceiling((0.01 * ncol(x)/1000)*ncol(x))
   o <- order(x$hybrid_score, decreasing=TRUE)[seq_len(dbn)]
   x[,-o]
@@ -508,11 +552,11 @@ farthestPoint <- function(y, x=NULL){
 
 #' clust.scran
 #' 
-#' A wrapper to use scran clustering.
+#' A wrapper to use scran-based clustering.
 #'
 #' @param ds An object of class `SingleCellExperiment` or `Seurat`.
-#' @param rd The name of the dimensionality reduction to use. If NULL, the first one availble 
-#' will be used. If NA (or if none is available), will be computed by `quickCluster`.
+#' @param rd The name of the dimensionality reduction to use, or a logical 
+#' indicating whether to use a reduced space.
 #' @param method The method, either `fast_greedy` or `walktrap`.
 #' @param k number of NN to consider, default 20.
 #' @param steps number of steps for the random walk (walktrap method), default 8.
@@ -521,39 +565,60 @@ farthestPoint <- function(y, x=NULL){
 #' @param seed.use not used.
 #' @param min.size Minimum size of a cluster (default 50)
 #' @param resolution Ignored; for consistency with `clust.seurat`
+#' @param neighbor.method Passed to scran
+#' @param graph.type "snn.rank", "snn.number", or "knn".
 #'
-#' @return A factorial vector of cluster IDs, with cell names as names.
+#' @return A factor vector of cluster IDs, with cell names as names.
 #' 
 #' @export
-clust.scran <- function(ds, rd=NULL, method="walktrap", k=20, steps=8, dims=50, nthreads=1, seed.use=NULL, min.size=0, resolution=NULL, graph.type=c("snn","knn")){
+clust.scran <- function(ds, rd=TRUE, method="walktrap", 
+                        graph.type=c("snn.rank","snn.number","knn"),
+                        neighbor.method=c("Kmknn","Vptree","Annoy","Hnsw"), 
+                        k=20, steps=8, dims=50, nthreads=1, seed.use=NULL, 
+                        min.size=5, resolution=NULL){
   graph.type <- match.arg(graph.type)
+  weighting <- match.arg(weighting)
+  neighbor.method <- switsch(match.arg(neighbor.method),
+                             Kmknn=KmknnParam(),
+                             Vptree=VptreeParam(),
+                             Annoy=AnnoyParam(),
+                             Hnsw=HnswParam())
   if(is(ds,"Seurat")){
     ds <- SingleCellExperiment(
       assays=list(
-        counts=ds@assays$RNA@counts,
+        counts=GetAssayData(ds, assay = "RNA", slot="counts"),
         logcounts=GetAssayData(ds, slot="scale.data")
       ),
-      colData=ds@meta.data,
+      colData=ds[[]],
       reducedDims=lapply(ds@reductions, FUN=function(x) x@cell.embeddings)
     )
   }
-  if(is.null(rd) && length(reducedDim(ds))>0) rd <- names(reducedDim(ds))[[1]]
-  if(!is.null(rd) && !is.na(rd)){
-    dims <- min(dims, ncol(reducedDim(ds, rd)))
-    reducedDim(ds, rd) <- reducedDim(ds, rd)[,seq_len(dims)]
-  }else{
-    dr <- NULL
-    dims <- 50
+  if(is.logical(rd)){
+    if(rd){
+      if(length(reducedDim(ds))>0){
+        rd <- names(reducedDim(ds))[[1]]
+        dims <- min(dims, ncol(reducedDim(ds, rd)))
+      }else{
+        rd <- NULL
+      }
+    }else{
+      dims <- NA
+      rd <- NULL
+    }
   }
-  if(graph.type=="snn"){
-    g <- scran::buildSNNGraph(ds, BPPARAM=MulticoreParam(nthreads), use.dimred=rd, k=k, d=dims)
+  BPPARAM <- ifelse(nthreads>1,MulticoreParam(nthreads),SerialParam())
+  if(graph.type=="knn"){
+    g <- scran::buildKNNGraph(ds, BPPARAM=BPPARAM, BNPARAM=neighbor.method, 
+                              use.dimred=rd, k=k, d=dims)
   }else{
-    g <- scran::buildKNNGraph(ds, BPPARAM=MulticoreParam(nthreads), use.dimred=rd, k=k, d=dims)
+    weighting <- ifelse(graph.type=="snn.rank", "rank", "number")
+    g <- scran::buildSNNGraph(ds, BPPARAM=BPPARAM, BNPARAM=neighbor.method, 
+                              type=weighting, use.dimred=rd, k=k, d=dims,)    
   }
   if(method=="walktrap"){
-    cl <- igraph::cluster_walktrap(g, steps=steps, merges=FALSE)$membership
+    cl <- igraph::cluster_walktrap(g, steps=steps)$membership
   }else{
-    cl <- igraph::cluster_fast_greedy(g, merges=FALSE)$membership
+    cl <- igraph::cluster_fast_greedy(g)$membership
   }
   if(min.size>0) cl <- scran:::.merge_closest_graph(g, cl, min.size=min.size)
   names(cl) <- colnames(ds)
@@ -562,8 +627,4 @@ clust.scran <- function(ds, rd=NULL, method="walktrap", k=20, steps=8, dims=50, 
 
 clust.scran.fg <- function(ds, ...){
   clust.scran(ds, method="fastq_greedy", ...)
-}
-
-clust.scran.knn <- function(ds, ...){
-  clust.scran(ds, graph.type="knn", ...)
 }

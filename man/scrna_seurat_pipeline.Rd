@@ -20,12 +20,13 @@ The default pipeline has the following steps and arguments:
 * doublet: `doubletmethod` (name of the doublet removal function)
 * filtering: `filt` (name of the filtering function, or filter string)
 * normalization: `norm` (name of the normalization function)
-* selection: `sel` (name of the selection function, or variable of rowData on which to select) and 
- `selnb` (number of features to select)
-* dimreduction: `dr` (name of the dimensionality reduction function) and `maxdim` (maximum number 
-of components to compute)
-* clustering: `clustmethod` (name of the clustering function), `dims` (number of dimensions to use),
- `k` (number of nearest neighbors to use, if applicable), `steps` (number of steps in the random 
- walk, if applicable), `resolution` (resolution, if applicable), `min.size` (minimum cluster size,
- if applicable)
+* selection: `sel` (name of the selection function, or variable of rowData on
+ which to select) and `selnb` (number of features to select)
+* dimreduction: `dr` (name of the dimensionality reduction function) and 
+`maxdim` (maximum number of components to compute)
+* clustering: `clustmethod` (name of the clustering function), 
+`dims` (number of dimensions to use), `k` (number of nearest neighbors to 
+use, if applicable), `steps` (number of steps in the random walk, if 
+applicable), `resolution` (resolution, if applicable), `min.size` (minimum 
+cluster size, if applicable)
 }

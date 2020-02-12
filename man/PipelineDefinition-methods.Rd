@@ -43,8 +43,9 @@
 
 \item{step}{The name of the step for which to set or get the function}
 
-\item{type}{The type of function to set/get (either `functions`, `evaluation`,
-`aggregation`, or `descriptions` - will parse partial matches)}
+\item{type}{The type of function to set/get, either `functions`, 
+`evaluation`, `aggregation`, `descriptions`, or `initiation` (will parse 
+partial matches)}
 }
 \description{
 Methods for \code{\link{PipelineDefinition}} class

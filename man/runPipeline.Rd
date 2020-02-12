@@ -4,18 +4,19 @@
 \alias{runPipeline}
 \title{runPipeline}
 \usage{
-runPipeline(datasets, alternatives, pipelineDef, eg = NULL,
+runPipeline(datasets, alternatives, pipelineDef, comb = NULL,
   output.prefix = "", nthreads = length(datasets),
   saveEndResults = TRUE, debug = FALSE, ...)
 }
 \arguments{
 \item{datasets}{A named vector of initial objects or paths to rds files.}
 
-\item{alternatives}{The (named) list of alternative values for each parameters.}
+\item{alternatives}{The (named) list of alternative values for each 
+parameter.}
 
 \item{pipelineDef}{An object of class `PipelineDefinition`.}
 
-\item{eg}{An optional matrix of indexes indicating the combination to run. 
+\item{comb}{An optional matrix of indexes indicating the combination to run. 
 Each column should correspond to an element of `alternatives`, and contain 
 indexes relative to this element. If omitted, all combinations will be 
 performed.}
@@ -29,14 +30,16 @@ performed.}
 \item{debug}{Logical (default FALSE). When enabled, disables multithreading 
 and prints extra information.}
 
-\item{...}{passed to MulticoreParam. Can for instance be used to set `makeCluster` 
-arguments, or set `threshold="TRACE"` when debugging in a multithreaded context.}
+\item{...}{passed to MulticoreParam. Can for instance be used to set 
+`makeCluster` arguments, or set `threshold="TRACE"` when debugging in a 
+multithreaded context.}
 }
 \value{
-
+A SimpleList.
 }
 \description{
-This function runs a pipeline with combinations of parameter variations on nested steps.
-The pipeline has to be defined as a list of functions applied consecutively on their 
-respective outputs. See `defaultPipelineDef()` for indications about how to build one.
+This function runs a pipeline with combinations of parameter variations on 
+nested steps. The pipeline has to be defined as a list of functions applied 
+consecutively on their respective outputs. See `defaultPipelineDef()` for 
+indications about how to build one.
 }

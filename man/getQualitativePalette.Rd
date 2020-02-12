@@ -17,3 +17,6 @@ Returns a qualitative color palette of the given size. If less than 23 colors
  are required, the colors are based on Paul Tol's palettes. If more, the 
  `randomcoloR` package is used.
 }
+\examples{
+getQualitativePalette(5)
+}
