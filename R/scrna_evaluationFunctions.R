@@ -105,7 +105,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
     if(is.null(clusters)) clusters <- x$phenoid
     x <- x[["pca"]]@cell.embeddings
   }else if(is(x, "SingleCellExperiment")){
-    if(is.character(covars)) covars <- as.data.frame(colData(x[,covars]))
+    if(is.character(covars)) covars <- as.data.frame(colData(x)[,covars])
     if(is.null(clusters)) clusters <- x$phenoid
     x <- reducedDim(x, "PCA")
   }else{
@@ -394,7 +394,6 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
               mean_F1 = mean_F1))
 }
 
-
 #' evaluateNorm
 #' 
 #' @param x An object of class 'Seurat' or 'SingleCellExperiment' with 
@@ -408,17 +407,20 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
 #' @export
 #' @importFrom matrixStats rowMedians
 evaluateNorm <- function(x, clusters=NULL, covars=NULL){
+  library(Seurat)
   if(is.null(covars)) covars <- c("log10_total_counts", "total_features")
   if(is(x,"Seurat")){
+    library(Seurat)
     if(is.character(covars)) covars <- x[[]][,covars]
     if(is.null(clusters)) clusters <- x$phenoid
+    meanCount <- Matrix::rowMeans(GetAssayData(x, assay = "RNA", slot = "counts"))
     x <- GetAssayData(x, assay = "RNA", slot = "data")
-    meanCount <- rowMeans(GetAssayData(x, assay = "RNA", slot = "counts"))
-  }else if(is(x, "SingleCellExperiment")){
+  } 
+  else if(is(x, "SingleCellExperiment")){
     if(is.character(covars)) covars <- as.data.frame(colData(x)[,covars])
     if(is.null(clusters)) clusters <- x$phenoid
+    meanCount <- Matrix::rowMeans(counts(x))
     x <- logcounts(x)
-    meanCount <- rowMeans(counts(x))
   }
   x <- as.matrix(x)
   ve <- round(as.numeric(apply(x, 1, cl=clusters, FUN=.getVE)),2)
@@ -428,12 +430,12 @@ evaluateNorm <- function(x, clusters=NULL, covars=NULL){
     ii <- split(seq_len(ncol(x)), clusters)
     for( f in names(covars) ){
       tmp <- sapply(ii, FUN=function(i){
-        cor(t(x[,i]), as.numeric(covars[[f]]))
+        cor(t(x[,i]), as.numeric(covars[[f]][i]))
       })
-      res[[paste0(f,".medianCorr"]] <- round(matrixStats::rowMedians(tmp),2)
-      res[[paste0(f,".meanCorr"]] <- round(matrixStats::rowMeans(tmp),2)
-      res[[paste0(f,".meanAbsCorr"]] <- round(matrixStats::rowMeans(abs(tmp)),2)
-    }
+      res[[paste0(f,".medianCorr")]] <- round(matrixStats::rowMedians(tmp),2)
+      res[[paste0(f,".meanCorr")]] <- round(Matrix::rowMeans(tmp),2)
+      res[[paste0(f,".meanAbsCorr")]] <- round(Matrix::rowMeans(abs(tmp)),2)
+    } 
   }
   return(res)
 }

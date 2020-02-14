@@ -74,10 +74,10 @@ my_pip <- PipelineDefinition( list( step1=function(x, meth1){ get(meth1)(x) },
 ```
 
 
-See the `?PipelineDefinition` for more information, or `scrna_seurat_pipeline` for a more complex example:
+See the `?PipelineDefinition` for more information, or `scrna_pipeline` for a more complex example:
 
 ```{r}
-pipDef <- scrna_seurat_pipeline()
+pipDef <- scrna_pipeline()
 pipDef
 ```
 <pre><code>

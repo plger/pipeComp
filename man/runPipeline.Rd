@@ -4,14 +4,23 @@
 \alias{runPipeline}
 \title{runPipeline}
 \usage{
-runPipeline(datasets, alternatives, pipelineDef, comb = NULL,
-  output.prefix = "", nthreads = length(datasets),
-  saveEndResults = TRUE, debug = FALSE, ...)
+runPipeline(
+  datasets,
+  alternatives,
+  pipelineDef,
+  comb = NULL,
+  output.prefix = "",
+  nthreads = length(datasets),
+  saveEndResults = TRUE,
+  debug = FALSE,
+  ...
+)
 }
 \arguments{
 \item{datasets}{A named vector of initial objects or paths to rds files.}
 
-\item{alternatives}{The (named) list of alternative values for each parameters.}
+\item{alternatives}{The (named) list of alternative values for each 
+parameter.}
 
 \item{pipelineDef}{An object of class `PipelineDefinition`.}
 
