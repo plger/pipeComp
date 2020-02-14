@@ -101,7 +101,26 @@ A PipelineDefinition object with the following steps:
 <i>Uses function `clustmethod` to return a named vector of cell clusters.</i>
 </code></pre>
 
-A number of generic methods are implemented on the object, including `show`, `names`, `length`, `[`, `as.list`.
+#### Manipulating PipelineDefinition objects
+
+A number of generic methods are implemented on the object, including `show`, `names`, `length`, `[`, `as.list`. This means that, for instance, a step can be removed from a pipeline in the following way:
+
+```{r}
+pd2 <- pipDef[-1]
+```
+
+Steps can be added using the `addPipelineStep` function:
+```{r}
+pd2 <- addPipelineStep(pd2, name="newstep", after="filtering")
+```
+
+Functions for the new step can be specified through the `slots` argument of `addPipelineStep` or afterwards through `stepFn`:
+
+```{r}
+stepFn(pd2, "newstep", type="function") <- function(x) do_something(x)
+```
+
+Finally, the `arguments()` method can be used to extract the arguments for each step, and the `defaultArguments` methods can be used to get or set the default arguments.
 
 ### Running pipelines
 

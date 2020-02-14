@@ -39,11 +39,21 @@ scrna_evalPlot_DR <- function(res,
   what <- match.arg(what)
   pipDef <- metadata(res)$PipelineDefinition
   if(what=="auto"){
-    H <- scrna_evalPlot_DR(res, "meanSilWidth", scale=FALSE, reorder_rows=reorder_rows, value_format=value_format, show_heatmap_legend=TRUE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...)
+    H <- scrna_evalPlot_DR(res, "meanSilWidth", scale=FALSE, 
+                           reorder_rows=reorder_rows, value_format=value_format,
+                           show_heatmap_legend=TRUE, 
+                           col_title_fontsize=col_title_fontsize, agg.by=agg.by, 
+                           agg.fn=agg.fn, ...)
     ro <- row.names(H@matrix)
     return( H +
-      scrna_evalPlot_DR(res, "log10_total_counts", scale=scale, reorder_rows=ro, value_format=value_format, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...) +
-      scrna_evalPlot_DR(res, "total_features", scale=scale, reorder_rows=ro, value_format=value_format, show_heatmap_legend=FALSE, col_title_fontsize=col_title_fontsize, agg.by=agg.by, agg.fn=agg.fn, ...)
+      scrna_evalPlot_DR(res, "log10_total_counts", scale=scale, reorder_rows=ro,
+                        value_format=value_format, show_heatmap_legend=FALSE, 
+                        col_title_fontsize=col_title_fontsize, agg.by=agg.by, 
+                        agg.fn=agg.fn, ...) +
+      scrna_evalPlot_DR(res, "total_features", scale=scale, reorder_rows=ro, 
+                        value_format=value_format, show_heatmap_legend=FALSE, 
+                        col_title_fontsize=col_title_fontsize, agg.by=agg.by, 
+                        agg.fn=agg.fn, ...)
     )
   }
   if("evaluation" %in% names(res)) res <- res$evaluation
@@ -57,8 +67,8 @@ scrna_evalPlot_DR <- function(res,
     sname <- "silhouette\nwidth"
   }else if(what %in% 
            c("log10_total_counts","log10_total_features","total_features")){
-    title <- paste0("residual corr with\n", what)
-    res <- res$residualCorr.covariate.top5
+    title <- paste0("adj.R^2 diff\n", what)
+    res <- res$PC1.covar.adjR2
     sname <- "correlation"
   }else if(what=="varExpl"){
     title <- "var explained by\nsubpopulations"
@@ -78,7 +88,7 @@ scrna_evalPlot_DR <- function(res,
     }else{
       if(reorder_rows){
         if(isSil){
-          ro <- order( colSums(apply(res2,1,prob=c(0.05,0.5),FUN=quantile))+
+          ro <- order( colSums(apply(res2,1,prob=c(0.05,0.5),FUN=quantile)) +
                          rowMeans(res2), decreasing=TRUE)
         }else{
           ro <- order(rowMeans(res2), decreasing=TRUE)
@@ -107,7 +117,7 @@ scrna_evalPlot_DR <- function(res,
   if(is.null(col)) col <- viridisLite::inferno(100)
   Heatmap( res2, name=sname, cluster_rows=FALSE, cluster_columns=FALSE, 
            bottom_annotation=.ds_anno(colnames(res), anno_legend), 
-           show_column_names = FALSE, cell_fun=.getCellFn(res,res2,value_format),
+           show_column_names=FALSE, cell_fun=.getCellFn(res,res2,value_format),
            col=col, show_heatmap_legend=show_heatmap_legend, column_title=title, 
            column_title_gp=gpar(fontsize=col_title_fontsize), ...)
 }
@@ -284,8 +294,7 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
 
 .getReducedNames <- function(res){
   if(is.character(res)) res <- parsePipNames(res)
-  pp <- res[,grep("^stepElapsed\\.",colnames(res),invert=TRUE),drop=FALSE]
-  pp <- pp[,apply(pp,2,FUN=function(x) length(unique(x))>1),drop=FALSE]
+  pp <- res[,sapply(res, FUN=function(x) length(unique(x))>1),drop=FALSE]
   if(ncol(pp)>1){
     y <- apply(pp,1,FUN=function(x){
       x <- paste0(colnames(pp),"=",x)
