@@ -4,9 +4,17 @@
 \alias{runPipeline}
 \title{runPipeline}
 \usage{
-runPipeline(datasets, alternatives, pipelineDef, comb = NULL,
-  output.prefix = "", nthreads = length(datasets),
-  saveEndResults = TRUE, debug = FALSE, ...)
+runPipeline(
+  datasets,
+  alternatives,
+  pipelineDef,
+  comb = NULL,
+  output.prefix = "",
+  nthreads = length(datasets),
+  saveEndResults = TRUE,
+  debug = FALSE,
+  ...
+)
 }
 \arguments{
 \item{datasets}{A named vector of initial objects or paths to rds files.}

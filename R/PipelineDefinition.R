@@ -59,7 +59,7 @@ setClass( "PipelineDefinition",
 #' 
 #' @aliases PipelineDefinition-class
 #' @seealso \code{\link{PipelineDefinition-methods}}, \code{\link{addPipelineStep}}.
-#' For an example pipeline, see \code{\link{scrna_seurat_pipeline}}.
+#' For an example pipeline, see \code{\link{scrna_pipeline}}.
 #' @export
 PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
                                 aggregation=NULL, initiation=identity, 
@@ -264,7 +264,7 @@ setMethod("stepFn<-", signature("PipelineDefinition"), function(object, step, ty
 #' @export
 #'
 #' @examples
-#' pd <- scrna_seurat_pipeline()
+#' pd <- scrna_pipeline()
 #' pd
 #' pd <- addPipelineStep(pd, name="newstep", after="filtering", 
 #'                       slots=list(description="Step that does nothing..."))

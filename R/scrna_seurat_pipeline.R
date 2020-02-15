@@ -1,4 +1,4 @@
-#' scrna_seurat_pipeline
+#' scrna_pipeline
 #' 
 #' The `PipelineDefinition` for the default scRNAseq clustering pipeline, with 
 #' steps for doublet identification, filtering, normalization, feature selection,
@@ -22,77 +22,113 @@
 #' @param saveDimRed Logical; whether to save the dimensionality reduction for 
 #' each analysis (default FALSE)
 #' 
+#' @param pipeClass `sce` or `seurat`; which object class to use throughout the
+#' pipeline. Note that the `alternatives` functions have to be built around the 
+#' chosen class. Given that, if running the `scrna_alternatives`, the class of 
+#' whole pipeline is determined by the output of the filtering, only this step 
+#' is affected by this option. 
+#' 
+#' 
 #' @export
-scrna_seurat_pipeline <- function(saveDimRed=FALSE){
+scrna_pipeline <- function(saveDimRed=FALSE, pipeClass = "sce"){
+  
+  if (!pipeClass %in% c("seurat", "sce")) stop("pipeClass not valid.")
+  
   # description for each step
   desc <- list( 
     doublet=
-"Takes a SCE object with the `phenoid` colData column, passes it through the 
+      "Takes a SCE object with the `phenoid` colData column, passes it through the 
 function `doubletmethod`, and outputs a filtered SCE.",
     filtering=
-"Takes a SCE object, passes it through the function `filt`, and outputs a 
+      "Takes a SCE object, passes it through the function `filt`, and outputs a 
 filtered Seurat object.",
     normalization=
-"Passes the object through function `norm` to return the object with the 
+      "Passes the object through function `norm` to return the object with the 
 normalized and scale data slots filled.",
     selection=
-"Returns a seurat object with the VariableFeatures filled with `selnb` features 
+      "Returns a Seurat object with the VariableFeatures filled with `selnb` features 
 using the function `sel`.",
     dimreduction=
-"Returns a seurat object with the PCA reduction with up to `maxdim` components
+      "Returns a Seurat object with the PCA reduction with up to `maxdim` components
 using the `dr` function.",
     clustering=
-"Uses function `clustmethod` to return a named vector of cell clusters." )
+      "Uses function `clustmethod` to return a named vector of cell clusters." )
+  
+  
+  if (pipeClass == "sce") desc <- lapply(desc, function(x){
+    gsub("Seurat", "SCE", x)
+  })
   
   # we prepare the functions for each step
+  # dimred intermediate return
   if(saveDimRed){
-    DRfun <- function(x, dr, maxdim){ 
-      x <- get(dr)(x, dims=maxdim)
-      list( x=x, 
-            intermediate_return=list(cell.embeddings=x[["pca"]]@cell.embeddings,
-                                     evaluation=evaluateDimRed(x)) )
+    if(pipeClass == "seurat") {
+      DRfun <- function(x, dr, maxdim){ 
+        x <- get(dr)(x, dims=maxdim)
+        list( x=x, 
+              intermediate_return=list(cell.embeddings=x[["pca"]]@cell.embeddings,
+                                       evaluation=evaluateDimRed(x)) )
+      }
+    } else {
+      DRfun <- function(x, dr, maxdim){ 
+        x <- get(dr)(x, dims=maxdim)
+        list( x=x, 
+              intermediate_return=list(cell.embeddings=reducedDim(x, "PCA"),
+                                       evaluation=evaluateDimRed(x)) )
+      }
     }
+    
   }else{
     DRfun <- function(x, dr, maxdim){ 
       get(dr)(x, dims=maxdim)
     }
   }
+  # selection intermediate return
+  if(pipeClass == "seurat") {
+    selfun <- function(x, sel, selnb){                          
+      x <- pipeComp:::.runf(sel, x, n=selnb, alt=applySelString)
+      list( x=x, intermediate_return=Seurat::VariableFeatures(x) )
+    }
+  }else{
+    selfun <- function(x, sel, selnb){                          
+      x <- pipeComp:::.runf(sel, x, n=selnb, alt=applySelString)
+      list( x=x, intermediate_return=metadata(x)$VariableFeats )
+    }
+  }
+  # functions list
   f <- list(
-        doublet=function(x, doubletmethod){ 
-          x2 <- pipeComp:::.runf(doubletmethod, x)
-          list(x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2))
-        },
-        filtering=function(x, filt){
-          x2 <- pipeComp:::.runf(filt, x, alt=applyFilterString)
-          list(x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2))
-        },
-        normalization=function(x, norm){ 
-          get(norm)(x)
-        },
-        selection=function(x, sel, selnb){ 
-          x <- pipeComp:::.runf(sel, x, n=selnb, alt=applySelString)
-          list( x=x, intermediate_return=Seurat::VariableFeatures(x) )
-        },
-        dimreduction=DRfun,
-        # dimensionality=function(x, dims){
-        #   if(!is.na(suppressWarnings(as.numeric(dims)))){
-        #     dims <- as.integer(dims)
-        #   }else{
-        #     dims <- getDimensionality(x, dims)
-        #   }
-        #   x[["pca"]]@cell.embeddings <- x[["pca"]]@cell.embeddings[,seq_len(dims)]
-        # },
-        clustering=function(x, clustmethod, dims, k, steps, resolution, min.size){
-          tl <- x$phenoid
-          if(!is.na(suppressWarnings(as.numeric(dims)))){
-            dims <- as.integer(dims)
-          }else{
-            dims <- getDimensionality(x, dims)
-          }
-          x <- get(clustmethod)(x, dims=dims, resolution=resolution, k=k, 
-                                steps=steps, min.size=min.size)
-          list( x=x, intermediate_return=evaluateClustering(x,tl) )
-        }
+    doublet=function(x, doubletmethod){ 
+      x2 <- pipeComp:::.runf(doubletmethod, x)
+      list(x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2))
+    },
+    filtering=function(x, filt, pipeClass){  ## <---
+      x2 <- pipeComp:::.runf(filt, x, alt=applyFilterString, pipeClass = pipeClass)  ## <---
+      list(x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2))
+    },
+    normalization=function(x, norm){ 
+      get(norm)(x)
+    },
+    selection=selfun,
+    dimreduction=DRfun,
+    # dimensionality=function(x, dims){
+    #   if(!is.na(suppressWarnings(as.numeric(dims)))){
+    #     dims <- as.integer(dims)
+    #   }else{
+    #     dims <- getDimensionality(x, dims)
+    #   }
+    #   x[["pca"]]@cell.embeddings <- x[["pca"]]@cell.embeddings[,seq_len(dims)]
+    # },
+    clustering=function(x, clustmethod, dims, k, steps, resolution, min.size){
+      tl <- x$phenoid
+      if(!is.na(suppressWarnings(as.numeric(dims)))){
+        dims <- as.integer(dims)
+      }else{
+        dims <- getDimensionality(x, dims)
+      }
+      x <- get(clustmethod)(x, dims=dims, resolution=resolution, k=k, 
+                            steps=steps, min.size=min.size)
+      list( x=x, intermediate_return=evaluateClustering(x,tl) )
+    }
   )
   
   eva <- list( doublet=NULL, filtering=NULL, normalization=evaluateNorm,
@@ -106,13 +142,13 @@ using the `dr` function.",
                clustering=.aggregateClusterEvaluation )
   # default arguments
   def <- list( selnb=2000, maxdim=50, dims=20, k=20, steps=8, min.size=50,
-               resolution=c(0.01, 0.1, 0.5, 0.8, 1) )
+               resolution=c(0.01, 0.1, 0.5, 0.8, 1), pipeClass = pipeClass ) # <--------
   # initiation function
   initf <- function(x){
     if(is.character(x) && length(x)==1) return(readRDS(x))
     x
   }
   PipelineDefinition(functions=f, descriptions=desc, evaluation=eva,
-                      aggregation=agg, initiation=initf, 
+                     aggregation=agg, initiation=initf, 
                      defaultArguments=def, verbose=FALSE)
 }
