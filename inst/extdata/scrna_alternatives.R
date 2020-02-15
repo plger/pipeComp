@@ -792,11 +792,11 @@ clust.scran <- function(ds, rd=TRUE, method="walktrap",
   }
   BPPARAM <- if(nthreads>1) MulticoreParam(nthreads) else SerialParam()
   if(graph.type=="knn"){
+    if(!is.null(rd)) reducedDim(ds, rd) <- reducedDim(ds, rd)[,seq_len(dims)]
     g <- scran::buildKNNGraph(ds, BPPARAM=BPPARAM, BNPARAM=neighbor.method, 
-                              use.dimred=rd, k=k, d=dims)
+                              use.dimred=rd, k=k)
   }else{
     weighting <- ifelse(graph.type=="snn.rank", "rank", "number")
-    
     if (is.null(rd)) {
       g <- scran::buildSNNGraph(ds, BPPARAM=BPPARAM, BNPARAM=neighbor.method, 
                                 type=weighting, use.dimred=rd, k=k, d=dims)   
@@ -804,7 +804,6 @@ clust.scran <- function(ds, rd=TRUE, method="walktrap",
       g <- scran::buildSNNGraph(ds, BPPARAM=BPPARAM, BNPARAM=neighbor.method, 
                                 type=weighting, use.dimred=rd, k=k) 
     }
-     
   }
   if(method=="walktrap"){
     cl <- igraph::cluster_walktrap(g, steps=steps)$membership
