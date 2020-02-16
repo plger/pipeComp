@@ -4,22 +4,12 @@
 \alias{scrna_evalPlot_clust}
 \title{scrna_evalPlot_clust}
 \usage{
-scrna_evalPlot_clust(
-  res,
-  what = "auto",
-  atTrueK = FALSE,
-  agg.by = NULL,
-  agg.fn = mean,
-  scale = FALSE,
-  value_format = "\%.2f",
-  reorder_rows = TRUE,
-  reorder_columns = FALSE,
-  show_heatmap_legend = FALSE,
-  col = viridisLite::inferno(100),
-  col_title_fontsize = 12,
-  anno_legend = TRUE,
-  ...
-)
+scrna_evalPlot_clust(res, what = "auto", atTrueK = FALSE,
+  agg.by = NULL, agg.fn = mean, scale = FALSE,
+  value_format = "\%.2f", reorder_rows = TRUE,
+  reorder_columns = FALSE, show_heatmap_legend = FALSE,
+  col = viridisLite::inferno(100), col_title_fontsize = 12,
+  value_cols = c("black", "white"), anno_legend = TRUE, ...)
 }
 \arguments{
 \item{res}{Aggregated pipeline results (i.e. the output of `runPipeline` or
@@ -45,6 +35,9 @@ scrna_evalPlot_clust(
 \item{col}{Colors for the heatmap}
 
 \item{col_title_fontsize}{Fontsize of column titles.}
+
+\item{value_cols}{A vector of length 2 indicating the colors of the values
+(above and below the mean), if printed}
 
 \item{...}{Passed to `Heatmap`}
 }
