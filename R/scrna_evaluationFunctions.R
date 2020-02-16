@@ -195,7 +195,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
     dims <- table(unlist(lapply(x, FUN=function(x) colnames(x)[-1:-2])))
     if(length(unique(dims))==1 && ncol(x[[1]])==3){
       # single dimensionality
-      if(length(dims)>=1){
+      if(length(dims)>1){
         x <- lapply(x, FUN=function(x) names(x)[3] <- "selected")
         dims <- table(unlist(lapply(x, FUN=function(x) colnames(x)[-1:-2])))
       }

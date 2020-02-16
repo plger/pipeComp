@@ -17,6 +17,7 @@ scrna_seurat_defAlternatives <- function(x=list()){
 }
 
 seWrap <- function(sce, min.cells=0, min.features=0){
+  if(is(sce,"Seurat")) return(sce)
   suppressPackageStartupMessages(library(Seurat))
   se <- CreateSeuratObject( counts=counts(sce), 
                             min.cells=min.cells, 
@@ -73,16 +74,12 @@ filt.mad <- function(x, nmads=3, min.cells=10, min.features=100,
                              "log10_total_counts"="both", 
                              "pct_counts_top_50_features"="higher"
                      ),
-                     outlier.times=1, pipeClass = "seurat"
+                     outlier.times=1
 ){
   vars <- vars[names(vars) %in% colnames(colData(x))]
   if(length(vars)==0){
-    if (pipeClass == "seurat") {
-      return(seWrap(x, min.cells=min.cells, min.features=min.features))
-    } else {
-      return(x[Matrix::rowSums(counts(x) > 0) >= min.cells,
-        Matrix::colSums(counts(x) > 0) >= min.features])
-    }
+    return( x[Matrix::rowSums(counts(x) > 0) >= min.cells,
+              Matrix::colSums(counts(x) > 0) >= min.features] )
   } 
   out <- unlist(lapply(names(vars), o=x, v=vars, nm=nmads, FUN=function(x,o,v,nm){
     tryCatch(
@@ -102,12 +99,8 @@ filt.mad <- function(x, nmads=3, min.cells=10, min.features=100,
     out <- as.numeric(names(out)[which(out>=outlier.times)])
     if(length(out)>0) x <- x[,-out]    
   }
-  if (pipeClass == "seurat") {
-    seWrap(x, min.cells=min.cells, min.features=min.features)
-  } else {
-    x[Matrix::rowSums(counts(x) > 0) >= min.cells,
-      Matrix::colSums(counts(x) > 0) >= min.features]
-  }
+  x[Matrix::rowSums(counts(x) > 0) >= min.cells,
+    Matrix::colSums(counts(x) > 0) >= min.features]
 }
 
 #' applyFilterString
@@ -117,16 +110,16 @@ filt.mad <- function(x, nmads=3, min.cells=10, min.features=100,
 #'
 #' @return A Seurat object.
 #' @export
-applyFilterString <- function(sce, filterstring, pipeClass){
+applyFilterString <- function(sce, filterstring){
   x <- strsplit(filterstring,"_",fixed=T)[[1]]
   mads <- as.numeric(x[[2]])
   vars <- .translateFilterVars(strsplit(x,",",fixed=T)[[1]])
   otimes <- ifelse(is.null(x[[3]]),1,as.numeric(x[[3]]))
-  filt.mad(sce, pipeClass, nmads=mads, vars=vars, outlier.times=otimes)
+  filt.mad(sce, nmads=mads, vars=vars, outlier.times=otimes)
 }
 
 
-filt.lenient <- function(x, pipeClass = "seurat"){  
+filt.lenient <- function(x){  
   suppressPackageStartupMessages(library(scater))
   if(!("featcount_dist" %in% colnames(colData(x)))) x <- add_meta(x)
   filters <- c( "log10_total_counts:both:5",
@@ -144,10 +137,10 @@ filt.lenient <- function(x, pipeClass = "seurat"){
   out <- table(unlist(out))
   out <- as.numeric(names(out)[which(out>=2)])
   if(length(out)>0) x <- x[,-out]
-  if (pipeClass == "seurat")  seWrap(x, min.cells = 10) else x[Matrix::rowSums(counts(x) > 0) >= 10, Matrix::colSums(counts(x) > 0) >= 0]
+  x[Matrix::rowSums(counts(x) > 0) >= 10, Matrix::colSums(counts(x) > 0) >= 0]
 }
 
-filt.default <- function(x, times=2, pipeClass = "seurat"){ 
+filt.default <- function(x, times=2){ 
   suppressPackageStartupMessages(library(scater))
   if(!("featcount_dist" %in% colnames(colData(x)))) x <- add_meta(x)
   filters <- c( "log10_total_counts:higher:2.5",
@@ -167,11 +160,11 @@ filt.default <- function(x, times=2, pipeClass = "seurat"){
   out <- table(unlist(out))
   out <- as.numeric(names(out)[which(out>=times)])
   if(length(out)>0) x <- x[,-out]
-  if (pipeClass == "seurat") seWrap(x, min.cells = 10) else x[Matrix::rowSums(counts(x) > 0) >= 10, Matrix::colSums(counts(x) > 0) >= 0]
+  x[Matrix::rowSums(counts(x) > 0) >= 10, Matrix::colSums(counts(x) > 0) >= 0]
 }
 
-filt.stringent <- function(x, pipeClass){
-  filt.default(x,1, pipeClass)
+filt.stringent <- function(x){
+  filt.default(x,1)
 }
 
 .translateFilterVars <- function(x){
@@ -189,14 +182,14 @@ filt.stringent <- function(x, pipeClass){
   y
 }
 
-filt.pca <- function(x, vars=NULL, pipeClass = "seurat"){ 
+filt.pca <- function(x, vars=NULL){ 
   suppressPackageStartupMessages(library(scater))
   x <- runPCA(x, use_coldata=TRUE, detect_outliers=TRUE, selected_variables=vars)
-  if (pipeClass == "seurat") seWrap(x[,!x$outlier], min.cells = 10) else x[Matrix::rowSums(counts(x) > 0) >= 10,!x$outlier]
+  x[Matrix::rowSums(counts(x) > 0) >= 10,!x$outlier]
 }
 
-filt.pca2 <- function(x, pipeClass = "seurat"){
-  filt.pca(x, vars=c("log10_total_counts", "log10_total_features", "pct_counts_Mt", "pct_counts_in_top_50_features"), pipeClass = pipeClass)
+filt.pca2 <- function(x){
+  filt.pca(x, vars=c("log10_total_counts", "log10_total_features", "pct_counts_Mt", "pct_counts_in_top_50_features"))
 }
 
 
@@ -799,11 +792,11 @@ clust.scran <- function(ds, rd=TRUE, method="walktrap",
   }
   BPPARAM <- if(nthreads>1) MulticoreParam(nthreads) else SerialParam()
   if(graph.type=="knn"){
+    if(!is.null(rd)) reducedDim(ds, rd) <- reducedDim(ds, rd)[,seq_len(dims)]
     g <- scran::buildKNNGraph(ds, BPPARAM=BPPARAM, BNPARAM=neighbor.method, 
-                              use.dimred=rd, k=k, d=dims)
+                              use.dimred=rd, k=k)
   }else{
     weighting <- ifelse(graph.type=="snn.rank", "rank", "number")
-    
     if (is.null(rd)) {
       g <- scran::buildSNNGraph(ds, BPPARAM=BPPARAM, BNPARAM=neighbor.method, 
                                 type=weighting, use.dimred=rd, k=k, d=dims)   
@@ -811,7 +804,6 @@ clust.scran <- function(ds, rd=TRUE, method="walktrap",
       g <- scran::buildSNNGraph(ds, BPPARAM=BPPARAM, BNPARAM=neighbor.method, 
                                 type=weighting, use.dimred=rd, k=k) 
     }
-     
   }
   if(method=="walktrap"){
     cl <- igraph::cluster_walktrap(g, steps=steps)$membership

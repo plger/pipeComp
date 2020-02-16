@@ -30,9 +30,8 @@
 #' 
 #' 
 #' @export
-scrna_pipeline <- function(saveDimRed=FALSE, pipeClass = "sce"){
-  
-  if (!pipeClass %in% c("seurat", "sce")) stop("pipeClass not valid.")
+scrna_pipeline <- function(saveDimRed=FALSE, pipeClass=c("sce","seurat")){
+  pipeClass <- match.arg(pipeClass)
   
   # description for each step
   desc <- list( 
@@ -89,10 +88,18 @@ using the `dr` function.",
       x <- pipeComp:::.runf(sel, x, n=selnb, alt=applySelString)
       list( x=x, intermediate_return=Seurat::VariableFeatures(x) )
     }
+    filtfun <- function(x, filt){
+      x2 <- pipeComp:::.runf(filt, x, alt=applyFilterString)
+      list(x=seWrap(x2), intermediate_return=pipeComp:::.compileExcludedCells(x,x2))
+    }
   }else{
     selfun <- function(x, sel, selnb){                          
       x <- pipeComp:::.runf(sel, x, n=selnb, alt=applySelString)
       list( x=x, intermediate_return=metadata(x)$VariableFeats )
+    }
+    filtfun <- function(x, filt){
+      x2 <- pipeComp:::.runf(filt, x, alt=applyFilterString)
+      list(x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2))
     }
   }
   # functions list
@@ -101,10 +108,7 @@ using the `dr` function.",
       x2 <- pipeComp:::.runf(doubletmethod, x)
       list(x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2))
     },
-    filtering=function(x, filt, pipeClass){  ## <---
-      x2 <- pipeComp:::.runf(filt, x, alt=applyFilterString, pipeClass = pipeClass)  ## <---
-      list(x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2))
-    },
+    filtering=filtfun,
     normalization=function(x, norm){ 
       get(norm)(x)
     },
@@ -142,7 +146,7 @@ using the `dr` function.",
                clustering=.aggregateClusterEvaluation )
   # default arguments
   def <- list( selnb=2000, maxdim=50, dims=20, k=20, steps=8, min.size=50,
-               resolution=c(0.01, 0.1, 0.5, 0.8, 1), pipeClass = pipeClass ) # <--------
+               resolution=c(0.01, 0.1, 0.5, 0.8, 1) )
   # initiation function
   initf <- function(x){
     if(is.character(x) && length(x)==1) return(readRDS(x))
