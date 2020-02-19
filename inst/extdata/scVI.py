@@ -45,8 +45,8 @@ def scVI_ld(csv_file, csv_path, ndims, vae_model = VAE, train_size = 1, n_labels
   dat = CsvDataset(csv_file, 
                    save_path=csv_path, 
                    new_n_genes=None) 
-  # Based on recommendations in basic_tutorial.ipynb             
-  n_epochs = 400 if (len(dat) < 10000) else 200 
+  # Based on recommendations in linear_decoder.ipynb
+  n_epochs = 250
   # trainer and model 
   ldvae = LDVAE(
         dat.nb_genes,

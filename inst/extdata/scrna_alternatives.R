@@ -343,6 +343,68 @@ norm.scnorm.scaled <- function(x, ...){
   norm.scnorm(x, noscale=FALSE, ...)
 }
 
+#' norm.scVI
+#'
+#' A function calling a python wrapper (`scVI.py`) around `scVI` normalization, adapted from the the 'Basic usage' Jupyter notebook (https://nbviewer.jupyter.org/github/YosefLab/scVI/blob/master/tests/notebooks/basic_tutorial.ipynb). Note that the function will create a temporary csv file for the intermediate storage of the input count matrix, needed by `scVI`.  
+#' 
+#' 
+#' @param x A SCE or Seurat object.
+#' @param py_script Location of the python script
+#' @param py_path Optional. If scVI was installed in a specific python bin, pass here the path to it. 
+#' @param train_size Size of training set. Default to 0.8, tutorial however recommends 1. 
+#' @param noscale Logical; whether to disable scaling (default FALSE)
+#' @param n_cores N. cores
+#' 
+#' @return An object of the same class as `x` with updated slots.
+
+norm.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="pipeComp"), py_path = NULL, n_cores = 1L) {
+  n_cores <- as.integer(n_cores)
+  suppressPackageStartupMessages(library(reticulate))
+  if (length(py_path)>0) use_python(py_path ,required=TRUE)
+  trysource <- try(source_python(py_script))
+  if (class(trysource) == "try-error") stop("Cannot source the python wrapper.") 
+  tfile <- tempfile(fileext=".csv", tmpdir = ".")
+  if (is(x, "Seurat")) dat <- GetAssayData(x, assay = "RNA", slot = "counts") else dat <- counts(x)
+  write.csv(dat, tfile)
+  val <- t(scVI_norm(csv_file = tfile, csv_path = ".", n_cores = n_cores))
+  file.remove(tfile)
+  dimnames(val) <- list(rownames(dat), colnames(dat))
+  if(is(x,"Seurat")){ 
+    x <- SetAssayData(x, slot="data", new.data=as.matrix(val))
+    x <- SetAssayData(x, slot="scale.data", as.matrix(val))
+  }else{
+    logcounts(x) <- as.matrix(val)
+  }
+  x
+}
+
+
+getDimensionality <- function(dat, method, maxDims=50){
+  suppressPackageStartupMessages(library(intrinsicDimension))
+  if(is(dat, "Seurat")){
+    x <- dat[["pca"]]@cell.embeddings
+    sdv <- Stdev(dat, "pca")
+  } else {
+    x <- reducedDim(dat, "PCA")
+    sdv <- attr(reducedDim(dat, "PCA"), "percentVar")
+  }
+  x <- switch(method,
+              essLocal.a=essLocalDimEst(x),
+              essLocal.b=essLocalDimEst(x, ver="b"),
+              pcaLocal.FO=pcaLocalDimEst(x,ver="FO"),
+              pcaLocal.fan=pcaLocalDimEst(x, ver="fan"),
+              pcaLocal.maxgap=pcaLocalDimEst(x, ver="maxgap"),
+              maxLikGlobal=maxLikGlobalDimEst(x, k=20, unbiased=TRUE),
+              pcaOtpmPointwise.max=pcaOtpmPointwiseDimEst(x,N=10),
+              elbow=farthestPoint(sdv)-1,
+              fisherSeparability=FisherSeparability(x),
+              scran.denoisePCA=scran.ndims.wrapper(se),
+              jackstraw.elbow=js.wrapper(dat,n.dims=ncol(dat)-1,ret="ndims")
+  )
+  if(is.list(x) && "dim.est" %in% names(x)) x <- max(x$dim.est)
+  round(x)
+}
+
 # ______________________________________________________________________________
 # FEATURE SELECTION ------------------------------------------------------------
 
@@ -547,6 +609,47 @@ GlmPCA <- function(x, weight.by.var=TRUE, dims=20){
 GlmPCA.noweight <- function(x, ...){
   GlmPCA(x, weight.by.var=FALSE, ...)
 }
+
+#' scVI.LD
+#'
+#' A function calling a python wrapper (`scVI.py`) around `scVI` linear decoded, adapted from the the 'Basic usage' Jupyter notebook (https://nbviewer.jupyter.org/github/YosefLab/scVI/blob/master/tests/notebooks/linear_decoder.ipynb). Note that the function will create a temporary csv file for the intermediate storage of the input count matrix, needed by `scVI`.  
+#' 
+#' 
+#' @param x A SCE or Seurat object.
+#' @param py_script Location of the python script
+#' @param py_path Optional. If scVI was installed in a specific python bin, pass here the path to it. 
+#' @param dims Number of dimensions to return. 
+#' @param train_size Size of training set. Default to 0.8, tutorial however recommends 1. 
+#' @param noscale Logical; whether to disable scaling (default FALSE)
+#' @param n_cores N. cores
+#' 
+#' @return An object of the same class as `x` with updated slots. Note that scVI-LD initially returns unordered components. For convenience with the package, they are ordered by sdev and renamed 'PC'. 
+
+scVI.LD <- function(x, dims = 50L, py_script = system.file("extdata", "scVI.py", package="pipeComp"), py_path = NULL, n_cores = 1L) {
+  dims <- as.integer(dims)
+  n_cores <- as.integer(n_cores)
+  suppressPackageStartupMessages(library(reticulate))
+  if (length(py_path)>0) use_python(py_path ,required=TRUE)
+  trysource <- try(source_python(py_script))
+  if (class(trysource) == "try-error") stop("Cannot source the python wrapper.") 
+  tfile <- tempfile(fileext=".csv", tmpdir = ".")
+  if (is(x, "Seurat")) dat <- GetAssayData(x, assay = "RNA", slot = "counts") else dat <- counts(x)
+  write.csv(dat, tfile)
+  val <- scVI_ld(csv_file = tfile, ndims = dims, csv_path = ".", n_cores = n_cores)
+  file.remove(tfile)
+  rownames(val) <- colnames(dat)
+  # rename
+  colnames(val) <- paste0("PC_", 1:ncol(val))
+  if(is(x, "Seurat")){
+    x[["pca"]] <- CreateDimReducObject(embeddings=as.matrix(val), 
+                                       key="PC_", assay="RNA")
+  } else {
+    reducedDim(x, "PCA") <- as.matrix(val)
+  }
+  x
+}
+
+
 
 sceDR2seurat <- function(embeddings, object, name){
   if (is.null(rownames(embeddings))){
