@@ -12,8 +12,8 @@ from scvi.inference import UnsupervisedTrainer
 from scvi import set_seed
 import torch
 
-def scVI_norm(csv_file, csv_path, vae_model = VAE, train_size = 1, n_labels = 0, seed = 1234, n_cores = 1, lr = 1e-3, use_cuda = False): 
-  
+def scVI_imput(csv_file, csv_path, vae_model = VAE, train_size = 1, n_labels = 0, seed = 1234, n_cores = 1, lr = 1e-3, use_cuda = False): 
+  set_seed(seed)
   dat = CsvDataset(csv_file, 
                   save_path=csv_path, 
                    new_n_genes=None) 
@@ -33,6 +33,29 @@ def scVI_norm(csv_file, csv_path, vae_model = VAE, train_size = 1, n_labels = 0,
   full = trainer.create_posterior(trainer.model, dat, indices=np.arange(len(dat)))
   # Updating the "minibatch" size after training is useful in low memory configurations
   full = full.update({"batch_size":32})
+  imp_val = full.sequential().imputation()
+  return(imp_val)
+  
+def scVI_norm(csv_file, csv_path, vae_model = VAE, train_size = 1, n_labels = 0, seed = 1234, n_cores = 1, lr = 1e-3, use_cuda = False): 
+  set_seed(seed)
+  dat = CsvDataset(csv_file, 
+                  save_path=csv_path, 
+                   new_n_genes=None) 
+  # Based on recommendations in basic_tutorial.ipynb             
+  n_epochs = 400 if (len(dat) < 10000) else 200 
+  # trainer and model 
+  vae = vae_model(dat.nb_genes, n_labels = n_labels)
+  trainer = UnsupervisedTrainer(
+    vae,
+    dat,
+    train_size=train_size, # default to 0.8, documentation recommends 1
+    use_cuda=use_cuda    
+    )
+  # limit cpu usage
+  torch.set_num_threads(n_cores) 
+  trainer.train(n_epochs=n_epochs, lr=lr)
+  full = trainer.create_posterior(trainer.model, dat, indices=np.arange(len(dat)))
+  # Updating the "minibatch" size after training is useful in low memory configurations
   normalized_values = full.sequential().get_sample_scale()
   return(normalized_values)
 
@@ -40,8 +63,8 @@ def scVI_norm(csv_file, csv_path, vae_model = VAE, train_size = 1, n_labels = 0,
 from scvi.models import LDVAE
 import anndata
 
-def scVI_ld(csv_file, csv_path, ndims, vae_model = VAE, train_size = 1, n_labels = 0, n_cores=1, seed= 1234, lr = 1e-3, use_cuda = False): 
-  
+def scVI_ld(csv_file, csv_path, ndims, vae_model = VAE, n_labels = 0, n_cores=1, seed= 1234, lr = 1e-3, use_cuda = False): 
+  set_seed(seed)
   dat = CsvDataset(csv_file, 
                    save_path=csv_path, 
                    new_n_genes=None) 
@@ -54,7 +77,7 @@ def scVI_ld(csv_file, csv_path, ndims, vae_model = VAE, train_size = 1, n_labels
         n_latent = ndims, 
         n_labels = n_labels
         )
-  trainerLD = UnsupervisedTrainer(ldvae, dat, use_cuda=use_cuda, train_size = train_size)
+  trainerLD = UnsupervisedTrainer(ldvae, dat, use_cuda=use_cuda)
   # limit cpu usage
   torch.set_num_threads(n_cores) 
   trainerLD.train(n_epochs=n_epochs, lr=lr)

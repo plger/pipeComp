@@ -226,6 +226,7 @@ norm.scran <- function(x, vars=NULL, noscale=TRUE, min.mean=1){
   suppressPackageStartupMessages({
     library(scran)
     library(Seurat)
+    library(SingleCellExperiment)
   })
   if(is(x,"Seurat")){
     a <- GetAssayData(x, assay = "RNA", slot = "counts")
@@ -235,7 +236,7 @@ norm.scran <- function(x, vars=NULL, noscale=TRUE, min.mean=1){
   a <- SingleCellExperiment(assays=list(counts=a))
   clusters <- quickCluster(a, min.mean=min.mean, min.size=50)
   a <- computeSumFactors(a, min.mean=min.mean, clusters=clusters)
-  a <- logNormCounts(a)
+  a <- scater::normalize(a)
   if(is(x,"Seurat")){ 
     x <- SetAssayData(x, slot="data", new.data=logcounts(a))
     if(noscale){
@@ -351,13 +352,13 @@ norm.scnorm.scaled <- function(x, ...){
 #' @param x A SCE or Seurat object.
 #' @param py_script Location of the python script
 #' @param py_path Optional. If scVI was installed in a specific python bin, pass here the path to it. 
-#' @param train_size Size of training set. Default to 0.8, tutorial however recommends 1. 
+#' @param train_size Size of training set. Default to 0.8 but tutorial however recommends to use 1. 
 #' @param noscale Logical; whether to disable scaling (default FALSE)
 #' @param n_cores N. cores
 #' 
 #' @return An object of the same class as `x` with updated slots.
 
-norm.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="pipeComp"), py_path = NULL, n_cores = 1L) {
+norm.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="pipeComp"), py_path = NULL, n_cores = 1L, train_size = 1) {
   n_cores <- as.integer(n_cores)
   suppressPackageStartupMessages(library(reticulate))
   if (length(py_path)>0) use_python(py_path ,required=TRUE)
@@ -366,7 +367,7 @@ norm.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="
   tfile <- tempfile(fileext=".csv", tmpdir = ".")
   if (is(x, "Seurat")) dat <- GetAssayData(x, assay = "RNA", slot = "counts") else dat <- counts(x)
   write.csv(dat, tfile)
-  val <- t(scVI_norm(csv_file = tfile, csv_path = ".", n_cores = n_cores))
+  val <- t(scVI_norm(csv_file = tfile, csv_path = ".", n_cores = n_cores, train_size = train_size))
   file.remove(tfile)
   dimnames(val) <- list(rownames(dat), colnames(dat))
   if(is(x,"Seurat")){ 
@@ -610,6 +611,21 @@ GlmPCA.noweight <- function(x, ...){
   GlmPCA(x, weight.by.var=FALSE, ...)
 }
 
+scran.runPCA <- function(x, dims=50){
+  suppressPackageStartupMessages(library(scran))
+  suppressPackageStartupMessages(library(BiocSingular))
+  if(is(x, "Seurat")){
+    dat <-  SingleCellExperiment( list( counts=GetAssayData(x, slot="counts"),
+                                        logcounts=GetAssayData(x, slot="data")) )
+  } else {
+    dat <- x
+  }
+  dat <- runPCA(dat, ncomponents = dims)
+  if(is(x, "Seurat")) return(sceDR2seurat(reducedDim(dat, "PCA"), x, "pca")) else return(dat)
+}
+
+
+
 #' scVI.LD
 #'
 #' A function calling a python wrapper (`scVI.py`) around `scVI` linear decoded, adapted from the the 'Basic usage' Jupyter notebook (https://nbviewer.jupyter.org/github/YosefLab/scVI/blob/master/tests/notebooks/linear_decoder.ipynb). Note that the function will create a temporary csv file for the intermediate storage of the input count matrix, needed by `scVI`.  
@@ -619,13 +635,13 @@ GlmPCA.noweight <- function(x, ...){
 #' @param py_script Location of the python script
 #' @param py_path Optional. If scVI was installed in a specific python bin, pass here the path to it. 
 #' @param dims Number of dimensions to return. 
-#' @param train_size Size of training set. Default to 0.8, tutorial however recommends 1. 
+#' @param learning_rate Learning rate of the model. If the model is not training properly due to too high learning rate, it will be reduced consecutively a few times before early stop. 
 #' @param noscale Logical; whether to disable scaling (default FALSE)
 #' @param n_cores N. cores
 #' 
 #' @return An object of the same class as `x` with updated slots. Note that scVI-LD initially returns unordered components. For convenience with the package, they are ordered by sdev and renamed 'PC'. 
 
-scVI.LD <- function(x, dims = 50L, py_script = system.file("extdata", "scVI.py", package="pipeComp"), py_path = NULL, n_cores = 1L) {
+scVI.LD <- function(x, dims = 50L, learning_rate = 1e-3, py_script = system.file("extdata", "scVI.py", package="pipeComp"), py_path = NULL, n_cores = 1L) {
   dims <- as.integer(dims)
   n_cores <- as.integer(n_cores)
   suppressPackageStartupMessages(library(reticulate))
@@ -635,7 +651,17 @@ scVI.LD <- function(x, dims = 50L, py_script = system.file("extdata", "scVI.py",
   tfile <- tempfile(fileext=".csv", tmpdir = ".")
   if (is(x, "Seurat")) dat <- GetAssayData(x, assay = "RNA", slot = "counts") else dat <- counts(x)
   write.csv(dat, tfile)
-  val <- scVI_ld(csv_file = tfile, ndims = dims, csv_path = ".", n_cores = n_cores)
+  val <- try(scVI_ld(csv_file = tfile, ndims = dims, csv_path = ".", n_cores = n_cores, lr = learning_rate))
+  # Error with some dataset; "Loss was NaN 10 consecutive times: the model is not training properly. Consider using a lower learning rate" --> reduce lr
+  if (class(val) == "try-error") {
+    ntry <- 0
+    while(ntry < 6 & class(val) == "try-error") {
+      ntry <- ntry + 1
+      learning_rate <- learning_rate/10
+      message("Downgrading learning rate to ", learning_rate)
+      val <- try(scVI_ld(csv_file = tfile, ndims = dims, csv_path = ".", n_cores = n_cores, lr = learning_rate))
+    }
+  }
   file.remove(tfile)
   rownames(val) <- colnames(dat)
   # rename
@@ -804,9 +830,9 @@ getFilterStrings <- function(mads=c(2,2.5,3,5), times=1:2, dirs=c("higher","both
   as.character(apply(eg, 1, collapse="_", FUN=paste))
 }
 
-doublet.scDblFinder <- function(x){
+doublet.scDblFinder <- function(x, trans = "scran"){
   suppressPackageStartupMessages(library(scDblFinder))
-  x <- scDblFinder(x, verbose=FALSE)
+  x <- scDblFinder(x, trans = "scran", verbose=FALSE)
   x[,which(x$scDblFinder.class!="doublet")]
 }
 
