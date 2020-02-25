@@ -587,11 +587,12 @@ GlmPCA <- function(x, weight.by.var=TRUE, dims=20){
   dr <- glmpca(as.matrix(GetAssayData(dat, assay = "RNA", slot = "counts")[VariableFeatures(dat),]), dims)
   e <- as.matrix(dr$factors)
   colnames(e) <- gsub("dim","dim_",colnames(e))
+  colnames(e) <- gsub("dim_", "PC_", colnames(e))
   if(weight.by.var=="both" && length(dr$dev) %in% dim(e)){
     if(is(x, "Seurat")) {
-      x[["glmpca"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+      x[["glmpca"]] <- CreateDimReducObject(embeddings=e, key="PC_", assay="RNA")
       e <- t(t(e)*dr$d)
-      x[["glmpca.wt"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+      x[["glmpca.wt"]] <- CreateDimReducObject(embeddings=e, key="PC_", assay="RNA")
     } else {
       reducedDim(x, "glmpca") <- e
       e <- t(t(e)*dr$d)
@@ -600,7 +601,7 @@ GlmPCA <- function(x, weight.by.var=TRUE, dims=20){
   }else{
     if(weight.by.var && length(dr$dev) %in% dim(e)) e <- t(t(e)*dr$d)
     if(is(x, "Seurat")){
-      x[["pca"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+      x[["pca"]] <- CreateDimReducObject(embeddings=e, key="PC_", assay="RNA")
     } else {
       reducedDim(x, "PCA") <- e
     }
