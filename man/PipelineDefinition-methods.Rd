@@ -12,6 +12,8 @@
 \alias{[,PipelineDefinition,ANY,ANY,ANY-method}
 \alias{as.list,PipelineDefinition-method}
 \alias{arguments,PipelineDefinition-method}
+\alias{defaultArguments,PipelineDefinition-method}
+\alias{defaultArguments<-,PipelineDefinition-method}
 \alias{stepFn,PipelineDefinition-method}
 \alias{stepFn<-,PipelineDefinition-method}
 \title{Methods for \code{\link{PipelineDefinition}} class}
@@ -31,6 +33,10 @@
 \S4method{as.list}{PipelineDefinition}(x)
 
 \S4method{arguments}{PipelineDefinition}(object)
+
+\S4method{defaultArguments}{PipelineDefinition}(object)
+
+\S4method{defaultArguments}{PipelineDefinition}(object) <- value
 
 \S4method{stepFn}{PipelineDefinition}(object, step, type)
 

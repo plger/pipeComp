@@ -106,7 +106,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
     if(is.null(clusters)) clusters <- x$phenoid
     x <- x[["pca"]]@cell.embeddings
   }else if(is(x, "SingleCellExperiment")){
-    if(is.character(covars)) covars <- as.data.frame(colData(x[,covars]))
+    if(is.character(covars)) covars <- as.data.frame(colData(x)[,covars])
     if(is.null(clusters)) clusters <- x$phenoid
     x <- reducedDim(x, "PCA")
   }else{
@@ -424,7 +424,6 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
               mean_F1 = mean_F1))
 }
 
-
 #' evaluateNorm
 #' 
 #' @param x An object of class 'Seurat' or 'SingleCellExperiment' with 
@@ -439,8 +438,10 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
 #' @importFrom matrixStats rowMedians
 #' @importFrom Matrix rowMeans
 evaluateNorm <- function(x, clusters=NULL, covars=NULL){
+  library(Seurat)
   if(is.null(covars)) covars <- c("log10_total_counts", "total_features")
   if(is(x,"Seurat")){
+    library(Seurat)
     if(is.character(covars)) covars <- x[[]][,covars]
     if(is.null(clusters)) clusters <- x$phenoid
     meanCount <- Matrix::rowMeans(Seurat::GetAssayData(x, assay="RNA", slot="counts"))
@@ -462,9 +463,10 @@ evaluateNorm <- function(x, clusters=NULL, covars=NULL){
         cor(t(x[,i]), as.numeric(covars[[f]][i]))
       })
       res[[paste0(f,".medianCorr")]] <- round(matrixStats::rowMedians(tmp),2)
-      res[[paste0(f,".meanCorr")]] <- round(rowMeans(tmp),2)
-      res[[paste0(f,".meanAbsCorr")]] <- round(rowMeans(abs(tmp)),2)
-    }
+      res[[paste0(f,".meanCorr")]] <- round(Matrix::rowMeans(tmp),2)
+      res[[paste0(f,".meanAbsCorr")]] <- round(Matrix::rowMeans(abs(tmp)),2)
+    } 
+
   }
   return(res)
 }

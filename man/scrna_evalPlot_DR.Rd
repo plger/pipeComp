@@ -9,7 +9,8 @@ scrna_evalPlot_DR(res, what = c("auto", "varExpl", "minSilWidth",
   "log10_total_features", "total_features"), reorder_rows = TRUE,
   reorder_columns = NULL, agg.by = NULL, agg.fn = mean,
   scale = FALSE, show_heatmap_legend = FALSE, value_format = "\%.2f",
-  col = NULL, col_title_fontsize = 11, anno_legend = TRUE, ...)
+  col = NULL, col_title_fontsize = 11, value_cols = c("black",
+  "white"), title = NULL, anno_legend = TRUE, ...)
 }
 \arguments{
 \item{res}{Aggregated pipeline results (i.e. the output of `runPipeline` or
@@ -36,10 +37,14 @@ scrna_evalPlot_DR(res, what = c("auto", "varExpl", "minSilWidth",
 
 \item{col_title_fontsize}{Fontsite of the column titles}
 
-\item{...}{Passed to `Heatmap`}
+\item{value_cols}{A vector of length 2 indicating the colors of the values
+(above and below the mean), if printed}
 
-\item{covar}{Covariate of interest (used only if `what` is  'covar' or 
-'covarRes'}
+\item{title}{Plot title}
+
+\item{anno_legend}{Logical; whether to include the legend for the datasets}
+
+\item{...}{Passed to `Heatmap`}
 }
 \value{
 One or several `Heatmap` object.

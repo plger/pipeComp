@@ -36,5 +36,5 @@ as well as optionally step evaluation and aggregation functions.
 }
 \seealso{
 \code{\link{PipelineDefinition-methods}}, \code{\link{addPipelineStep}}.
-For an example pipeline, see \code{\link{scrna_seurat_pipeline}}.
+For an example pipeline, see \code{\link{scrna_pipeline}}.
 }
