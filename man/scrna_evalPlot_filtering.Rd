@@ -4,12 +4,8 @@
 \alias{scrna_evalPlot_filtering}
 \title{scrna_evalPlot_filtering}
 \usage{
-scrna_evalPlot_filtering(
-  res,
-  steps = c("doublet", "filtering"),
-  clustMetric = "mean_F1",
-  returnTable = FALSE
-)
+scrna_evalPlot_filtering(res, steps = c("doublet", "filtering"),
+  clustMetric = "mean_F1", returnTable = FALSE)
 }
 \arguments{
 \item{res}{Aggregated pipeline results (i.e. the output of `runPipeline` or
