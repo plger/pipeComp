@@ -6,8 +6,6 @@
 #' @param res Aggregated pipeline results (i.e. the output of `runPipeline` or
 #' `aggregateResults`)
 #' @param what What to plot (default plots main metrics)
-#' @param covar Covariate of interest (used only if `what` is  'covar' or 
-#' 'covarRes'
 #' @param reorder_rows Logical; whether to sort rows (default TRUE)
 #' @param reorder_columns Logical; whether to sort columns
 #' @param agg.by Aggregate results by these columns (default no aggregation)
@@ -20,6 +18,8 @@
 #' @param col_title_fontsize Fontsite of the column titles
 #' @param value_cols A vector of length 2 indicating the colors of the values
 #' (above and below the mean), if printed
+#' @param title Plot title
+#' @param anno_legend Logical; whether to include the legend for the datasets
 #' @param ... Passed to `Heatmap`
 #'
 #' @return One or several `Heatmap` object.
@@ -37,7 +37,7 @@ scrna_evalPlot_DR <- function(res,
                               agg.by=NULL, agg.fn=mean, scale=FALSE, 
                               show_heatmap_legend=FALSE, value_format="%.2f", 
                               col=NULL, col_title_fontsize=11, 
-                              value_cols=c("black","white"), 
+                              value_cols=c("black","white"), title=NULL,
                               anno_legend=TRUE, ...){
   what <- match.arg(what)
   pipDef <- metadata(res)$PipelineDefinition
@@ -65,16 +65,16 @@ scrna_evalPlot_DR <- function(res,
   if( what %in% 
       c("minSilWidth", "meanSilWidth", "medianSilWidth", "maxSilWidth")){
     res <- res$silhouette[[1]]
-    title <- "Subpopulation silhouette"
+    if(is.null(title)) title <- "Subpopulation silhouette"
     isSil <- TRUE
     sname <- "silhouette\nwidth"
   }else if(what %in% 
            c("log10_total_counts","log10_total_features","total_features")){
-    title <- paste0("adj.R^2 diff\n", what)
-    res <- res$PC1.covar.adjR2
-    sname <- "correlation"
+    if(is.null(title)) title <- paste0("mean(abs(corr))\n", what)
+    res <- res$meanAbsCorr.covariate2
+    sname <- what
   }else if(what=="varExpl"){
-    title <- "var explained by\nsubpopulations"
+    if(is.null(title)) title <- "var explained by\nsubpopulations"
     res <- res$varExpl.subpops
     sname <- "variance\nexplained"
   }else{
@@ -134,6 +134,8 @@ scrna_evalPlot_DR <- function(res,
 #' @param res Aggregated pipeline results (i.e. the output of `runPipeline` or
 #' `aggregateResults`)
 #' @param what What to plot (default plots main metrics)
+#' @param atTrueK Logical; whether to restrict analyses to those giving the 
+#' right number of clusters
 #' @param agg.by Aggregate results by these columns (default no aggregation)
 #' @param agg.fn Function for aggregation (default mean)
 #' @param scale Logical; whether to scale columns (default FALSE)
@@ -147,6 +149,8 @@ scrna_evalPlot_DR <- function(res,
 #' @param value_cols A vector of length 2 indicating the colors of the values
 #' (above and below the mean), if printed
 #' @param ... Passed to `Heatmap`
+#' @param title Plot title
+#' @param anno_legend Logical; whether to plot the legend for the datasets
 #'
 #' @return One or several `Heatmap` object.
 #' @export
@@ -160,7 +164,7 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
                                  show_heatmap_legend=FALSE,
                                  col=viridisLite::inferno(100), 
                                  col_title_fontsize=12,
-                                 value_cols=c("black","white"), 
+                                 value_cols=c("black","white"), title=NULL,
                                  anno_legend=TRUE, ...){
   pipDef <- tryCatch(metadata(res)$PipelineDefinition, error=function(e) NULL)
   if(is.null(agg.by)) agg.by <- .getClustAggFields(res)
@@ -214,9 +218,11 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   res2 <- res2[ro,co]
   res2 <- as.matrix(res2)
   cellfn <- .getCellFn(res,res2,value_format, value_cols)
-  title <- gsub("_re$","\nrecall",gsub("_pr$","\nprecision",what))
-  if(title=="elapsed") title <- "Computing time (s)"
-  if(atTrueK) title <- paste(title, "\nat true #\nof clusters")
+  if(is.null(title)){
+    title <- gsub("_re$","\nrecall",gsub("_pr$","\nprecision",what))
+    if(title=="elapsed") title <- "Computing time (s)"
+    if(atTrueK) title <- paste(title, "at true \n# of clusters")
+  }
   Heatmap( res2, name=paste0(what,ifelse(atTrueK,"at\ntrue K","")), 
            cluster_rows=FALSE, show_heatmap_legend=show_heatmap_legend, 
            cluster_columns=FALSE, 

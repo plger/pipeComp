@@ -9,13 +9,17 @@ scrna_evalPlot_clust(res, what = "auto", atTrueK = FALSE,
   value_format = "\%.2f", reorder_rows = TRUE,
   reorder_columns = FALSE, show_heatmap_legend = FALSE,
   col = viridisLite::inferno(100), col_title_fontsize = 12,
-  value_cols = c("black", "white"), anno_legend = TRUE, ...)
+  value_cols = c("black", "white"), title = NULL, anno_legend = TRUE,
+  ...)
 }
 \arguments{
 \item{res}{Aggregated pipeline results (i.e. the output of `runPipeline` or
 `aggregateResults`)}
 
 \item{what}{What to plot (default plots main metrics)}
+
+\item{atTrueK}{Logical; whether to restrict analyses to those giving the 
+right number of clusters}
 
 \item{agg.by}{Aggregate results by these columns (default no aggregation)}
 
@@ -38,6 +42,10 @@ scrna_evalPlot_clust(res, what = "auto", atTrueK = FALSE,
 
 \item{value_cols}{A vector of length 2 indicating the colors of the values
 (above and below the mean), if printed}
+
+\item{title}{Plot title}
+
+\item{anno_legend}{Logical; whether to plot the legend for the datasets}
 
 \item{...}{Passed to `Heatmap`}
 }
