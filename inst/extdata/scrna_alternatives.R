@@ -226,6 +226,7 @@ norm.scran <- function(x, vars=NULL, noscale=TRUE, min.mean=1){
   suppressPackageStartupMessages({
     library(scran)
     library(Seurat)
+    library(SingleCellExperiment)
   })
   if(is(x,"Seurat")){
     a <- GetAssayData(x, assay = "RNA", slot = "counts")
@@ -235,7 +236,7 @@ norm.scran <- function(x, vars=NULL, noscale=TRUE, min.mean=1){
   a <- SingleCellExperiment(assays=list(counts=a))
   clusters <- quickCluster(a, min.mean=min.mean, min.size=50)
   a <- computeSumFactors(a, min.mean=min.mean, clusters=clusters)
-  a <- logNormCounts(a)
+  a <- scater::normalize(a)
   if(is(x,"Seurat")){ 
     x <- SetAssayData(x, slot="data", new.data=logcounts(a))
     if(noscale){
@@ -341,6 +342,68 @@ norm.scnorm <- function(x, vars=NULL, noscale=TRUE, nthreads=1){
 
 norm.scnorm.scaled <- function(x, ...){
   norm.scnorm(x, noscale=FALSE, ...)
+}
+
+#' norm.scVI
+#'
+#' A function calling a python wrapper (`scVI.py`) around `scVI` normalization, adapted from the the 'Basic usage' Jupyter notebook (https://nbviewer.jupyter.org/github/YosefLab/scVI/blob/master/tests/notebooks/basic_tutorial.ipynb). Note that the function will create a temporary csv file for the intermediate storage of the input count matrix, needed by `scVI`.  
+#' 
+#' 
+#' @param x A SCE or Seurat object.
+#' @param py_script Location of the python script
+#' @param py_path Optional. If scVI was installed in a specific python bin, pass here the path to it. 
+#' @param train_size Size of training set. Default to 0.8 but tutorial however recommends to use 1. 
+#' @param noscale Logical; whether to disable scaling (default FALSE)
+#' @param n_cores N. cores
+#' 
+#' @return An object of the same class as `x` with updated slots.
+
+norm.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="pipeComp"), py_path = NULL, n_cores = 1L, train_size = 1) {
+  n_cores <- as.integer(n_cores)
+  suppressPackageStartupMessages(library(reticulate))
+  if (length(py_path)>0) use_python(py_path ,required=TRUE)
+  trysource <- try(source_python(py_script))
+  if (class(trysource) == "try-error") stop("Cannot source the python wrapper.") 
+  tfile <- tempfile(fileext=".csv", tmpdir = ".")
+  if (is(x, "Seurat")) dat <- GetAssayData(x, assay = "RNA", slot = "counts") else dat <- counts(x)
+  write.csv(dat, tfile)
+  val <- t(scVI_norm(csv_file = tfile, csv_path = ".", n_cores = n_cores, train_size = train_size))
+  file.remove(tfile)
+  dimnames(val) <- list(rownames(dat), colnames(dat))
+  if(is(x,"Seurat")){ 
+    x <- SetAssayData(x, slot="data", new.data=as.matrix(val))
+    x <- SetAssayData(x, slot="scale.data", as.matrix(val))
+  }else{
+    logcounts(x) <- as.matrix(val)
+  }
+  x
+}
+
+
+getDimensionality <- function(dat, method, maxDims=50){
+  suppressPackageStartupMessages(library(intrinsicDimension))
+  if(is(dat, "Seurat")){
+    x <- dat[["pca"]]@cell.embeddings
+    sdv <- Stdev(dat, "pca")
+  } else {
+    x <- reducedDim(dat, "PCA")
+    sdv <- attr(reducedDim(dat, "PCA"), "percentVar")
+  }
+  x <- switch(method,
+              essLocal.a=essLocalDimEst(x),
+              essLocal.b=essLocalDimEst(x, ver="b"),
+              pcaLocal.FO=pcaLocalDimEst(x,ver="FO"),
+              pcaLocal.fan=pcaLocalDimEst(x, ver="fan"),
+              pcaLocal.maxgap=pcaLocalDimEst(x, ver="maxgap"),
+              maxLikGlobal=maxLikGlobalDimEst(x, k=20, unbiased=TRUE),
+              pcaOtpmPointwise.max=pcaOtpmPointwiseDimEst(x,N=10),
+              elbow=farthestPoint(sdv)-1,
+              fisherSeparability=FisherSeparability(x),
+              scran.denoisePCA=scran.ndims.wrapper(se),
+              jackstraw.elbow=js.wrapper(dat,n.dims=ncol(dat)-1,ret="ndims")
+  )
+  if(is.list(x) && "dim.est" %in% names(x)) x <- max(x$dim.est)
+  round(x)
 }
 
 # ______________________________________________________________________________
@@ -524,11 +587,12 @@ GlmPCA <- function(x, weight.by.var=TRUE, dims=20){
   dr <- glmpca(as.matrix(GetAssayData(dat, assay = "RNA", slot = "counts")[VariableFeatures(dat),]), dims)
   e <- as.matrix(dr$factors)
   colnames(e) <- gsub("dim","dim_",colnames(e))
+  colnames(e) <- gsub("dim_", "PC_", colnames(e))
   if(weight.by.var=="both" && length(dr$dev) %in% dim(e)){
     if(is(x, "Seurat")) {
-      x[["glmpca"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+      x[["glmpca"]] <- CreateDimReducObject(embeddings=e, key="PC_", assay="RNA")
       e <- t(t(e)*dr$d)
-      x[["glmpca.wt"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+      x[["glmpca.wt"]] <- CreateDimReducObject(embeddings=e, key="PC_", assay="RNA")
     } else {
       reducedDim(x, "glmpca") <- e
       e <- t(t(e)*dr$d)
@@ -537,7 +601,7 @@ GlmPCA <- function(x, weight.by.var=TRUE, dims=20){
   }else{
     if(weight.by.var && length(dr$dev) %in% dim(e)) e <- t(t(e)*dr$d)
     if(is(x, "Seurat")){
-      x[["pca"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+      x[["pca"]] <- CreateDimReducObject(embeddings=e, key="PC_", assay="RNA")
     } else {
       reducedDim(x, "PCA") <- e
     }
@@ -547,6 +611,72 @@ GlmPCA <- function(x, weight.by.var=TRUE, dims=20){
 GlmPCA.noweight <- function(x, ...){
   GlmPCA(x, weight.by.var=FALSE, ...)
 }
+
+scran.runPCA <- function(x, dims=50){
+  suppressPackageStartupMessages(library(scran))
+  suppressPackageStartupMessages(library(BiocSingular))
+  if(is(x, "Seurat")){
+    dat <-  SingleCellExperiment( list( counts=GetAssayData(x, slot="counts"),
+                                        logcounts=GetAssayData(x, slot="data")) )
+  } else {
+    dat <- x
+  }
+  dat <- runPCA(dat, ncomponents = dims)
+  if(is(x, "Seurat")) return(sceDR2seurat(reducedDim(dat, "PCA"), x, "pca")) else return(dat)
+}
+
+
+
+#' scVI.LD
+#'
+#' A function calling a python wrapper (`scVI.py`) around `scVI` linear decoded, adapted from the the 'Basic usage' Jupyter notebook (https://nbviewer.jupyter.org/github/YosefLab/scVI/blob/master/tests/notebooks/linear_decoder.ipynb). Note that the function will create a temporary csv file for the intermediate storage of the input count matrix, needed by `scVI`.  
+#' 
+#' 
+#' @param x A SCE or Seurat object.
+#' @param py_script Location of the python script
+#' @param py_path Optional. If scVI was installed in a specific python bin, pass here the path to it. 
+#' @param dims Number of dimensions to return. 
+#' @param learning_rate Learning rate of the model. If the model is not training properly due to too high learning rate, it will be reduced consecutively a few times before early stop. 
+#' @param noscale Logical; whether to disable scaling (default FALSE)
+#' @param n_cores N. cores
+#' 
+#' @return An object of the same class as `x` with updated slots. Note that scVI-LD initially returns unordered components. For convenience with the package, they are ordered by sdev and renamed 'PC'. 
+
+scVI.LD <- function(x, dims = 50L, learning_rate = 1e-3, py_script = system.file("extdata", "scVI.py", package="pipeComp"), py_path = NULL, n_cores = 1L) {
+  dims <- as.integer(dims)
+  n_cores <- as.integer(n_cores)
+  suppressPackageStartupMessages(library(reticulate))
+  if (length(py_path)>0) use_python(py_path ,required=TRUE)
+  trysource <- try(source_python(py_script))
+  if (class(trysource) == "try-error") stop("Cannot source the python wrapper.") 
+  tfile <- tempfile(fileext=".csv", tmpdir = ".")
+  if (is(x, "Seurat")) dat <- GetAssayData(x, assay = "RNA", slot = "counts") else dat <- counts(x)
+  write.csv(dat, tfile)
+  val <- try(scVI_ld(csv_file = tfile, ndims = dims, csv_path = ".", n_cores = n_cores, lr = learning_rate))
+  # Error with some dataset; "Loss was NaN 10 consecutive times: the model is not training properly. Consider using a lower learning rate" --> reduce lr
+  if (class(val) == "try-error") {
+    ntry <- 0
+    while(ntry < 6 & class(val) == "try-error") {
+      ntry <- ntry + 1
+      learning_rate <- learning_rate/10
+      message("Downgrading learning rate to ", learning_rate)
+      val <- try(scVI_ld(csv_file = tfile, ndims = dims, csv_path = ".", n_cores = n_cores, lr = learning_rate))
+    }
+  }
+  file.remove(tfile)
+  rownames(val) <- colnames(dat)
+  # rename
+  colnames(val) <- paste0("PC_", 1:ncol(val))
+  if(is(x, "Seurat")){
+    x[["pca"]] <- CreateDimReducObject(embeddings=as.matrix(val), 
+                                       key="PC_", assay="RNA")
+  } else {
+    reducedDim(x, "PCA") <- as.matrix(val)
+  }
+  x
+}
+
+
 
 sceDR2seurat <- function(embeddings, object, name){
   if (is.null(rownames(embeddings))){
@@ -701,9 +831,9 @@ getFilterStrings <- function(mads=c(2,2.5,3,5), times=1:2, dirs=c("higher","both
   as.character(apply(eg, 1, collapse="_", FUN=paste))
 }
 
-doublet.scDblFinder <- function(x){
+doublet.scDblFinder <- function(x, trans = "scran"){
   suppressPackageStartupMessages(library(scDblFinder))
-  x <- scDblFinder(x, verbose=FALSE)
+  x <- scDblFinder(x, trans = "scran", verbose=FALSE)
   x[,which(x$scDblFinder.class!="doublet")]
 }
 
