@@ -4,9 +4,17 @@
 \alias{runPipeline}
 \title{runPipeline}
 \usage{
-runPipeline(datasets, alternatives, pipelineDef, comb = NULL,
-  output.prefix = "", nthreads = length(datasets),
-  saveEndResults = TRUE, debug = FALSE, ...)
+runPipeline(
+  datasets,
+  alternatives,
+  pipelineDef,
+  comb = NULL,
+  output.prefix = "",
+  nthreads = length(datasets),
+  saveEndResults = TRUE,
+  debug = FALSE,
+  ...
+)
 }
 \arguments{
 \item{datasets}{A named vector of initial objects or paths to rds files.}
@@ -35,11 +43,52 @@ and prints extra information.}
 multithreaded context.}
 }
 \value{
-A SimpleList.
+A SimpleList with elapsed time and the results of the evaluation 
+functions defined by the given `pipelineDef`.
+
+The results are also stored in the output folder with: 
+\itemize{
+\item The clustering results for each dataset (`endOutputs.rds` files),
+\item A SimpletList of elapsed time and evaluations for each dataset 
+(`evaluation.rds` files),
+\item A list of the `pipelineDef`, `alternatives`, `sessionInfo()` and function 
+call used to produce the results (`runPipelineInfo.rds` file),
+\item A copy of the SimpleList returned by the function (`aggregated.rds`file). 
+}
 }
 \description{
 This function runs a pipeline with combinations of parameter variations on 
 nested steps. The pipeline has to be defined as a list of functions applied 
-consecutively on their respective outputs. See `defaultPipelineDef()` for 
-indications about how to build one.
+consecutively on their respective outputs. See 'examples' for more details.
+}
+\examples{
+
+# Example of function list that will define the alternatives of the pipeline: 
+source(system.file("extdata", "scrna_alternatives.R", package="pipeComp"))
+scrna_seurat_defAlternatives()
+
+# We can also specify the alternatives manually:
+alternatives <- list(
+ doubletmethod=c("none"),
+ filt=c("filt.lenient"),
+ norm=c("norm.seurat", "norm.seuratvst", "norm.scran"),
+ sel=c("sel.vst"),
+ selnb=2000,
+ dr=c("seurat.pca"),
+ clustmethod=c("clust.seurat"),
+ maxdim=30,
+ dims=c(10, 15, 20, 30),
+ k=20,
+ steps=4,
+ resolution=c(0.01, 0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.2, 2),
+ min.size=50   
+ )
+ 
+# run the pipeline:
+res <- runPipeline( datasets, alternatives, pipDef, nthreads=3,
+  output.prefix="myfolder/" )
+  
+# Any additional functions can be used in the pipeline by adding them in the 
+# global environment (via "scrna_alternatives.R", other R script, etc...).
+
 }
