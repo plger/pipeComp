@@ -818,3 +818,136 @@ clust.scran <- function(ds, rd=TRUE, method="walktrap",
 clust.scran.fg <- function(ds, ...){
   clust.scran(ds, method="fastq_greedy", ...)
 }
+
+
+#' compute_all_gene_info
+#' 
+#' Populates the rowData of a SCE with various measures of variability, as well as the 
+#' proportion of variance explained by clusters.
+#'
+#' @param sce An object of class `SingleCellExperiment`.
+#'
+#' @return The updated object.
+#' @export
+compute_all_gene_info <- function(sce){
+  library(variancePartition)
+  library(sctransform)
+  library(Seurat)
+  cd <- as.data.frame(colData(sce))[,c("phenoid"),drop=F]
+  en <- log(t(1000*t(1+counts(sce))/colSums(counts(sce))))
+  vp1 <- fitExtractVarPartModel(en, ~phenoid, data=cd)
+  vst.out <- vst(counts(sce), colData(sce))
+  vste <- vst.out$y+min(vst.out$y)
+  vp2 <- fitExtractVarPartModel(vste,~phenoid, data=cd)
+  vp <- data.frame(row.names=row.names(vp1), lognorm.varExp=vp1[,1], vst.varExp=vp2[row.names(vp1),1])
+  source(system.file("extdata", "willtownes_scrna2019_utils.R", package="pipeComp"))
+  gi <- compute_gene_info(counts(sce),gmeta=rowData(sce),mod="poisson")
+  vp$deviance <- gi[row.names(vp),"deviance"]
+  vp$total_counts <- gi[row.names(vp),"total_counts"]
+  em <- .getEntropyMeasures(en)
+  colnames(em) <- paste("lognorm",colnames(em),sep=".")
+  vp <- cbind(vp, em[row.names(vp),])
+  em <- .getEntropyMeasures(vste)
+  colnames(em) <- paste("vst",colnames(em),sep=".")
+  vp <- cbind(vp, em[row.names(vp),])
+  se <- .seuratFeatureVariability(sce, vst.out=vst.out)
+  colnames(se) <- paste("seurat",colnames(se),sep=".")
+  vp <- cbind(vp, se[row.names(vp),])
+  RD <- as.data.frame(rowData(sce))
+  RD <- RD[,setdiff(colnames(RD), colnames(vp))]
+  rowData(sce) <- cbind(RD, vp[row.names(RD),])
+  sce
+}
+
+.getEntropyMeasures <- function(x){
+  data.frame(
+    entropy=apply(x, 1, FUN=ineq::entropy),
+    Gini=apply(x, 1, FUN=ineq::Gini),
+    Atkinson=apply(x, 1, FUN=ineq::Atkinson)
+  )
+}
+
+#' add_meta
+#'
+#' Adds standard metadata.
+#'
+#' @param ds An object of class `SingleCellExperiment`
+#'
+#' @return The `SingleCellExperiment` object with updated metadata.
+#' @export
+add_meta <- function(ds){
+  library(scater)
+  library(Matrix)
+  data("ctrlgenes", package = "pipeComp")
+  ## detect if row.names contain ensembl ids:
+  if(any(grepl("^ENSG|^ENSMUSG",head(row.names(ds),n=100)))){
+    ## we assume ^ENSEMBL\.whatever rownames
+    cg <- lapply(c("Mt", "coding", "ribo"), FUN=function(x){ union(ctrlgenes[[1]]$ensembl[[x]], ctrlgenes[[2]]$ensembl[[x]]) })
+    g <- sapply(strsplit(row.names(ds),".",fixed=T),FUN=function(x) x[[1]])
+  }else{
+    # we assume HGNC/MGI symbols
+    g <- row.names(ds)
+    cg <- lapply(c("Mt", "coding", "ribo"), FUN=function(x){ union(ctrlgenes[[1]]$symbols[[x]], ctrlgenes[[2]]$symbols[[x]]) })
+  }
+  fc <- lapply(cg,g=g, FUN=function(x,g) g %in% x)
+  names(fc) <- c("Mt","coding","ribosomal")
+  ds <- calculateQCMetrics(ds, feature_controls=fc, percent_top=c(20,50,100,200))
+  ds$log10_total_features <- ds$log10_total_features_by_counts
+  ds$total_features <- ds$total_features_by_counts
+  ds$featcount_ratio <- ds$log10_total_counts/ds$log10_total_features
+  ds$featcount_dist <- getFeatCountDist(ds)
+  ds
+}
+
+#' getFeatCountDist
+#' 
+#' Returns the difference to the expected ratio of counts and number of features.
+#'
+#' @param df a cell metadata data.frame, or an object of class `SingleCellExperiment`
+#' @param do.plot Logical; whether to plot the count/feature relationship.
+#' @param linear Logical; whether to model the relationship with a linear model (default 
+#' TRUE), rather than a loess.
+#'
+#' @return A vector of differences.
+#' @export
+getFeatCountDist <- function(df, do.plot=FALSE, linear=TRUE){
+  if(is(df,"SingleCellExperiment")) df <- as.data.frame(colData(df))
+  if(linear){
+    mod <- lm(df$log10_total_features~df$log10_total_counts)
+  }else{
+    mod <- loess(df$log10_total_features~df$log10_total_counts)
+  }
+  pred <- predict(mod, newdata=data.frame(log10_total_counts=df$log10_total_counts))
+  df$diff <- df$log10_total_features - pred
+  if(do.plot){
+    library(ggplot2)
+    ggplot(df, aes(x=total_counts, y=total_features, colour=diff)) + geom_point() + geom_smooth(method = "loess", col="black")
+  }
+  df$diff
+}
+
+
+#' getDevianceExplained
+#'
+#' @param sce An object of class `SingleCellExperiment`
+#' @param form.full The formula for the full model
+#' @param form.null The formula for the reduced model (default `~lszie`, i.e. library size)
+#' @param tagwise Logical; whether to run tagwise dispersion.
+#'
+#' @return The proportion of deviance (in the reduced model) explained by the full model.
+#' @export
+getDevianceExplained <- function(sce, form.full=~lsize+phenoid, form.null=~lsize, tagwise=TRUE){
+  library(edgeR)
+  sce$lsize <- log(colSums(counts(sce)))
+  dds <- DGEList(as.matrix(counts(sce)))
+  dds$samples$lib.size <- 1
+  CD <- as.data.frame(colData(sce))
+  mm <- model.matrix(form.full, data=CD)
+  mm0 <- model.matrix(form.null, data=CD)
+  dds <- estimateDisp(dds, mm, tagwise=tagwise)
+  fit <- glmFit(dds, mm)
+  fit0 <- glmFit(dds, mm0)
+  de <- (deviance(fit0)-deviance(fit))/deviance(fit0)
+  de[which(de<0)] <- 0
+  return( de )
+}
