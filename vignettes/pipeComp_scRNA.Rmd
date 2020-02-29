@@ -1,0 +1,95 @@
+---
+title: "The scRNA PipelineDefinition"
+author:
+- name: Pierre-Luc Germain
+  affiliation: University and ETH Zürich
+package: pipeComp
+output:
+  BiocStyle::html_document
+abstract: |
+  A description of the PipelineDefinition for scRNAseq clustering and its evaluation metrics.
+vignette: |
+  %\VignetteIndexEntry{pipeComp_scRNA}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include=FALSE}
+library(BiocStyle)
+```
+
+# Introduction
+
+This vignette is centered around the application of `r Rpackage("pipeComp")` to scRNA-seq clustering pipelines, and assumes a general understanding of `r Rpackage("pipeComp")` (for an overview, see the `pipeComp` vignette).
+
+The scRNAseq `PipelineDefinition` comes in two variants determined by the object used as a backbone, either `r Biocpkg("SingleCellExperiment")` (SCE) or `r Githubpkg("satijalab.org/seurat")` (see `?scrna_pipeline`). Both use the same evaluation metrics, and most method wrappers included in the package have been made so that they are compatible with both. For simplicity, we will therefore stick to just one variant here, and will focus on few very basic comparisons. For more detailed benchmarks, refer to our preprint:
+
+_pipeComp, a general framework for the evaluation of computational pipelines, reveals performant single-cell RNA-seq preprocessing tools_<br/>
+Pierre-Luc Germain, Anthony Sonrel & Mark D Robinson, 
+bioRxiv [2020.02.02.930578](https://doi.org/10.1101/2020.02.02.930578)
+
+<br/><br/>
+
+## The PipelineDefinition
+
+The `PipelineDefinition` can be obtained with the following function:
+
+```{r}
+library(pipeComp)
+pipDef <- scrna_pipeline(pipeClass = "sce")
+pipDef
+```
+
+## Example run
+
+To illustrate the use of the pipeline, we will run a basic comparison using wrappers that are included in the package. However, to not require the installation of all dependencies related to all methods for which there are wrappers, they were not included in the package code but rather as source files, which can be loaded in the 
+following way:
+
+```{r}
+source(system.file("extdata", "scrna_alternatives.R", package="pipeComp"))
+```
+
+(To know which packages are required by the set of wrappers you intend to use, see `?checkPipelinePackages`)
+
+Any function that has been loaded in the environment can then be used as alternative. We define a small set of alternatives to test:
+
+```{r}
+alternatives <- list(
+  doubletmethod=c("none"),
+  filt=c("filt.lenient", "filt.stringent"),
+  norm=c("norm.seurat", "norm.sctransform", "norm.scran"),
+  sel=c("sel.vst"),
+  selnb=2000,
+  dr=c("seurat.pca"),
+  clustmethod=c("clust.seurat"),
+  dims=c(10, 15, 20, 30),
+  resolution=c(0.01, 0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.2, 2)
+)
+```
+
+We also assume three datasets in `SingleCellExperiment` (SCE) format (not included in the package) and run the pipeline:
+
+```{r, eval=FALSE}
+datasets <- c( mixology10x5cl="/path/to/mixology10x5cl.SCE.rds",
+               simMix2="/path/to/simMix2.SCE.rds",
+               Zhengmix8eq="/path/to/Zhengmix8eq.SCE.rds" )
+# not run:
+res <- runPipeline( datasets, alternatives, pipDef, nthreads=3,
+                    output.prefix="myfolder/" )
+```
+
+Instead of running the analyses here, we will load the final example results:
+
+```{r}
+data("exampleResults", package = "pipeComp")
+res <- exampleResults
+```
+
+<br/><br/>
+
+# Exploring the metrics
+
+Benchmark metrics are organized according to the step at which they are computed, and will be presented here in this fashion. This does not mean that they are relevant only for that step: alternative parameters at a given step can also be evaluated with respect to the metrics defined in all downstream steps.
+
+## Doublet detection and cell filtering
+

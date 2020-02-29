@@ -43,3 +43,9 @@ nested steps. The pipeline has to be defined as a list of functions applied
 consecutively on their respective outputs. See `defaultPipelineDef()` for 
 indications about how to build one.
 }
+\examples{
+pip <- mockPipeline()
+datasets <- list( ds1=1:3, ds2=c(5,10,15) )
+tmpdir1 <- paste0(tempdir(),"/")
+res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1)
+}

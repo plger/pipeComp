@@ -61,6 +61,11 @@ setClass( "PipelineDefinition",
 #' @seealso \code{\link{PipelineDefinition-methods}}, \code{\link{addPipelineStep}}.
 #' For an example pipeline, see \code{\link{scrna_pipeline}}.
 #' @export
+#' @examples
+#' PipelineDefinition(
+#'   list( step1=function(x, meth1){ get(meth1)(x) },
+#'         step2=function(x, meth2){ get(meth2)(x) } )
+#' )
 PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
                                 aggregation=NULL, initiation=identity, 
                                 defaultArguments=list(), 
@@ -69,40 +74,18 @@ PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
     stop("`functions` should be a (named) list of functions!")
   n <- names(functions)
 	if(is.null(n)) n <- names(functions) <- paste0("step",1:length(functions))
-  if(!is.null(descriptions)){
-    if(length(descriptions)!=length(functions)) 
-      stop("`descriptions` should have the same length as `functions`")
-    if( !is.null(names(descriptions)) ){
-      if(!all(names(descriptions)==names(functions)) )
-        stop("The names of `descriptions` should match those of `functions`")
-    }
-  }else{
-    descriptions <- lapply(functions,FUN=function(x) NULL)
+  descriptions <- .checkInputList(descriptions, functions, FALSE)
+  evaluation <- .checkInputList(evaluation, functions)
+  aggregation2 <- .checkInputList(aggregation, functions)
+  names(aggregation2)<-names(evaluation)<-names(descriptions)<-names(functions)
+  for(f in names(aggregation2)){
+    if(is.null(aggregation2[[f]]) && !is.null(evaluation[[f]]) &&
+       !(f %in% names(aggregation)))
+      aggregation2[[f]] <- defaultStepAggregation
   }
-  if(!is.null(evaluation)){
-    if(length(evaluation)!=length(functions)) 
-      stop("`evaluation` should have the same length as `functions`")
-    if( !is.null(names(evaluation)) ){
-      if(!all(names(evaluation)==names(functions)) )
-        stop("The names of `evaluation` should match those of `functions`")
-    }
-  }else{
-    evaluation <- lapply(functions,FUN=function(x) NULL)
-  }
-  if(!is.null(aggregation)){
-    if(length(aggregation)!=length(functions)) 
-      stop("`aggregation` should have the same length as `functions`")
-    if( !is.null(names(aggregation)) ){
-      if(!all(names(aggregation)==names(functions)) )
-        stop("The names of `aggregation` should match those of `functions`")
-    }
-  }else{
-    aggregation <- lapply(functions,FUN=function(x) NULL)
-  }
-  names(aggregation)<-names(evaluation)<-names(descriptions)<-names(functions)
   if(is.null(misc)) misc <- list()
 	x <- new("PipelineDefinition", functions=functions, descriptions=descriptions,
-	       evaluation=evaluation, aggregation=aggregation, initiation=initiation,
+	       evaluation=evaluation, aggregation=aggregation2, initiation=initiation,
 	       defaultArguments=defaultArguments, misc=misc)
 
 	w <- which( !sapply(x@aggregation,is.null) & 
@@ -115,6 +98,36 @@ PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
 	                "function itself.") )
 	}
 	x
+}
+
+.checkInputList <- function( x, fns, containsFns=TRUE, 
+                             name=deparse(substitute(x)) ){
+  name <- paste0("`",name,"`")
+  if(!is.null(x)){
+    if(length(x)!=length(fns)){
+      if(is.null(names(x)))
+        stop("If ", name, " does not have the same length as the number of ",
+             "steps, its slots should be named.")
+      if(length(unknown <- setdiff(names(x),names(fns)))>0)
+        stop("Some elements of ",name," (",paste(unknown,collapse=", "),")",
+             "are unknown.")
+      x <- lapply(names(fns), FUN=function(f){
+        if(is.null(x[[f]])) return(NULL)
+        x[[f]]
+      })
+      names(x) <- names(fns)
+    } 
+    if( !is.null(names(x)) ){
+      if(!all(names(x)==names(fns)) )
+        stop("The names of ",name," should match those of `functions`")
+    }
+  }else{
+    x <- lapply(fns,FUN=function(x) NULL)
+  }
+  if( containsFns && 
+      !all(sapply(x, FUN=function(x) is.null(x) || is.function(x))) )
+    stop(name," should be a list of functions")
+  x
 }
 
 #' Methods for \code{\link{PipelineDefinition}} class
@@ -264,9 +277,9 @@ setMethod("stepFn<-", signature("PipelineDefinition"), function(object, step, ty
 #' @export
 #'
 #' @examples
-#' pd <- scrna_pipeline()
+#' pd <- mockPipeline()
 #' pd
-#' pd <- addPipelineStep(pd, name="newstep", after="filtering", 
+#' pd <- addPipelineStep(pd, name="newstep", after="step1", 
 #'                       slots=list(description="Step that does nothing..."))
 #' pd
 addPipelineStep <- function(object, name, after=NULL, slots=list()){
@@ -296,4 +309,24 @@ addPipelineStep <- function(object, name, after=NULL, slots=list()){
     stepFn(object, name, "functions") <- identity
   validObject(object)
   object
+}
+
+#' mockPipeline
+#' 
+#' A mock `PipelineDefinition` for use in examples.
+#'
+#' @return a `PipelineDefinition`
+#' @export
+#'
+#' @examples
+#' mockPipeline()
+mockPipeline <- function(){
+  PipelineDefinition(
+    list( step1=function(x, meth1){ get(meth1)(x) },
+          step2=function(x, meth2){ get(meth2)(x) } ),
+    evaluation=list( step2=function(x) c(mean=mean(x), max=max(x)) ),
+    description=list( step1="This steps applies meth1 to x.",
+                      step2="This steps applies meth2 to x."),
+    defaultArguments=list(meth1=c("log","sqrt"), meth2="cumsum")
+  )
 }

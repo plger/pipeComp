@@ -36,3 +36,7 @@ use, if applicable), `steps` (number of steps in the random walk, if
 applicable), `resolution` (resolution, if applicable), `min.size` (minimum 
 cluster size, if applicable)
 }
+\examples{
+pip <- scrna_pipeline()
+pip
+}
