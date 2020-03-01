@@ -43,3 +43,7 @@ the dimensionality can be automatically estimated by specifying
 `dims = "method_name"`. 
 }
 }
+\examples{
+pip <- scrna_pipeline()
+pip
+}

@@ -25,13 +25,10 @@
 #' @return One or several `Heatmap` object.
 #' @export
 #'
-#' @import ComplexHeatmap grid
+#' @import ComplexHeatmap grid S4Vectors
 #' @importFrom viridisLite inferno
 scrna_evalPlot_DR <- function(res, 
-                              what=c("auto", "varExpl", "minSilWidth", 
-                                     "meanSilWidth", "medianSilWidth", 
-                                     "maxSilWidth", "log10_total_counts", 
-                                     "log10_total_features","total_features"),
+                              what=c("auto"),
                               reorder_rows=TRUE,
                               reorder_columns=NULL,
                               agg.by=NULL, agg.fn=mean, scale=FALSE, 
@@ -39,9 +36,8 @@ scrna_evalPlot_DR <- function(res,
                               col=NULL, col_title_fontsize=11, 
                               value_cols=c("black","white"), title=NULL,
                               anno_legend=TRUE, ...){
-  what <- match.arg(what)
   pipDef <- metadata(res)$PipelineDefinition
-  if(what=="auto"){
+  if(length(what)==1 && what=="auto"){
     H <- scrna_evalPlot_DR(res, "meanSilWidth", scale=FALSE, 
                            reorder_rows=reorder_rows, value_format=value_format,
                            show_heatmap_legend=TRUE, 
@@ -58,6 +54,20 @@ scrna_evalPlot_DR <- function(res,
                         col_title_fontsize=col_title_fontsize, agg.by=agg.by, 
                         agg.fn=agg.fn, ...)
     )
+  }
+  if(length(what)>1){
+    H <- scrna_evalPlot_DR(res, what[1], scale=scale, reorder_rows=reorder_rows,
+                           value_format=value_format, show_heatmap_legend=FALSE,
+                           col_title_fontsize=col_title_fontsize, agg.by=agg.by, 
+                           agg.fn=agg.fn, ...)
+    ro <- row.names(H@matrix)
+    for(i in what[-1]){
+      H <- H + scrna_evalPlot_DR(res, i, scale=scale, reorder_rows=reorder_rows,
+                       value_format=value_format, show_heatmap_legend=FALSE,
+                       col_title_fontsize=col_title_fontsize, agg.by=agg.by, 
+                       agg.fn=agg.fn, ...)
+    }
+    return(H)
   }
   if("evaluation" %in% names(res)) res <- res$evaluation
   if("dimreduction" %in% names(res)) res <- res$dimreduction
@@ -81,6 +91,8 @@ scrna_evalPlot_DR <- function(res,
     stop("Unknown metric!")
   }
   res2 <- res <- .prepRes(res, what=what, agg.by, agg.fn, pipDef=pipDef)
+  row.names(res2) <- row.names(res) <- 
+    gsub("resolution=", "res=", gsub("norm=norm\\.","",row.names(res2)))
   if(scale) res2 <- base::scale(res)
   res2 <- as.matrix(res2)
   if(is(reorder_rows, "Heatmap")){
@@ -141,7 +153,9 @@ scrna_evalPlot_DR <- function(res,
 #' @param scale Logical; whether to scale columns (default FALSE)
 #' @param value_format Format for displaying cells' values (use 
 #' `value_format=""` to disable)
-#' @param reorder_rows Logical; whether to sort rows (default TRUE)
+#' @param reorder_rows Logical; whether to sort rows (default TRUE). The row 
+#' names themselves can also be passed to specify an order, or a 
+#' `ComplexHeatmap`.
 #' @param reorder_columns Logical; whether to sort columns
 #' @param show_heatmap_legend Passed to `Heatmap`
 #' @param col Colors for the heatmap
@@ -167,22 +181,33 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
                                  value_cols=c("black","white"), title=NULL,
                                  anno_legend=TRUE, ...){
   pipDef <- tryCatch(metadata(res)$PipelineDefinition, error=function(e) NULL)
+  if(any(c("auto","delta.nbClust") %in% what))
+    res$evaluation$clustering$delta.nbClust <- 
+      res$evaluation$clustering$n_clus - res$evaluation$clustering$true.nbClusts
   if(is.null(agg.by)) agg.by <- .getClustAggFields(res)
-  if(what=="auto"){
-    return( 
-      scrna_evalPlot_clust(res, "ARI", agg.by=agg.by, atTrueK=atTrueK, 
-                           scale=scale, reorder_rows=FALSE, ...) + 
-      scrna_evalPlot_clust(res, "NMI", agg.by=agg.by, atTrueK=atTrueK, 
-                           scale=scale, reorder_rows=FALSE, ...) + 
-      scrna_evalPlot_clust(res, "mean_re", agg.by=agg.by, atTrueK=atTrueK, 
-                           scale=scale, reorder_rows=FALSE, ...) + 
-      scrna_evalPlot_clust(res, "min_re", agg.by=agg.by, atTrueK=atTrueK, 
-                           scale=scale, reorder_rows=FALSE, ...) +
-      scrna_evalPlot_clust(res, "mean_pr", agg.by=agg.by, atTrueK=atTrueK, 
-                           scale=scale, reorder_rows=FALSE, ...) + 
-      scrna_evalPlot_clust(res, "min_pr", agg.by=agg.by, atTrueK=atTrueK, 
-                           scale=scale, reorder_rows=FALSE, ...)
+  if(length(what)==1 && what=="auto"){
+    H <- scrna_evalPlot_clust(res, "MI", agg.by=agg.by, atTrueK=FALSE, 
+                              scale=scale, reorder_rows=TRUE, ...)
+    return( H +
+      scrna_evalPlot_clust(res, "ARI", agg.by=agg.by, atTrueK=FALSE, 
+                           scale=scale, reorder_rows=H, ...) + 
+      scrna_evalPlot_clust(res, "min_F1", agg.by=agg.by, atTrueK=FALSE, 
+                           scale=scale, reorder_rows=H, ...) + 
+      scrna_evalPlot_clust(res, "ARI", agg.by=agg.by, atTrueK=TRUE, 
+                             scale=scale, reorder_rows=H, ...) + 
+      scrna_evalPlot_clust(res, "delta.nbClust", agg.by=agg.by, atTrueK=FALSE,
+                           col=circlize::colorRamp2(c(-5, 0, 5), c("red", "white", "blue")),
+                           value_cols = c("black","black"), scale=FALSE, 
+                           reorder_rows=H, value_format = "%.1f", ...)
     )
+  }
+  if(length(what)>1){
+    H <- scrna_evalPlot_clust(res, what[1], agg.by=agg.by, atTrueK=atTrueK, 
+                              scale=scale, reorder_rows=TRUE, ...)
+    for(i in what[-1]) H <- H +
+        scrna_evalPlot_clust(res, i, agg.by=agg.by, atTrueK=atTrueK, 
+                                   scale=scale, reorder_rows=H, ...)
+    return(H)
   }
   if("evaluation" %in% names(res)) res <- res$evaluation
   if("clustering" %in% names(res)) res <- res$clustering

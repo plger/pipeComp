@@ -4,9 +4,7 @@
 \alias{scrna_evalPlot_DR}
 \title{scrna_evalPlot_DR}
 \usage{
-scrna_evalPlot_DR(res, what = c("auto", "varExpl", "minSilWidth",
-  "meanSilWidth", "medianSilWidth", "maxSilWidth", "log10_total_counts",
-  "log10_total_features", "total_features"), reorder_rows = TRUE,
+scrna_evalPlot_DR(res, what = c("auto"), reorder_rows = TRUE,
   reorder_columns = NULL, agg.by = NULL, agg.fn = mean,
   scale = FALSE, show_heatmap_legend = FALSE, value_format = "\%.2f",
   col = NULL, col_title_fontsize = 11, value_cols = c("black",

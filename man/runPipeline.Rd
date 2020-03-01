@@ -92,3 +92,9 @@ res <- runPipeline( datasets, alternatives, pipDef, nthreads=3,
 # global environment (via "scrna_alternatives.R", other R script, etc...).
 
 }
+\examples{
+pip <- mockPipeline()
+datasets <- list( ds1=1:3, ds2=c(5,10,15) )
+tmpdir1 <- paste0(tempdir(),"/")
+res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1)
+}

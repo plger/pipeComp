@@ -32,37 +32,38 @@
 #' whole pipeline is determined by the output of the filtering, only this step 
 #' is affected by this option. 
 #' 
-#' @return 
-#' 
-#' A `PipelineDefinition` object to be used with `runPipeline`.
+#' @return A `PipelineDefinition` object to be used with `runPipeline`.
 #' 
 #' @export
-scrna_pipeline <- function(saveDimRed=FALSE, pipeClass=c("sce","seurat")){
+#' @examples
+#' pip <- scrna_pipeline()
+#' pip
+scrna_pipeline <- function(saveDimRed=FALSE, pipeClass=c("seurat","sce")){
   pipeClass <- match.arg(pipeClass)
   
   # description for each step
   desc <- list( 
     doublet=
-      "Takes a SCE object with the `phenoid` colData column, passes it through the 
+"Takes a SCE object with the `phenoid` colData column, passes it through the 
 function `doubletmethod`, and outputs a filtered SCE.",
     filtering=
-      "Takes a SCE object, passes it through the function `filt`, and outputs a 
+"Takes a SCE object, passes it through the function `filt`, and outputs a 
 filtered Seurat object.",
-    normalization=
-      "Passes the object through function `norm` to return the object with the 
-normalized and scale data slots filled.",
+    normalization=paste("Passes the object through function `norm` to return the
+object with the", ifelse(pipeClass=="sce","logcounts assay",
+                         "normalized and scale data slots"), "filled."),
     selection=
-      "Returns a Seurat object with the VariableFeatures filled with `selnb` features 
+"Returns a Seurat object with the VariableFeatures filled with `selnb` features 
 using the function `sel`.",
     dimreduction=
-      "Returns a Seurat object with the PCA reduction with up to `maxdim` components
+"Returns a Seurat object with the PCA reduction with up to `maxdim` components
 using the `dr` function.",
     clustering=
-      "Uses function `clustmethod` to return a named vector of cell clusters." )
+"Uses function `clustmethod` to return a named vector of cell clusters." )
   
   
   if (pipeClass == "sce") desc <- lapply(desc, function(x){
-    gsub("Seurat", "SCE", x)
+    x <- gsub("Seurat", "SCE", x)
   })
   
   # we prepare the functions for each step

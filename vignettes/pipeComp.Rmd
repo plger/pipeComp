@@ -1,0 +1,220 @@
+---
+title: "The pipeComp framework"
+author:
+- name: Pierre-Luc Germain
+  affiliation: University and ETH Zürich
+package: pipeComp
+output:
+  BiocStyle::html_document
+abstract: |
+  An introduction to the pipeComp package, PipelineDefinitions and basic usage.
+vignette: |
+  %\VignetteIndexEntry{pipeComp}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include=FALSE}
+library(BiocStyle)
+```
+
+# Introduction
+
+`r Rpackage("pipeComp")` is a simple framework to facilitate the comparison of pipelines involving various steps and parameters. It was initially developed to benchmark single-cell RNA sequencing (scRNAseq) pipelines:
+
+_pipeComp, a general framework for the evaluation of computational pipelines, reveals performant single-cell RNA-seq preprocessing tools_<br/>
+Pierre-Luc Germain, Anthony Sonrel & Mark D Robinson, 
+bioRxiv [2020.02.02.930578](https://doi.org/10.1101/2020.02.02.930578)
+
+However the framework can be applied to any other context. This vignette introduces the package and framework; for information specifically about the scRNAseq pipeline and evaluation metrics, see the `pipeComp_scRNA` vignette.
+
+# Installation
+
+Install using:
+
+```{r, eval=FALSE}
+BiocManager::install("plger/pipeComp")
+```
+
+Because `r Rpackage("pipeComp")` was meant as a general pipeline benchmarking framework, we have tried to restrict the package's dependencies to a minimum. 
+To use the scRNA-seq pipeline and wrappers, however, requires further packages to be installed. To check whether these dependencies are met for a given `pipelineDefinition` and set of alternatives, see `?checkPipelinePackages`.
+
+<br/><br/>
+
+
+# _pipeComp_ overview 
+
+```{r echo = FALSE, fig.cap = "Overview of PipeComp and the PipelineDefinition"}
+knitr::include_graphics(system.file('docs', 'pipeComp_scheme.png', package = 'pipeComp'))
+```
+
+`r Rpackage("pipeComp")` is built around the S4 class `PipelineDefinition` which defines a basic abstract workflow with different steps (which can have any number of parameters, including subroutines), as depicted in Figure 1. When a pipeline is executed, each step is consecutively applied to a starting object. In addition, each step can optionally have evaluation functions, which take the output of the step as an input, and outputs evaluation metrics. Finally, functions can be specified to aggregate these metrics across multiple datasets.
+
+To run a benchmark one in addition needs a set of alternative values to the parameters. For example, alternative values for the parameters depicted in Figure 1 could be defined as follows:
+
+```{r}
+library(pipeComp)
+alternatives <- list(
+  par1=c("function_A", "function_B"),
+  par2=1:3,
+  par3=TRUE,
+  # ...
+  parN=c(10,25,50)
+)
+```
+
+Given a `PipelineDefinition`, a list of alternative parameters and a list benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step (with the same parameters) twice and compiling evaluations on the fly to avoid storing potentially large intermediate data:
+
+```{r, eval=FALSE}
+res <- runPipeline(datasets, alternatives, pipelineDef=PipelineDefinition)
+```
+
+Aggregated evaluation metrics for each combination of parameters, along with computing times, are returned as simple lists. In addition to the (aggregated) output returned by the function, `runPipeline` will produce two RDS files (saved according to the `output.prefix` argument) per dataset: the `*.evaluation.rds` contain the (non-aggregated) evaluation results at each step, while the `.endOutputs.rds` files (assuming `saveEndResults=TRUE`) contain the final output of each combination (i.e. the output of the final step).
+
+The `r Rpackage("pipeComp")` package includes a `PipelineDefinition` for single-cell RNA sequencing (scRNAseq) data. For more information about this application and examples of real outputs, see the `pipeComp_scRNA` vignette.
+
+<br/><br/>
+
+## Running only a subset of the combinations
+
+Rather than running all possible combinations of parameters, one can run only a subset of them through the `comb` parameter of `runPipeline`. The parameter accepts either a matrix (of argument indices) or data.frame (of factors) which can be built manually, but the simplest way is to first create all combinations, and then get rid of the undesired ones:
+
+```{r}
+comb <- buildCombMatrix(alternatives)
+head(comb)
+```
+
+And then we could remove some combinations before passing the argument to `runPipeline`:
+
+```{r, eval=FALSE}
+comb <- comb[ (comb$par1 != "function_A" | comb$par2 == 2) ,]
+res <- runPipeline( datasets, alternatives, pipelineDef=PipelineDefinition, 
+                    nthreads=3, comb=comb )
+```
+
+## Dealing with the PipelineDefinition object
+
+### Creating a PipelineDefinition
+
+The `PipelineDefinition` object is, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. A simple pipeline can be constructed as follows:
+
+```{r}
+my_pip <- PipelineDefinition( list( 
+  step1=function(x, param1){
+    # do something with x and param1
+    x
+  },
+  step2=function(x, method1, param2){
+    get(method1)(x, param2) # apply method1 to x, with param2
+  },
+  step3=function(x, param3){
+    x <- some_fancy_function(x, param3)
+    # the functions can also output evaluation through the `intermediate_return` slot:
+    e <- my_evaluation_function(x)
+    list( x=x, intermediate_return=e)
+  }
+))
+my_pip
+```
+
+The PipelineDefinition can also include descriptions of each step or evaluation and aggregation functions. For example:
+```{r}
+my_pip <- PipelineDefinition( 
+  list( step1=function(x, meth1){ get(meth1)(x) },
+        step2=function(x, meth2){ get(meth2)(x) } ),
+  evaluation=list( step2=function(x) c(mean=mean(x), max=max(x)) ),
+  description=list( step1="This steps applies meth1 to x.",
+                    step2="This steps applies meth2 to x.")
+)
+my_pip
+```
+
+Running it with dummy data and functions:
+```{r}
+datasets <- list( ds1=1:3, ds2=c(5,10,15))
+alternatives <- list(meth1=c("log","sqrt"), meth2="cumsum")
+tmpdir1 <- paste0(tempdir(),"/")
+res <- runPipeline(datasets, alternatives, my_pip, output.prefix=tmpdir1)
+res$evaluation$step2
+```
+
+Computing times can be accessed through `res$elapsed`; they can either be accessed as the pipeline total for each combination, or in a step-wise fashion. They can also be plotted using:
+
+```{r, fig.width=5, fig.height=2}
+plotElapsed(res, agg.by=FALSE)
+```
+
+### Manipulating a PipelineDefinition
+
+A number of generic methods are implemented for `PipelineDefinition` objects, including `show`, `names`, `length`, `[`, `as.list`. This means that, for instance, a step can be removed from a pipeline in the following way:
+
+```{r}
+my_pip[-1]
+```
+
+Steps can be added using the `addPipelineStep` function:
+```{r}
+pip2 <- addPipelineStep(my_pip, name="newstep", after="step1")
+pip2
+```
+
+Functions for the new step can be specified through the `slots` argument of `addPipelineStep` or afterwards through `stepFn`:
+
+```{r}
+stepFn(pip2, "newstep", type="function") <- function(x, newparam){
+  do_something(x, newparam)
+}
+pip2
+```
+
+Finally, the `arguments()` method can be used to extract the arguments for each step, and the `defaultArguments` methods can be used to get or set the default arguments.
+
+<br/><br/>
+
+## Merging results of different _runPipeline_ calls
+
+### Merging the same analyses on different datasets
+
+The previous call to `runPipeline` produced one evaluation file for each dataset:
+
+```{r}
+list.files(tmpdir1, pattern="evaluation\\.rds")
+```
+
+If we have different such files coming from different runs (using the same `PipelineDefinition` and set of alternative parameters), we simply need to read them all into a list to aggregate them together:
+
+```{r}
+ds <- list.files(tmpdir1, pattern="evaluation\\.rds", full.names = TRUE)
+names(ds) <- basename(ds)
+res <- readPipelineResults(resfiles=ds)
+res <- aggregatePipelineResults(res)
+```
+
+### Merging the results of different alternative parameters on the same datsets
+
+We first make another `runPipeline` call using slightly different alternative parameter values:
+
+```{r}
+alternatives <- list(meth1=c("log2","sqrt"), meth2="cumsum")
+tmpdir2 <- paste0(tempdir(),"/")
+res <- runPipeline(datasets, alternatives, my_pip, output.prefix=tmpdir2)
+```
+
+We then load the (non-aggregated) results of each run from the files, and merge them using `mergePipelineResults`:
+```{r}
+res1 <- readPipelineResults(tmpdir1)
+res2 <- readPipelineResults(tmpdir2)
+res <- mergePipelineResults(res1,res2)
+```
+
+We can then aggregate the results as we do for a single run:
+```{r}
+res <- aggregatePipelineResults(res)
+res$evaluation$step2
+```
+
+
+<br/><br/>
+
+
+For a real example of a PipelineDefinition and its evaluation outputs, see the `pipeComp_scRNA` vignette.

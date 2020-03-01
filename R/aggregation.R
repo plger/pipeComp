@@ -1,3 +1,20 @@
+#' readPipelineResults
+#'
+#' @param path The path (e.g. folder or prefix) to the results. Either `path` or
+#' `resfiles` should be given.
+#' @param resfiles A vector of paths to `*.evaluation.rds` files. Either `path` 
+#' or `resfiles` should be given.
+#'
+#' @return A list of results.
+#' @export
+#' @examples
+#' # we produce mock pipeline results:
+#' pip <- mockPipeline()
+#' datasets <- list( ds1=1:3, ds2=c(5,10,15) )
+#' tmpdir1 <- paste0(tempdir(),"/")
+#' res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1)
+#' # we read the evaluation files:
+#' res <- readPipelineResults(tmpdir1)
 readPipelineResults <- function(path=NULL, resfiles=NULL){
   if( (!is.null(path) && !is.null(resfiles)) ||
       (is.null(path) && is.null(resfiles)) )
@@ -37,7 +54,20 @@ readPipelineResults <- function(path=NULL, resfiles=NULL){
 #'
 #' @import S4Vectors
 #' @export
+#' @examples
+#' # we produce mock pipeline results:
+#' pip <- mockPipeline()
+#' datasets <- list( ds1=1:3, ds2=c(5,10,15) )
+#' tmpdir1 <- paste0(tempdir(),"/")
+#' res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1)
+#' # we read the evaluation files:
+#' res <- readPipelineResults(tmpdir1)
+#' # we aggregate the results (equivalent to the output of `runPipeline`):
+#' res <- aggregatePipelineResults(res)
 aggregatePipelineResults <- function(res, pipDef=NULL){
+  if(all(names(res)==c("evaluation","elapsed")))
+    stop("`res` appears to be already aggregated, or the results of a single",
+         " dataset")
   .checkRes(res, requirePDidentity=is.null(pipDef))
   if(is.null(pipDef)) pipDef <- metadata(res[[1]])$PipelineDefinition
   if(is.null(pipDef)) stop("No PipelineDefinition found!")
@@ -64,7 +94,7 @@ returning only running times.")
   
   fullnames <- parsePipNames(names(res[[1]][[length(res[[1]])]]))
   reso$evaluation <- lapply(isn, FUN=function(x){
-    message(x)
+    message("Aggregating evaluation results for: ", x)
     pipDef@aggregation[[x]](lapply(res, FUN=function(y) y[[x]]))
   })
   reso
@@ -115,8 +145,23 @@ returning only running times.")
 #'
 #' @return A list of pipeline results.
 #' @export
-#'
 #' @import S4Vectors
+#' @examples
+#' # we produce 2 mock pipeline results:
+#' pip <- mockPipeline()
+#' datasets <- list( ds1=1:3, ds2=c(5,10,15) )
+#' tmpdir1 <- paste0(tempdir(),"/")
+#' res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1)
+#' alternatives <- list(meth1=c("log2","sqrt"), meth2="cumsum")
+#' tmpdir2 <- paste0(tempdir(),"/")
+#' res <- runPipeline(datasets, alternatives, pip, output.prefix=tmpdir2)
+#' # we read the evaluation files:
+#' res1 <- readPipelineResults(tmpdir1)
+#' res2 <- readPipelineResults(tmpdir2)
+#' # we merge them:
+#' res <- mergePipelineResults(res1,res2)
+#' # and we aggregate:
+#' res <- aggregatePipelineResults(res)
 mergePipelineResults <- function(res1,res2){
   .checkRes(res1,res2)
   nn <- intersect(names(res1),names(res2))
@@ -128,28 +173,53 @@ mergePipelineResults <- function(res1,res2){
   }
   names(nn) <- nn
   names(steps) <- steps <- names(res1[[1]]$evaluation)
+  esteps <- sapply(res1[[1]]$evaluation, FUN=function(x){
+    !is.null(x) && length(x)>0
+  })
   lapply(nn, FUN=function(ds){
     edif <- setdiff( names(res2[[ds]]$elapsed$total), 
                      names(res1[[ds]]$elapsed$total))
     res <- SimpleList(
-      evaluation=lapply(steps, FUN=function(step){
+      evaluation=lapply(steps[esteps], FUN=function(step){
         r1 <- res1[[ds]]$evaluation[[step]]
         r2 <- res2[[ds]]$evaluation[[step]]
-        dif <- setdiff(names(r1), names(r2))
+        dif <- setdiff(names(r2),names(r1))
         c(r1, r2[dif])
       }),
       elapsed=list(
         stepwise=lapply(steps, FUN=function(step){
           r1 <- res1[[ds]]$elapsed$stepwise[[step]]
           r2 <- res2[[ds]]$elapsed$stepwise[[step]]
-          dif <- setdiff(names(r1), names(r2))
+          dif <- setdiff(names(r2), names(r1))
           c(r1, r2[dif])
         }),
-        total=c(res1[[ds]]$elapsed$total,res1[[ds]]$elapsed$total[edif])
+        total=c(res1[[ds]]$elapsed$total,res2[[ds]]$elapsed$total[edif])
       )
     )
-    if(!is.null(res1$PipelineDefinition)) 
-      metadata(res)$PipelineDefinition <- res1$PipelineDefinition
+    if(!is.null(metadata(res1[[ds]])$PipelineDefinition)){
+      metadata(res)$PipelineDefinition<-metadata(res1[[ds]])$PipelineDefinition
+    }else if(!is.null(metadata(res2[[ds]])$PipelineDefinition)){ 
+      metadata(res)$PipelineDefinition< metadata(res2[[ds]])$PipelineDefinition
+    }
     res
   })
+}
+
+
+
+#' defaultStepAggregation
+#'
+#' @param x A list of results per dataset, each containing a list (1 element per
+#'  combination of parameters) of evaluation metrics (coercible to vectors or 
+#'  matrix).
+#'
+#' @return A data.frame.
+#' @export
+#' @importFrom dplyr bind_rows
+defaultStepAggregation <- function(x){
+  dplyr::bind_rows(lapply(x, FUN=function(x){
+    x <- cbind(parsePipNames(names(x)), do.call(rbind, x))
+    row.names(x) <- NULL
+    x
+  }), .id="dataset")
 }

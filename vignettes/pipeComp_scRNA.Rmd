@@ -1,0 +1,247 @@
+---
+title: "The scRNA PipelineDefinition"
+author:
+- name: Pierre-Luc Germain
+  affiliation: 
+  - &uzh DMLS, University of Zürich
+  - D-HEST Institute for Neuroscience, ETH Zürich
+- name: Anthony Sonrel
+  affiliation: *uzh
+- name: Mark D. Robinson
+  affiliation: *uzh
+package: pipeComp
+output:
+  BiocStyle::html_document
+abstract: |
+  A description of the PipelineDefinition for scRNAseq clustering and its evaluation metrics.
+vignette: |
+  %\VignetteIndexEntry{pipeComp_scRNA}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include=FALSE}
+library(BiocStyle)
+```
+
+# Introduction
+
+This vignette is centered around the application of `r Rpackage("pipeComp")` to scRNA-seq clustering pipelines, and assumes a general understanding of `r Rpackage("pipeComp")` (for an overview, see the `pipeComp` vignette).
+
+The scRNAseq `PipelineDefinition` comes in two variants determined by the object used as a backbone, either `r Biocpkg("SingleCellExperiment")` (SCE) or `r Githubpkg("satijalab.org/seurat")` (see `?scrna_pipeline`). Both use the same evaluation metrics, and most method wrappers included in the package have been made so that they are compatible with both. For simplicity, we will therefore stick to just one variant here, and will focus on few very basic comparisons to illustrate the main functionalities, metrics and evaluation plots. For more detailed benchmarks, refer to our preprint:
+
+_pipeComp, a general framework for the evaluation of computational pipelines, reveals performant single-cell RNA-seq preprocessing tools_<br/>
+Pierre-Luc Germain, Anthony Sonrel & Mark D Robinson, 
+bioRxiv [2020.02.02.930578](https://doi.org/10.1101/2020.02.02.930578)
+
+<br/><br/>
+
+## The PipelineDefinition
+
+The `PipelineDefinition` can be obtained with the following function:
+
+```{r}
+library(pipeComp)
+# we use the variant of the pipeline used in the paper
+pipDef <- scrna_pipeline(pipeClass = "seurat")
+pipDef
+```
+
+## Example run
+
+To illustrate the use of the pipeline, we will run a basic comparison using wrappers that are included in the package. However, in order for `r Rpackage("pipeComp")` not to systematically require the installation of all dependencies related to all methods for which there are wrappers, they were not included in the package code but rather as source files, which can be loaded in the following way:
+
+```{r}
+source(system.file("extdata", "scrna_alternatives.R", package="pipeComp"))
+```
+
+(To know which packages are required by the set of wrappers you intend to use, see `?checkPipelinePackages`)
+
+Any function that has been loaded in the environment can then be used as alternative. We define a small set of alternatives to test:
+
+```{r}
+alternatives <- list(
+  doubletmethod=c("none"),
+  filt=c("filt.lenient", "filt.stringent"),
+  norm=c("norm.seurat", "norm.sctransform", "norm.scran"),
+  sel=c("sel.vst"),
+  selnb=2000,
+  dr=c("seurat.pca"),
+  clustmethod=c("clust.seurat"),
+  dims=c(10, 15, 20, 30),
+  resolution=c(0.01, 0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.2, 2)
+)
+```
+
+We also assume three datasets in `SingleCellExperiment` (SCE) format (not included in the package) and run the pipeline:
+
+```{r, eval=FALSE}
+# available on https://doi.org/10.6084/m9.figshare.11787210.v1
+datasets <- c( mixology10x5cl="/path/to/mixology10x5cl.SCE.rds",
+               simMix2="/path/to/simMix2.SCE.rds",
+               Zhengmix8eq="/path/to/Zhengmix8eq.SCE.rds" )
+# not run
+res <- runPipeline( datasets, alternatives, pipDef, nthreads=3)
+```
+
+Instead of running the analyses here, we will load the final example results:
+
+```{r}
+data("exampleResults", package = "pipeComp")
+res <- exampleResults
+```
+
+<br/><br/>
+
+# Exploring the metrics
+
+Benchmark metrics are organized according to the step at which they are computed, and will be presented here in this fashion. This does not mean that they are relevant only for that step: alternative parameters at a given step can also be evaluated with respect to the metrics defined in all downstream steps.
+
+## Doublet detection and cell filtering
+
+The evaluation performed after the first two steps (doublet detection and filtering) is the same: 
+```{r}
+head(res$evaluation$filtering)
+```
+
+For each method and subpopulation, we report:
+
+* `N.before` the number of cells before the step
+* `N.lost` the number of cells excluded by the step
+* `pc.lost` the percentage of cells lost (relative to the supopulation)
+
+As noted in [our manuscript](https://doi.org/10.1101/2020.02.02.930578), stringent filtering can lead to strong bias against certain supopulations. We therefore especially monitor the max `pc.lost` of different methods in relation to the impact on clustering accuracy (privileging, at this step, metrics that are not dependent on the relative abundances of the subpopulations, such as the mean F1 score per subpopulation). This can conveniently be done using the following function:
+
+```{r, fig.width=6, fig.height=2.5}
+scrna_evalPlot_filtering(res)
+```
+
+## Evaluation based on the reduced space
+
+Evaluations based on the reduced space are much more varied:
+
+```{r}
+names(res$evaluation$dimreduction)
+```
+
+### Subpopulation silhouette
+
+The `silhouette` slot contains information about the silhouettes width of true subpopulations. Depending on the methods used for dimensionality (i.e. fixed vs estimated number of dimensions), there will be a single output or outputs for different sets of dimensions, as is the case in our example:
+
+```{r}
+names(res$evaluation$dimreduction$silhouette)
+```
+
+For each of them we have a data.frame including, for each subpopulation in each analysis (i.e. combination of paremeters), the minimum, maximum, median and mean silhouette width:
+
+```{r}
+head(res$evaluation$dimreduction$silhouette$top_10_dims)
+```
+
+This information can be plotted using the function `scrna_evalPlot_DR`; the function outputs a `r CRANpkg("ComplexHeatmap")`, which means that most arguments of that package and options can be used. For instance:
+
+```{r, fig.width=8.5, fig.height=3}
+library(ComplexHeatmap)
+h <- scrna_evalPlot_DR(res, what="meanSilWidth", value_format="", 
+                       show_heatmap_legend=TRUE, row_names_gp=gpar(fontsize=11))
+draw(h, annotation_legend_side = "bottom")
+```
+
+See `?scrna_evalPlot_DR` for more options.
+
+### Variance in the PCs explained by the subpopulations
+
+The slot `varExpl.subpops` indicates, for each analysis, the proportion of variance of each principal component explained by the true supopulations.
+
+```{r}
+res$evaluation$dimreduction$varExpl.subpops[1:5,1:15]
+```
+
+### Correlation with covariates
+
+The slots following slots track the correlation between principal components (PCs) and predefined cell-level covariates such as library size and number of detected genes:
+* `corr.covariate` contains the pearson correlation between the covariates and each PC; however, since there are major differences in library sizes between subpopulations, we advise against using this directly.
+* `meanAbsCorr.covariate2` circumvents this bias by computing the mean absolute correlation (among the first 5 components) for each subpopulation, and averaging them.
+* `PC1.covar.adjR2` gives the difference in adjusted _R^2_ between a model fit on PC1 containing the covariate along with subpopulations (PC1~subpopulation+covariate) and one without the covariate (PC1~subpopulation).
+
+We found the `meanAbsCorr` with the covariate to be particularly informative, and therefore designed the plotting wrapper around it. It can be used simply by specifying the desired covariate:
+
+```{r, fig.width=8, fig.height=3}
+scrna_evalPlot_DR(res, what="log10_total_features")
+```
+
+Since the output of these plotting functions are of class `r CRANpkg("ComplexHeatmap")`, they can be combined:
+
+```{r, eval=FALSE}
+scrna_evalPlot_DR(res, what="log10_total_features") + scrna_evalPlot_DR(res, what="log10_total_counts")
+```
+
+However in that one should disable row ordering to avoid mismatching rows, or alternatively use this construction which handles row order (but requires parameters to be the same across the heatmaps):
+
+```{r, fig.width=8, fig.height=3}
+scrna_evalPlot_DR(res, what=c("log10_total_features","log10_total_counts"))
+```
+
+We see here for instance that `r Githubpkg("ChristophH/sctransform")` successfully reduces the correlation with covariates, and that `r Biocpkg("scran")` is somewhat in the middle.
+
+## Clustering
+
+### Metrics
+
+We compute several metrics comparing the clustering to the true cell labels:
+
+```{r}
+colnames(res$evaluation$clustering)
+```
+
+The first columns represent the parameters, while the others are evaluation metrics:
+
+* `n_clus`: the number of clusters produced by the method
+* `mean_pr`, `mean_re`, and `mean_F1`: respectively the mean precision, recall and F1 score (harmonic mean of precision and recall) per (true) subpopulation, using the Hungarian algorithm for label matching (see `?match_evaluate_multiple`).
+* `min_pr`, `min_re` and `min_F1`: the minimum precision/recall/F1 per (true) subpopulation
+* `RI` and `ARI`: the Rand index and adjusted Rand index.
+* `MI` and `AMI`: the mutual information and adjusted mutual information, respectively.
+* `ID`, `NID`, `VI`, `NVI`: the information difference, variation of information, and their normalized counterparts; these decrease with increasing clustering accuracy. See the `r CRANpkg("aricode")` package for more information.
+
+There is a high redundancy between some of these metrics, and their relationship across a vast number of scRNAseq clusterings is represented here (see [our preprint](https://doi.org/10.1101/2020.02.02.930578) for more detail):
+
+```{r}
+data("clustMetricsCorr", package="pipeComp")
+ComplexHeatmap::Heatmap(clustMetricsCorr$pearson, name = "Pearson\ncorr")
+```
+
+We also included, here, the deviation (`nbClust.diff`) and absolute deviation (`nbClust.absDiff`) from the true number of clusters. This shows that, for instance, most metrics (including the commonly-used ARI) are highly correlated (or anti-correlated) with the absolute deviation from the true number of clusters (`nbClust.absDiff`), making the number of clusters called the primary determinant of the score. Instead, mutual information (MI) is considerably less sensitive to this, but does tend to increase when the number of clusters is increased (positive correlation with `nbClust.diff`). We therefore recommend using a combination of MI, ARI, and ARI at the right number of clusters.
+
+### Plotting
+
+These results can easily be plotted in the following way:
+
+```{r, fig.height=3, fig.width=7}
+scrna_evalPlot_clust(res, what=c("MI","ARI"))
+```
+
+or 
+
+```{r, fig.height=3, fig.width=8.5}
+scrna_evalPlot_clust(res, what="auto")
+```
+
+Steps for which there was a single alternative are not included, and by default the functions aggregate the results of analysis using different number of dimensions, or different resolution parameters. This can however be tuned using the `agg.by` argument. For example, we could investigate the joint impact of the normalization method and of the number of dimensions included using:
+
+```{r, fig.width=8.5, fig.height=4}
+scrna_evalPlot_clust(res, what="auto", agg.by=c("norm", "dims"))
+```
+
+## Computing time
+
+There is nothing specific to the scRNAseq pipeline about computing times, but the default `pipeComp` functionalities are available: the timings are accessible in `res$elapsed`, and can be plotted either manually or using:
+
+```{r, fig.width=7, fig.height=3}
+plotElapsed(res, agg.by="norm")
+```
+
+<br/><br/>
+
+# Extension and reuse
+
+The scRNAseq `PipelineDefinition` can be modified or extented with new steps or arguments like any other objects of that class (see the `pipeComp` vignette). In addition, the evaluation functions used at each step can be accessed from the package's namespace and use for other purposes. See in particular `?evaluateDimRed` and `?evaluateClustering`. 

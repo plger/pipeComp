@@ -23,3 +23,14 @@ Aggregates the evaluation and running times of `runPipeline` results. Results
  should be indicated either as a `path`` prefix or as a vector of 
 paths to `evaluation\\.rds` files (`resfiles`).
 }
+\examples{
+# we produce mock pipeline results:
+pip <- mockPipeline()
+datasets <- list( ds1=1:3, ds2=c(5,10,15) )
+tmpdir1 <- paste0(tempdir(),"/")
+res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1)
+# we read the evaluation files:
+res <- readPipelineResults(tmpdir1)
+# we aggregate the results (equivalent to the output of `runPipeline`):
+res <- aggregatePipelineResults(res)
+}
