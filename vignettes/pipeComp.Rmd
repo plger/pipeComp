@@ -138,7 +138,7 @@ res <- runPipeline(datasets, alternatives, my_pip, output.prefix=tmpdir1)
 res$evaluation$step2
 ```
 
-Computing times can be accessed through `res$elapsed`, or plotted using:
+Computing times can be accessed through `res$elapsed`; they can either be accessed as the pipeline total for each combination, or in a step-wise fashion. They can also be plotted using:
 
 ```{r, fig.width=5, fig.height=2}
 plotElapsed(res, agg.by=FALSE)
