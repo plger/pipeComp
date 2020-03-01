@@ -32,7 +32,7 @@
 #' @examples
 #' pip <- scrna_pipeline()
 #' pip
-scrna_pipeline <- function(saveDimRed=FALSE, pipeClass=c("sce","seurat")){
+scrna_pipeline <- function(saveDimRed=FALSE, pipeClass=c("seurat","sce")){
   pipeClass <- match.arg(pipeClass)
   
   # description for each step
