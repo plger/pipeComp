@@ -16,6 +16,9 @@ chosen class. Given that, if running the `scrna_alternatives`, the class of
 whole pipeline is determined by the output of the filtering, only this step 
 is affected by this option.}
 }
+\value{
+A `PipelineDefinition` object to be used with `runPipeline`.
+}
 \description{
 The `PipelineDefinition` for the default scRNAseq clustering pipeline, with 
 steps for doublet identification, filtering, normalization, feature selection,
@@ -23,18 +26,22 @@ dimensionality reduction, and clustering.
 Alternative arguments should be character, numeric or logical vectors of
 length 1 (e.g. the function name for a method, the number of dimensions, etc).
 The default pipeline has the following steps and arguments:
-* doublet: `doubletmethod` (name of the doublet removal function)
-* filtering: `filt` (name of the filtering function, or filter string)
-* normalization: `norm` (name of the normalization function)
-* selection: `sel` (name of the selection function, or variable of rowData on
+\itemize{
+\item doublet: `doubletmethod` (name of the doublet removal function)
+\item filtering: `filt` (name of the filtering function, or filter string)
+\item normalization: `norm` (name of the normalization function)
+\item selection: `sel` (name of the selection function, or variable of rowData on
  which to select) and `selnb` (number of features to select)
-* dimreduction: `dr` (name of the dimensionality reduction function) and 
+\item dimreduction: `dr` (name of the dimensionality reduction function) and 
 `maxdim` (maximum number of components to compute)
-* clustering: `clustmethod` (name of the clustering function), 
+\item clustering: `clustmethod` (name of the clustering function), 
 `dims` (number of dimensions to use), `k` (number of nearest neighbors to 
 use, if applicable), `steps` (number of steps in the random walk, if 
 applicable), `resolution` (resolution, if applicable), `min.size` (minimum 
-cluster size, if applicable)
+cluster size, if applicable). If using the `scrna_alternatives.R` wrappers, 
+the dimensionality can be automatically estimated by specifying 
+`dims = "method_name"`. 
+}
 }
 \examples{
 pip <- scrna_pipeline()
