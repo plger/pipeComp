@@ -4,7 +4,7 @@
 \alias{scrna_pipeline}
 \title{scrna_pipeline}
 \usage{
-scrna_pipeline(saveDimRed = FALSE, pipeClass = c("sce", "seurat"))
+scrna_pipeline(saveDimRed = FALSE, pipeClass = c("seurat", "sce"))
 }
 \arguments{
 \item{saveDimRed}{Logical; whether to save the dimensionality reduction for 

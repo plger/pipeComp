@@ -4,17 +4,9 @@
 \alias{runPipeline}
 \title{runPipeline}
 \usage{
-runPipeline(
-  datasets,
-  alternatives,
-  pipelineDef,
-  comb = NULL,
-  output.prefix = "",
-  nthreads = length(datasets),
-  saveEndResults = TRUE,
-  debug = FALSE,
-  ...
-)
+runPipeline(datasets, alternatives, pipelineDef, comb = NULL,
+  output.prefix = "", nthreads = length(datasets),
+  saveEndResults = TRUE, debug = FALSE, ...)
 }
 \arguments{
 \item{datasets}{A named vector of initial objects or paths to rds files.}
@@ -91,8 +83,6 @@ res <- runPipeline( datasets, alternatives, pipDef, nthreads=3,
 # Any additional functions can be used in the pipeline by adding them in the 
 # global environment (via "scrna_alternatives.R", other R script, etc...).
 
-}
-\examples{
 pip <- mockPipeline()
 datasets <- list( ds1=1:3, ds2=c(5,10,15) )
 tmpdir1 <- paste0(tempdir(),"/")
