@@ -164,7 +164,7 @@ The slots following slots track the correlation between principal components (PC
 * `meanAbsCorr.covariate2` circumvents this bias by computing the mean absolute correlation (among the first 5 components) for each subpopulation, and averaging them.
 * `PC1.covar.adjR2` gives the difference in adjusted _R^2_ between a model fit on PC1 containing the covariate along with subpopulations (PC1~subpopulation+covariate) and one without the covariate (PC1~subpopulation).
 
-We found the `meanAbsCorr` with the covariate to be particularly informative, and therefore designed the plotting wrapper around it. It can be used simply by specifying the desired covariate:
+We found the `PC1.covar.adjR2` to be the most informative, and therefore designed the plotting wrapper around it. It can be used simply by specifying the desired covariate:
 
 ```{r, fig.width=8, fig.height=3}
 scrna_evalPlot_DR(res, what="log10_total_features")

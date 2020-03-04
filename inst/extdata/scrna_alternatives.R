@@ -16,7 +16,7 @@ scrna_seurat_defAlternatives <- function(x=list()){
   def
 }
 
-seWrap <- function(sce, min.cells=0, min.features=0){
+seWrap <- function(sce, min.cells=10, min.features=0){
   if(is(sce,"Seurat")) return(sce)
   suppressPackageStartupMessages(library(Seurat))
   se <- CreateSeuratObject( counts=counts(sce), 
@@ -29,8 +29,11 @@ seWrap <- function(sce, min.cells=0, min.features=0){
     se <- ScaleData(se, verbose = FALSE)
     se@assays$RNA@data <- logcounts(sce)
   } 
-  if(!is.null(metadata(sce)$VariableFeats)) VariableFeatures(se) <- metadata(sce)$VariableFeats
-  if(length(reducedDimNames(sce)) != 0) se[["pca"]] <- CreateDimReducObject(embeddings=reducedDim(sce), key="PC_", assay="RNA")
+  if(!is.null(metadata(sce)$VariableFeats)) 
+    VariableFeatures(se) <- metadata(sce)$VariableFeats
+  if(length(reducedDimNames(sce)) != 0) 
+    se[["pca"]] <- CreateDimReducObject(embeddings=reducedDim(sce), key="PC_", 
+                                        assay="RNA")
   se
 }
 
@@ -39,9 +42,18 @@ sceWrap <- function(seu) {
     library(SingleCellExperiment)
     library(Seurat)
   })
-  sce <- SingleCellExperiment(list(counts = GetAssayData(seu, assay = "RNA", slot = "counts")), 
+  sce <- SingleCellExperiment(list(counts=GetAssayData(seu, assay="RNA", slot="counts")), 
                               colData = seu[[]])
-  rowData(sce) <- seu@misc$rowData
+  if(nrow(norm <- GetAssayData(seu, slot="scale.data"))>0){
+    sce <- sce[row.names(norm),]
+    logcounts(sce) <- norm
+  }
+  rowData(sce) <- seu@misc$rowData[row.names(sce),]
+  if(length(VariableFeatures(seu)))
+    metadata(sce)$VariableFeats <- VariableFeatures(seu)
+  if(length(Reductions(seu))>0){
+    reducedDims(sce) <- lapply(seu@reductions, FUN=function(x) x@cell.embeddings)
+  }
   sce
 }
 
@@ -217,7 +229,7 @@ norm.seurat <- function(dat, vars=NULL, noscale=FALSE){
   if (is(dat, "Seurat")){
     return(x)
   } else {
-    logcounts(dat) <- GetAssayData(x, assay = "RNA", slot = "data")
+    logcounts(dat) <- GetAssayData(x, assay = "RNA", slot = "scale.data")
     return(dat) 
   }
 }
@@ -296,15 +308,11 @@ norm.seuratvst <- function(x, vars=NULL, noscale=FALSE, variable.features.n=5000
   a <- SCTransform(a, vars.to.regress=vars, verbose=FALSE, 
                    variable.features.n=variable.features.n, 
                    return.only.var.genes=FALSE)
-  if(is(x,"Seurat")){
-    a@misc$vst.var.feat <- VariableFeatures(a)
-    a
-  } else {
-    metadata(x)$vst.var.feat <- VariableFeatures(a)
-    logcounts(x) <- GetAssayData(a, "data", "SCT")
-    x
-  }
-  
+  a@misc$vst.var.feat <- VariableFeatures(a)
+  if(is(x,"Seurat")) return(a)
+  metadata(x)$vst.var.feat <- metadata(x)$VariableFeats <- VariableFeatures(a)
+  logcounts(x) <- GetAssayData(a, "data", "SCT")
+  x
 }
 norm.sctransform <- norm.seuratvst
 
@@ -451,12 +459,9 @@ sel.vst <- function(dat, n=2000, excl=c()){
     a <- FindVariableFeatures(a, nfeatures=n)
   }
   VariableFeatures(a) <- subsetFeatureByType(VariableFeatures(a), excl)
-  if(is(dat,"Seurat")){
-    a
-  } else {
-    metadata(dat)$VariableFeats <- VariableFeatures(a)
-    dat
-  }
+  if(is(dat,"Seurat")) return(a)
+  metadata(dat)$VariableFeats <- VariableFeatures(a)
+  dat
 }
 
 #' applySelString
@@ -503,12 +508,9 @@ sel.fromField <- function( dat, f, n=2000, excl=c() ){
   e <- a@misc$rowData[row.names(a),f]
   VariableFeatures(a) <- row.names(a)[order(e, decreasing=T)[1:min(n,length(e))]]
   VariableFeatures(a) <- subsetFeatureByType(VariableFeatures(a), excl)
-  if(is(dat, "Seurat")) {
-    a
-  } else {
-    metadata(dat)$VariableFeats <- VariableFeatures(a)
-    dat
-  }
+  if(is(dat, "Seurat")) return(a)
+  metadata(dat)$VariableFeats <- VariableFeatures(a)
+  dat
 }
 
 sel.deviance <- function(x, n=2000, excl=c()){
@@ -562,17 +564,20 @@ scran.denoisePCA <- function(x, dims=50, pca.method=c("exact","irlba"), ...){
                     exact=ExactParam(),
                     irlba=IrlbaParam() )
   if(is(x, "Seurat")){
-    dat <-  SingleCellExperiment( list( counts=GetAssayData(x, slot="counts"),
-                                        logcounts=GetAssayData(x, slot="data")) )
+    dat <- sceWrap(x)
   } else {
     dat <- x
   }
   if(packageVersion("scran") >= "1.13"){
     var.stats <- modelGeneVar(dat)
-    dat <- denoisePCA(dat, technical=var.stats, min.rank=2, max.rank=dims, BSPARAM=BSPARAM, ...)
+    dat <- denoisePCA(dat, technical=var.stats, min.rank=2, max.rank=dims, 
+                      subset.row=metadata(dat)@VariableFeats, BSPARAM=BSPARAM, 
+                      ...)
   }else{
     td <- trendVar(dat, use.spikes=FALSE)
-    dat <- denoisePCA(dat, technical=td$trend, min.rank=2, max.rank=dims, BSPARAM=BSPARAM, ...)
+    dat <- denoisePCA(dat, technical=td$trend, min.rank=2, max.rank=dims, 
+                      subset.row=metadata(dat)@VariableFeats, BSPARAM=BSPARAM, 
+                      ...)
   }
   if(is(x, "Seurat")) return(sceDR2seurat(reducedDim(dat, "PCA"), x, "pca")) else return(dat)
 }
@@ -616,12 +621,12 @@ scran.runPCA <- function(x, dims=50){
   suppressPackageStartupMessages(library(scran))
   suppressPackageStartupMessages(library(BiocSingular))
   if(is(x, "Seurat")){
-    dat <-  SingleCellExperiment( list( counts=GetAssayData(x, slot="counts"),
-                                        logcounts=GetAssayData(x, slot="data")) )
+    dat <-  sceWrap(x)
   } else {
     dat <- x
   }
-  dat <- runPCA(dat, ncomponents = dims)
+  dat <- scater::runPCA(dat, ncomponents = dims, 
+                        subset_row=metadata(dat)@VariableFeat)
   if(is(x, "Seurat")) return(sceDR2seurat(reducedDim(dat, "PCA"), x, "pca")) else return(dat)
 }
 
@@ -898,14 +903,7 @@ clust.scran <- function(ds, rd=TRUE, method="walktrap",
                              Annoy=AnnoyParam(),
                              Hnsw=HnswParam())
   if(is(ds,"Seurat")){
-    ds <- SingleCellExperiment(
-      assays=list(
-        counts=GetAssayData(ds, assay = "RNA", slot="counts"),
-        logcounts=GetAssayData(ds, slot="scale.data")
-      ),
-      colData=ds[[]],
-      reducedDims=lapply(ds@reductions, FUN=function(x) x@cell.embeddings)
-    )
+    ds <- sceWrap(ds)
   }
   if(is.logical(rd)){
     if(rd){
