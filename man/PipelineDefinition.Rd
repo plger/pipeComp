@@ -34,6 +34,12 @@ descriptions, evaluation, aggregation, defaultArguments, and misc.
 Creates on object of class `PipelineDefinition` containing step functions,
 as well as optionally step evaluation and aggregation functions.
 }
+\examples{
+PipelineDefinition(
+  list( step1=function(x, meth1){ get(meth1)(x) },
+        step2=function(x, meth2){ get(meth2)(x) } )
+)
+}
 \seealso{
 \code{\link{PipelineDefinition-methods}}, \code{\link{addPipelineStep}}.
 For an example pipeline, see \code{\link{scrna_pipeline}}.

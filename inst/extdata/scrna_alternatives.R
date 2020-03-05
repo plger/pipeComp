@@ -16,7 +16,7 @@ scrna_seurat_defAlternatives <- function(x=list()){
   def
 }
 
-seWrap <- function(sce, min.cells=0, min.features=0){
+seWrap <- function(sce, min.cells=10, min.features=0){
   if(is(sce,"Seurat")) return(sce)
   suppressPackageStartupMessages(library(Seurat))
   se <- CreateSeuratObject( counts=counts(sce), 
@@ -29,8 +29,11 @@ seWrap <- function(sce, min.cells=0, min.features=0){
     se <- ScaleData(se, verbose = FALSE)
     se@assays$RNA@data <- logcounts(sce)
   } 
-  if(!is.null(metadata(sce)$VariableFeats)) VariableFeatures(se) <- metadata(sce)$VariableFeats
-  if(length(reducedDimNames(sce)) != 0) se[["pca"]] <- CreateDimReducObject(embeddings=reducedDim(sce), key="PC_", assay="RNA")
+  if(!is.null(metadata(sce)$VariableFeats)) 
+    VariableFeatures(se) <- metadata(sce)$VariableFeats
+  if(length(reducedDimNames(sce)) != 0) 
+    se[["pca"]] <- CreateDimReducObject(embeddings=reducedDim(sce), key="PC_", 
+                                        assay="RNA")
   se
 }
 
@@ -39,9 +42,18 @@ sceWrap <- function(seu) {
     library(SingleCellExperiment)
     library(Seurat)
   })
-  sce <- SingleCellExperiment(list(counts = GetAssayData(seu, assay = "RNA", slot = "counts")), 
+  sce <- SingleCellExperiment(list(counts=GetAssayData(seu, assay="RNA", slot="counts")), 
                               colData = seu[[]])
-  rowData(sce) <- seu@misc$rowData
+  if(nrow(norm <- GetAssayData(seu, slot="scale.data"))>0){
+    sce <- sce[row.names(norm),]
+    logcounts(sce) <- norm
+  }
+  rowData(sce) <- seu@misc$rowData[row.names(sce),]
+  if(length(VariableFeatures(seu)))
+    metadata(sce)$VariableFeats <- VariableFeatures(seu)
+  if(length(Reductions(seu))>0){
+    reducedDims(sce) <- lapply(seu@reductions, FUN=function(x) x@cell.embeddings)
+  }
   sce
 }
 
@@ -217,7 +229,7 @@ norm.seurat <- function(dat, vars=NULL, noscale=FALSE){
   if (is(dat, "Seurat")){
     return(x)
   } else {
-    logcounts(dat) <- GetAssayData(x, assay = "RNA", slot = "data")
+    logcounts(dat) <- GetAssayData(x, assay = "RNA", slot = "scale.data")
     return(dat) 
   }
 }
@@ -226,6 +238,7 @@ norm.scran <- function(x, vars=NULL, noscale=TRUE, min.mean=1){
   suppressPackageStartupMessages({
     library(scran)
     library(Seurat)
+    library(SingleCellExperiment)
   })
   if(is(x,"Seurat")){
     a <- GetAssayData(x, assay = "RNA", slot = "counts")
@@ -235,7 +248,7 @@ norm.scran <- function(x, vars=NULL, noscale=TRUE, min.mean=1){
   a <- SingleCellExperiment(assays=list(counts=a))
   clusters <- quickCluster(a, min.mean=min.mean, min.size=50)
   a <- computeSumFactors(a, min.mean=min.mean, clusters=clusters)
-  a <- logNormCounts(a)
+  a <- scater::normalize(a)
   if(is(x,"Seurat")){ 
     x <- SetAssayData(x, slot="data", new.data=logcounts(a))
     if(noscale){
@@ -295,15 +308,11 @@ norm.seuratvst <- function(x, vars=NULL, noscale=FALSE, variable.features.n=5000
   a <- SCTransform(a, vars.to.regress=vars, verbose=FALSE, 
                    variable.features.n=variable.features.n, 
                    return.only.var.genes=FALSE)
-  if(is(x,"Seurat")){
-    a@misc$vst.var.feat <- VariableFeatures(a)
-    a
-  } else {
-    metadata(x)$vst.var.feat <- VariableFeatures(a)
-    logcounts(x) <- GetAssayData(a, "data", "SCT")
-    x
-  }
-  
+  a@misc$vst.var.feat <- VariableFeatures(a)
+  if(is(x,"Seurat")) return(a)
+  metadata(x)$vst.var.feat <- metadata(x)$VariableFeats <- VariableFeatures(a)
+  logcounts(x) <- GetAssayData(a, "data", "SCT")
+  x
 }
 norm.sctransform <- norm.seuratvst
 
@@ -341,6 +350,68 @@ norm.scnorm <- function(x, vars=NULL, noscale=TRUE, nthreads=1){
 
 norm.scnorm.scaled <- function(x, ...){
   norm.scnorm(x, noscale=FALSE, ...)
+}
+
+#' norm.scVI
+#'
+#' A function calling a python wrapper (`scVI.py`) around `scVI` normalization, adapted from the the 'Basic usage' Jupyter notebook (https://nbviewer.jupyter.org/github/YosefLab/scVI/blob/master/tests/notebooks/basic_tutorial.ipynb). Note that the function will create a temporary csv file for the intermediate storage of the input count matrix, needed by `scVI`.  
+#' 
+#' 
+#' @param x A SCE or Seurat object.
+#' @param py_script Location of the python script
+#' @param py_path Optional. If scVI was installed in a specific python bin, pass here the path to it. 
+#' @param train_size Size of training set. Default to 0.8 but tutorial however recommends to use 1. 
+#' @param noscale Logical; whether to disable scaling (default FALSE)
+#' @param n_cores N. cores
+#' 
+#' @return An object of the same class as `x` with updated slots.
+
+norm.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="pipeComp"), py_path = NULL, n_cores = 1L, train_size = 1) {
+  n_cores <- as.integer(n_cores)
+  suppressPackageStartupMessages(library(reticulate))
+  if (length(py_path)>0) use_python(py_path ,required=TRUE)
+  trysource <- try(source_python(py_script))
+  if (class(trysource) == "try-error") stop("Cannot source the python wrapper.") 
+  tfile <- tempfile(fileext=".csv", tmpdir = ".")
+  if (is(x, "Seurat")) dat <- GetAssayData(x, assay = "RNA", slot = "counts") else dat <- counts(x)
+  write.csv(dat, tfile)
+  val <- t(scVI_norm(csv_file = tfile, csv_path = ".", n_cores = n_cores, train_size = train_size))
+  file.remove(tfile)
+  dimnames(val) <- list(rownames(dat), colnames(dat))
+  if(is(x,"Seurat")){ 
+    x <- SetAssayData(x, slot="data", new.data=as.matrix(val))
+    x <- SetAssayData(x, slot="scale.data", as.matrix(val))
+  }else{
+    logcounts(x) <- as.matrix(val)
+  }
+  x
+}
+
+
+getDimensionality <- function(dat, method, maxDims=50){
+  suppressPackageStartupMessages(library(intrinsicDimension))
+  if(is(dat, "Seurat")){
+    x <- dat[["pca"]]@cell.embeddings
+    sdv <- Stdev(dat, "pca")
+  } else {
+    x <- reducedDim(dat, "PCA")
+    sdv <- attr(reducedDim(dat, "PCA"), "percentVar")
+  }
+  x <- switch(method,
+              essLocal.a=essLocalDimEst(x),
+              essLocal.b=essLocalDimEst(x, ver="b"),
+              pcaLocal.FO=pcaLocalDimEst(x,ver="FO"),
+              pcaLocal.fan=pcaLocalDimEst(x, ver="fan"),
+              pcaLocal.maxgap=pcaLocalDimEst(x, ver="maxgap"),
+              maxLikGlobal=maxLikGlobalDimEst(x, k=20, unbiased=TRUE),
+              pcaOtpmPointwise.max=pcaOtpmPointwiseDimEst(x,N=10),
+              elbow=farthestPoint(sdv)-1,
+              fisherSeparability=FisherSeparability(x),
+              scran.denoisePCA=scran.ndims.wrapper(se),
+              jackstraw.elbow=js.wrapper(dat,n.dims=ncol(dat)-1,ret="ndims")
+  )
+  if(is.list(x) && "dim.est" %in% names(x)) x <- max(x$dim.est)
+  round(x)
 }
 
 # ______________________________________________________________________________
@@ -388,12 +459,9 @@ sel.vst <- function(dat, n=2000, excl=c()){
     a <- FindVariableFeatures(a, nfeatures=n)
   }
   VariableFeatures(a) <- subsetFeatureByType(VariableFeatures(a), excl)
-  if(is(dat,"Seurat")){
-    a
-  } else {
-    metadata(dat)$VariableFeats <- VariableFeatures(a)
-    dat
-  }
+  if(is(dat,"Seurat")) return(a)
+  metadata(dat)$VariableFeats <- VariableFeatures(a)
+  dat
 }
 
 #' applySelString
@@ -440,12 +508,9 @@ sel.fromField <- function( dat, f, n=2000, excl=c() ){
   e <- a@misc$rowData[row.names(a),f]
   VariableFeatures(a) <- row.names(a)[order(e, decreasing=T)[1:min(n,length(e))]]
   VariableFeatures(a) <- subsetFeatureByType(VariableFeatures(a), excl)
-  if(is(dat, "Seurat")) {
-    a
-  } else {
-    metadata(dat)$VariableFeats <- VariableFeatures(a)
-    dat
-  }
+  if(is(dat, "Seurat")) return(a)
+  metadata(dat)$VariableFeats <- VariableFeatures(a)
+  dat
 }
 
 sel.deviance <- function(x, n=2000, excl=c()){
@@ -499,17 +564,20 @@ scran.denoisePCA <- function(x, dims=50, pca.method=c("exact","irlba"), ...){
                     exact=ExactParam(),
                     irlba=IrlbaParam() )
   if(is(x, "Seurat")){
-    dat <-  SingleCellExperiment( list( counts=GetAssayData(x, slot="counts"),
-                                        logcounts=GetAssayData(x, slot="data")) )
+    dat <- sceWrap(x)
   } else {
     dat <- x
   }
   if(packageVersion("scran") >= "1.13"){
     var.stats <- modelGeneVar(dat)
-    dat <- denoisePCA(dat, technical=var.stats, min.rank=2, max.rank=dims, BSPARAM=BSPARAM, ...)
+    dat <- denoisePCA(dat, technical=var.stats, min.rank=2, max.rank=dims, 
+                      subset.row=metadata(dat)@VariableFeats, BSPARAM=BSPARAM, 
+                      ...)
   }else{
     td <- trendVar(dat, use.spikes=FALSE)
-    dat <- denoisePCA(dat, technical=td$trend, min.rank=2, max.rank=dims, BSPARAM=BSPARAM, ...)
+    dat <- denoisePCA(dat, technical=td$trend, min.rank=2, max.rank=dims, 
+                      subset.row=metadata(dat)@VariableFeats, BSPARAM=BSPARAM, 
+                      ...)
   }
   if(is(x, "Seurat")) return(sceDR2seurat(reducedDim(dat, "PCA"), x, "pca")) else return(dat)
 }
@@ -524,11 +592,12 @@ GlmPCA <- function(x, weight.by.var=TRUE, dims=20){
   dr <- glmpca(as.matrix(GetAssayData(dat, assay = "RNA", slot = "counts")[VariableFeatures(dat),]), dims)
   e <- as.matrix(dr$factors)
   colnames(e) <- gsub("dim","dim_",colnames(e))
+  colnames(e) <- gsub("dim_", "PC_", colnames(e))
   if(weight.by.var=="both" && length(dr$dev) %in% dim(e)){
     if(is(x, "Seurat")) {
-      x[["glmpca"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+      x[["glmpca"]] <- CreateDimReducObject(embeddings=e, key="PC_", assay="RNA")
       e <- t(t(e)*dr$d)
-      x[["glmpca.wt"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+      x[["glmpca.wt"]] <- CreateDimReducObject(embeddings=e, key="PC_", assay="RNA")
     } else {
       reducedDim(x, "glmpca") <- e
       e <- t(t(e)*dr$d)
@@ -537,7 +606,7 @@ GlmPCA <- function(x, weight.by.var=TRUE, dims=20){
   }else{
     if(weight.by.var && length(dr$dev) %in% dim(e)) e <- t(t(e)*dr$d)
     if(is(x, "Seurat")){
-      x[["pca"]] <- CreateDimReducObject(embeddings=e, key="dim_", assay="RNA")
+      x[["pca"]] <- CreateDimReducObject(embeddings=e, key="PC_", assay="RNA")
     } else {
       reducedDim(x, "PCA") <- e
     }
@@ -547,6 +616,72 @@ GlmPCA <- function(x, weight.by.var=TRUE, dims=20){
 GlmPCA.noweight <- function(x, ...){
   GlmPCA(x, weight.by.var=FALSE, ...)
 }
+
+scran.runPCA <- function(x, dims=50){
+  suppressPackageStartupMessages(library(scran))
+  suppressPackageStartupMessages(library(BiocSingular))
+  if(is(x, "Seurat")){
+    dat <-  sceWrap(x)
+  } else {
+    dat <- x
+  }
+  dat <- scater::runPCA(dat, ncomponents = dims, 
+                        subset_row=metadata(dat)@VariableFeat)
+  if(is(x, "Seurat")) return(sceDR2seurat(reducedDim(dat, "PCA"), x, "pca")) else return(dat)
+}
+
+
+
+#' scVI.LD
+#'
+#' A function calling a python wrapper (`scVI.py`) around `scVI` linear decoded, adapted from the the 'Basic usage' Jupyter notebook (https://nbviewer.jupyter.org/github/YosefLab/scVI/blob/master/tests/notebooks/linear_decoder.ipynb). Note that the function will create a temporary csv file for the intermediate storage of the input count matrix, needed by `scVI`.  
+#' 
+#' 
+#' @param x A SCE or Seurat object.
+#' @param py_script Location of the python script
+#' @param py_path Optional. If scVI was installed in a specific python bin, pass here the path to it. 
+#' @param dims Number of dimensions to return. 
+#' @param learning_rate Learning rate of the model. If the model is not training properly due to too high learning rate, it will be reduced consecutively a few times before early stop. 
+#' @param noscale Logical; whether to disable scaling (default FALSE)
+#' @param n_cores N. cores
+#' 
+#' @return An object of the same class as `x` with updated slots. Note that scVI-LD initially returns unordered components. For convenience with the package, they are ordered by sdev and renamed 'PC'. 
+
+scVI.LD <- function(x, dims = 50L, learning_rate = 1e-3, py_script = system.file("extdata", "scVI.py", package="pipeComp"), py_path = NULL, n_cores = 1L) {
+  dims <- as.integer(dims)
+  n_cores <- as.integer(n_cores)
+  suppressPackageStartupMessages(library(reticulate))
+  if (length(py_path)>0) use_python(py_path ,required=TRUE)
+  trysource <- try(source_python(py_script))
+  if (class(trysource) == "try-error") stop("Cannot source the python wrapper.") 
+  tfile <- tempfile(fileext=".csv", tmpdir = ".")
+  if (is(x, "Seurat")) dat <- GetAssayData(x, assay = "RNA", slot = "counts") else dat <- counts(x)
+  write.csv(dat, tfile)
+  val <- try(scVI_ld(csv_file = tfile, ndims = dims, csv_path = ".", n_cores = n_cores, lr = learning_rate))
+  # Error with some dataset; "Loss was NaN 10 consecutive times: the model is not training properly. Consider using a lower learning rate" --> reduce lr
+  if (class(val) == "try-error") {
+    ntry <- 0
+    while(ntry < 6 & class(val) == "try-error") {
+      ntry <- ntry + 1
+      learning_rate <- learning_rate/10
+      message("Downgrading learning rate to ", learning_rate)
+      val <- try(scVI_ld(csv_file = tfile, ndims = dims, csv_path = ".", n_cores = n_cores, lr = learning_rate))
+    }
+  }
+  file.remove(tfile)
+  rownames(val) <- colnames(dat)
+  # rename
+  colnames(val) <- paste0("PC_", 1:ncol(val))
+  if(is(x, "Seurat")){
+    x[["pca"]] <- CreateDimReducObject(embeddings=as.matrix(val), 
+                                       key="PC_", assay="RNA")
+  } else {
+    reducedDim(x, "PCA") <- as.matrix(val)
+  }
+  x
+}
+
+
 
 sceDR2seurat <- function(embeddings, object, name){
   if (is.null(rownames(embeddings))){
@@ -701,9 +836,9 @@ getFilterStrings <- function(mads=c(2,2.5,3,5), times=1:2, dirs=c("higher","both
   as.character(apply(eg, 1, collapse="_", FUN=paste))
 }
 
-doublet.scDblFinder <- function(x){
+doublet.scDblFinder <- function(x, trans = "scran"){
   suppressPackageStartupMessages(library(scDblFinder))
-  x <- scDblFinder(x, verbose=FALSE)
+  x <- scDblFinder(x, trans = "scran", verbose=FALSE)
   x[,which(x$scDblFinder.class!="doublet")]
 }
 
@@ -768,14 +903,7 @@ clust.scran <- function(ds, rd=TRUE, method="walktrap",
                              Annoy=AnnoyParam(),
                              Hnsw=HnswParam())
   if(is(ds,"Seurat")){
-    ds <- SingleCellExperiment(
-      assays=list(
-        counts=GetAssayData(ds, assay = "RNA", slot="counts"),
-        logcounts=GetAssayData(ds, slot="scale.data")
-      ),
-      colData=ds[[]],
-      reducedDims=lapply(ds@reductions, FUN=function(x) x@cell.embeddings)
-    )
+    ds <- sceWrap(ds)
   }
   if(is.logical(rd)){
     if(rd){
@@ -817,4 +945,137 @@ clust.scran <- function(ds, rd=TRUE, method="walktrap",
 
 clust.scran.fg <- function(ds, ...){
   clust.scran(ds, method="fastq_greedy", ...)
+}
+
+
+#' compute_all_gene_info
+#' 
+#' Populates the rowData of a SCE with various measures of variability, as well as the 
+#' proportion of variance explained by clusters.
+#'
+#' @param sce An object of class `SingleCellExperiment`.
+#'
+#' @return The updated object.
+#' @export
+compute_all_gene_info <- function(sce){
+  library(variancePartition)
+  library(sctransform)
+  library(Seurat)
+  cd <- as.data.frame(colData(sce))[,c("phenoid"),drop=F]
+  en <- log(t(1000*t(1+counts(sce))/colSums(counts(sce))))
+  vp1 <- fitExtractVarPartModel(en, ~phenoid, data=cd)
+  vst.out <- vst(counts(sce), colData(sce))
+  vste <- vst.out$y+min(vst.out$y)
+  vp2 <- fitExtractVarPartModel(vste,~phenoid, data=cd)
+  vp <- data.frame(row.names=row.names(vp1), lognorm.varExp=vp1[,1], vst.varExp=vp2[row.names(vp1),1])
+  source(system.file("extdata", "willtownes_scrna2019_utils.R", package="pipeComp"))
+  gi <- compute_gene_info(counts(sce),gmeta=rowData(sce),mod="poisson")
+  vp$deviance <- gi[row.names(vp),"deviance"]
+  vp$total_counts <- gi[row.names(vp),"total_counts"]
+  em <- .getEntropyMeasures(en)
+  colnames(em) <- paste("lognorm",colnames(em),sep=".")
+  vp <- cbind(vp, em[row.names(vp),])
+  em <- .getEntropyMeasures(vste)
+  colnames(em) <- paste("vst",colnames(em),sep=".")
+  vp <- cbind(vp, em[row.names(vp),])
+  se <- .seuratFeatureVariability(sce, vst.out=vst.out)
+  colnames(se) <- paste("seurat",colnames(se),sep=".")
+  vp <- cbind(vp, se[row.names(vp),])
+  RD <- as.data.frame(rowData(sce))
+  RD <- RD[,setdiff(colnames(RD), colnames(vp))]
+  rowData(sce) <- cbind(RD, vp[row.names(RD),])
+  sce
+}
+
+.getEntropyMeasures <- function(x){
+  data.frame(
+    entropy=apply(x, 1, FUN=ineq::entropy),
+    Gini=apply(x, 1, FUN=ineq::Gini),
+    Atkinson=apply(x, 1, FUN=ineq::Atkinson)
+  )
+}
+
+#' add_meta
+#'
+#' Adds standard metadata.
+#'
+#' @param ds An object of class `SingleCellExperiment`
+#'
+#' @return The `SingleCellExperiment` object with updated metadata.
+#' @export
+add_meta <- function(ds){
+  library(scater)
+  library(Matrix)
+  data("ctrlgenes", package = "pipeComp")
+  ## detect if row.names contain ensembl ids:
+  if(any(grepl("^ENSG|^ENSMUSG",head(row.names(ds),n=100)))){
+    ## we assume ^ENSEMBL\.whatever rownames
+    cg <- lapply(c("Mt", "coding", "ribo"), FUN=function(x){ union(ctrlgenes[[1]]$ensembl[[x]], ctrlgenes[[2]]$ensembl[[x]]) })
+    g <- sapply(strsplit(row.names(ds),".",fixed=T),FUN=function(x) x[[1]])
+  }else{
+    # we assume HGNC/MGI symbols
+    g <- row.names(ds)
+    cg <- lapply(c("Mt", "coding", "ribo"), FUN=function(x){ union(ctrlgenes[[1]]$symbols[[x]], ctrlgenes[[2]]$symbols[[x]]) })
+  }
+  fc <- lapply(cg,g=g, FUN=function(x,g) g %in% x)
+  names(fc) <- c("Mt","coding","ribosomal")
+  ds <- calculateQCMetrics(ds, feature_controls=fc, percent_top=c(20,50,100,200))
+  ds$log10_total_features <- ds$log10_total_features_by_counts
+  ds$total_features <- ds$total_features_by_counts
+  ds$featcount_ratio <- ds$log10_total_counts/ds$log10_total_features
+  ds$featcount_dist <- getFeatCountDist(ds)
+  ds
+}
+
+#' getFeatCountDist
+#' 
+#' Returns the difference to the expected ratio of counts and number of features.
+#'
+#' @param df a cell metadata data.frame, or an object of class `SingleCellExperiment`
+#' @param do.plot Logical; whether to plot the count/feature relationship.
+#' @param linear Logical; whether to model the relationship with a linear model (default 
+#' TRUE), rather than a loess.
+#'
+#' @return A vector of differences.
+#' @export
+getFeatCountDist <- function(df, do.plot=FALSE, linear=TRUE){
+  if(is(df,"SingleCellExperiment")) df <- as.data.frame(colData(df))
+  if(linear){
+    mod <- lm(df$log10_total_features~df$log10_total_counts)
+  }else{
+    mod <- loess(df$log10_total_features~df$log10_total_counts)
+  }
+  pred <- predict(mod, newdata=data.frame(log10_total_counts=df$log10_total_counts))
+  df$diff <- df$log10_total_features - pred
+  if(do.plot){
+    library(ggplot2)
+    ggplot(df, aes(x=total_counts, y=total_features, colour=diff)) + geom_point() + geom_smooth(method = "loess", col="black")
+  }
+  df$diff
+}
+
+
+#' getDevianceExplained
+#'
+#' @param sce An object of class `SingleCellExperiment`
+#' @param form.full The formula for the full model
+#' @param form.null The formula for the reduced model (default `~lszie`, i.e. library size)
+#' @param tagwise Logical; whether to run tagwise dispersion.
+#'
+#' @return The proportion of deviance (in the reduced model) explained by the full model.
+#' @export
+getDevianceExplained <- function(sce, form.full=~lsize+phenoid, form.null=~lsize, tagwise=TRUE){
+  library(edgeR)
+  sce$lsize <- log(colSums(counts(sce)))
+  dds <- DGEList(as.matrix(counts(sce)))
+  dds$samples$lib.size <- 1
+  CD <- as.data.frame(colData(sce))
+  mm <- model.matrix(form.full, data=CD)
+  mm0 <- model.matrix(form.null, data=CD)
+  dds <- estimateDisp(dds, mm, tagwise=tagwise)
+  fit <- glmFit(dds, mm)
+  fit0 <- glmFit(dds, mm0)
+  de <- (deviance(fit0)-deviance(fit))/deviance(fit0)
+  de[which(de<0)] <- 0
+  return( de )
 }

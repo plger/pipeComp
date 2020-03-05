@@ -6,18 +6,22 @@
 #' Alternative arguments should be character, numeric or logical vectors of
 #' length 1 (e.g. the function name for a method, the number of dimensions, etc).
 #' The default pipeline has the following steps and arguments:
-#' * doublet: `doubletmethod` (name of the doublet removal function)
-#' * filtering: `filt` (name of the filtering function, or filter string)
-#' * normalization: `norm` (name of the normalization function)
-#' * selection: `sel` (name of the selection function, or variable of rowData on
+#' \itemize{
+#' \item doublet: `doubletmethod` (name of the doublet removal function)
+#' \item filtering: `filt` (name of the filtering function, or filter string)
+#' \item normalization: `norm` (name of the normalization function)
+#' \item selection: `sel` (name of the selection function, or variable of rowData on
 #'  which to select) and `selnb` (number of features to select)
-#' * dimreduction: `dr` (name of the dimensionality reduction function) and 
+#' \item dimreduction: `dr` (name of the dimensionality reduction function) and 
 #' `maxdim` (maximum number of components to compute)
-#' * clustering: `clustmethod` (name of the clustering function), 
+#' \item clustering: `clustmethod` (name of the clustering function), 
 #' `dims` (number of dimensions to use), `k` (number of nearest neighbors to 
 #' use, if applicable), `steps` (number of steps in the random walk, if 
 #' applicable), `resolution` (resolution, if applicable), `min.size` (minimum 
-#' cluster size, if applicable)
+#' cluster size, if applicable). If using the `scrna_alternatives.R` wrappers, 
+#' the dimensionality can be automatically estimated by specifying 
+#' `dims = "method_name"`. 
+#' }
 #' 
 #' @param saveDimRed Logical; whether to save the dimensionality reduction for 
 #' each analysis (default FALSE)
@@ -28,34 +32,38 @@
 #' whole pipeline is determined by the output of the filtering, only this step 
 #' is affected by this option. 
 #' 
+#' @return A `PipelineDefinition` object to be used with `runPipeline`.
 #' 
 #' @export
+#' @examples
+#' pip <- scrna_pipeline()
+#' pip
 scrna_pipeline <- function(saveDimRed=FALSE, pipeClass=c("seurat","sce")){
   pipeClass <- match.arg(pipeClass)
   
   # description for each step
   desc <- list( 
     doublet=
-      "Takes a SCE object with the `phenoid` colData column, passes it through the 
+"Takes a SCE object with the `phenoid` colData column, passes it through the 
 function `doubletmethod`, and outputs a filtered SCE.",
     filtering=
-      "Takes a SCE object, passes it through the function `filt`, and outputs a 
+"Takes a SCE object, passes it through the function `filt`, and outputs a 
 filtered Seurat object.",
-    normalization=
-      "Passes the object through function `norm` to return the object with the 
-normalized and scale data slots filled.",
+    normalization=paste("Passes the object through function `norm` to return the
+object with the", ifelse(pipeClass=="sce","logcounts assay",
+                         "normalized and scale data slots"), "filled."),
     selection=
-      "Returns a Seurat object with the VariableFeatures filled with `selnb` features 
+"Returns a Seurat object with the VariableFeatures filled with `selnb` features 
 using the function `sel`.",
     dimreduction=
-      "Returns a Seurat object with the PCA reduction with up to `maxdim` components
+"Returns a Seurat object with the PCA reduction with up to `maxdim` components
 using the `dr` function.",
     clustering=
-      "Uses function `clustmethod` to return a named vector of cell clusters." )
+"Uses function `clustmethod` to return a named vector of cell clusters." )
   
   
   if (pipeClass == "sce") desc <- lapply(desc, function(x){
-    gsub("Seurat", "SCE", x)
+    x <- gsub("Seurat", "SCE", x)
   })
   
   # we prepare the functions for each step

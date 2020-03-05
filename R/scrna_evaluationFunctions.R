@@ -5,7 +5,8 @@
 #' @param x The clustering labels
 #' @param tl The true labels
 #'
-#' @return A numeric vector.
+#' @return A numeric vector of metrics (see the `pipeComp_scRNA` vignette for 
+#' details)
 #' @importFrom aricode clustComp
 #' @export
 evaluateClustering <- function(x, tl){
