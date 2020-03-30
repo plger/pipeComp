@@ -136,6 +136,7 @@ PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
 #' @aliases PipelineDefinition-method
 #' @seealso \code{\link{PipelineDefinition}}, \code{\link{addPipelineStep}}
 #' @param object An object of class \code{\link{PipelineDefinition}}
+#' @return Depends on the method.
 NULL
 
 #' @rdname PipelineDefinition-methods

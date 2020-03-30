@@ -2,13 +2,13 @@ Package: pipeComp
 Type: Package
 Title: pipeComp pipeline benchmarking framework
 Version: 0.99.5
-Authors@R: c(as.person("Pierre-Luc Germain <germain@hifo.uzh.ch> [aut, cre]"), as.person("Anthony Sonrel <anthony.sonrel@uzh.ch> [aut]"), as.person("Mark D. Robinson <mark.robinson@imls.uzh.ch> [aut]"))
+Authors@R: c(person("Pierre-Luc", "Germain", email="pierre-luc.germain@hest.ethz.ch", role=c("cre","aut")), person("Anthony", "Sonrel", email="anthony.sonrel@uzh.ch", role="aut"), person("Mark", "Robinson", "D.", email="mark.robinson@imls.uzh.ch", role="aut"))
 Description: A simple framework to facilitate the comparison of pipelines involving various steps and parameters. The `pipelineDefinition` class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by step-wise evaluation and aggregation functions. Given such an object, a set of alternative parameters/methods, and benchmark datasets, the `runPipeline` function then proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly to avoid storing potentially large intermediate data.
 License: GPL
-Imports: BiocParallel, S4Vectors, ComplexHeatmap, SingleCellExperiment, Seurat, data.table, matrixStats, cluster, aricode, methods, BiocParallel, utils, dplyr, grid, scales, scran, viridisLite, randomcoloR, ggplot2, cowplot
-Suggests: knitr, Seurat
+Imports: BiocParallel, S4Vectors, ComplexHeatmap, SingleCellExperiment, SummarizedExperiment, Seurat, data.table, matrixStats, Matrix, cluster, aricode, methods, BiocParallel, utils, dplyr, grid, scales, scran, viridisLite, randomcoloR, ggplot2, cowplot, intrinsicDimension, scater, knitr, reshape2
 Encoding: UTF-8
 RoxygenNote: 7.0.2
 VignetteBuilder: knitr
 URL: https://www.biorxiv.org/content/10.1101/2020.02.02.930578v2
 BugReports: https://github.com/plger/pipeComp
+biocViews: GeneExpression, Transcriptomics, Clustering, DataRepresentation

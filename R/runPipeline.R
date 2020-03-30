@@ -64,6 +64,7 @@
 #' \item A copy of the SimpleList returned by the function (`aggregated.rds`file). 
 #' }
 #' 
+#' @importFrom utils sessionInfo
 #' @import methods BiocParallel S4Vectors
 #' @export
 #' @examples
