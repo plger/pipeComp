@@ -53,6 +53,9 @@
 `evaluation`, `aggregation`, `descriptions`, or `initiation` (will parse 
 partial matches)}
 }
+\value{
+Depends on the method.
+}
 \description{
 Methods for \code{\link{PipelineDefinition}} class
 }

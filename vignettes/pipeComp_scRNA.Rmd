@@ -73,7 +73,7 @@ alternatives <- list(
 )
 ```
 
-We also assume three datasets in `SingleCellExperiment` (SCE) format (not included in the package) and run the pipeline:
+We also assume three datasets in `SingleCellExperiment` (SCE) format (not included in the package - see the last section of this vignette) and run the pipeline:
 
 ```{r, eval=FALSE}
 # available on https://doi.org/10.6084/m9.figshare.11787210.v1
@@ -244,4 +244,18 @@ plotElapsed(res, agg.by="norm")
 
 # Extension and reuse
 
-The scRNAseq `PipelineDefinition` can be modified or extented with new steps or arguments like any other objects of that class (see the `pipeComp` vignette). In addition, the evaluation functions used at each step can be accessed from the package's namespace and use for other purposes. See in particular `?evaluateDimRed` and `?evaluateClustering`. 
+The scRNAseq `PipelineDefinition` can be modified or extented with new steps or arguments like any other objects of that class (see the `pipeComp` vignette). In addition, the evaluation functions used at each step can be accessed from the package's namespace and use for other purposes. See in particular `?evaluateDimRed` and `?evaluateClustering`. If you feel like other metrics should be included, please contact us!
+
+<br/><br/>
+
+# scRNAseq benchmark datasets used in the paper
+
+The scRNAseq datasets used in the paper can be downloaded from [figshare](https://doi.org/10.6084/m9.figshare.11787210.v1), for instance in the following way:
+
+```{r, eval=FALSE}
+download.file("https://ndownloader.figshare.com/articles/11787210/versions/1", "datasets.zip")
+unzip("datasets.zip", exdir="datasets")
+datasets <- list.files("datasets", pattern="SCE\\.rds", full.names=TRUE)
+names(datasets) <- sapply(strsplit(basename(datasets),"\\."),FUN=function(x) x[1])
+```
+

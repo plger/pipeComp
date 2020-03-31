@@ -302,6 +302,7 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
   library(clue)
   
   if(is.null(clus_truth)){
+    warning("Truth not given, trying to guess it from the names...")
     clus_truth <- .getTrueLabelsFromNames(clus_algorithm)
   }
   if(length(clus_truth)>length(clus_algorithm)){

@@ -16,47 +16,6 @@ scrna_seurat_defAlternatives <- function(x=list()){
   def
 }
 
-seWrap <- function(sce, min.cells=10, min.features=0){
-  if(is(sce,"Seurat")) return(sce)
-  suppressPackageStartupMessages(library(Seurat))
-  se <- CreateSeuratObject( counts=counts(sce), 
-                            min.cells=min.cells, 
-                            min.features=min.features, 
-                            meta.data=as.data.frame(colData(sce)), 
-                            project = "scRNAseq" )
-  se@misc$rowData <- as.data.frame(rowData(sce))
-  if("logcounts" %in%  assayNames(sce)){
-    se <- ScaleData(se, verbose = FALSE)
-    se@assays$RNA@data <- logcounts(sce)
-  } 
-  if(!is.null(metadata(sce)$VariableFeats)) 
-    VariableFeatures(se) <- metadata(sce)$VariableFeats
-  if(length(reducedDimNames(sce)) != 0) 
-    se[["pca"]] <- CreateDimReducObject(embeddings=reducedDim(sce), key="PC_", 
-                                        assay="RNA")
-  se
-}
-
-sceWrap <- function(seu) {
-  suppressPackageStartupMessages({
-    library(SingleCellExperiment)
-    library(Seurat)
-  })
-  sce <- SingleCellExperiment(list(counts=GetAssayData(seu, assay="RNA", slot="counts")), 
-                              colData = seu[[]])
-  if(nrow(norm <- GetAssayData(seu, slot="scale.data"))>0){
-    sce <- sce[row.names(norm),]
-    logcounts(sce) <- norm
-  }
-  rowData(sce) <- seu@misc$rowData[row.names(sce),]
-  if(length(VariableFeatures(seu)))
-    metadata(sce)$VariableFeats <- VariableFeatures(seu)
-  if(length(Reductions(seu))>0){
-    reducedDims(sce) <- lapply(seu@reductions, FUN=function(x) x@cell.embeddings)
-  }
-  sce
-}
-
 none <- function(x) x
 
 
@@ -388,32 +347,6 @@ norm.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="
 }
 
 
-getDimensionality <- function(dat, method, maxDims=50){
-  suppressPackageStartupMessages(library(intrinsicDimension))
-  if(is(dat, "Seurat")){
-    x <- dat[["pca"]]@cell.embeddings
-    sdv <- Stdev(dat, "pca")
-  } else {
-    x <- reducedDim(dat, "PCA")
-    sdv <- attr(reducedDim(dat, "PCA"), "percentVar")
-  }
-  x <- switch(method,
-              essLocal.a=essLocalDimEst(x),
-              essLocal.b=essLocalDimEst(x, ver="b"),
-              pcaLocal.FO=pcaLocalDimEst(x,ver="FO"),
-              pcaLocal.fan=pcaLocalDimEst(x, ver="fan"),
-              pcaLocal.maxgap=pcaLocalDimEst(x, ver="maxgap"),
-              maxLikGlobal=maxLikGlobalDimEst(x, k=20, unbiased=TRUE),
-              pcaOtpmPointwise.max=pcaOtpmPointwiseDimEst(x,N=10),
-              elbow=farthestPoint(sdv)-1,
-              fisherSeparability=FisherSeparability(x),
-              scran.denoisePCA=scran.ndims.wrapper(se),
-              jackstraw.elbow=js.wrapper(dat,n.dims=ncol(dat)-1,ret="ndims")
-  )
-  if(is.list(x) && "dim.est" %in% names(x)) x <- max(x$dim.est)
-  round(x)
-}
-
 # ______________________________________________________________________________
 # FEATURE SELECTION ------------------------------------------------------------
 
@@ -697,21 +630,12 @@ sceDR2seurat <- function(embeddings, object, name){
 }
 
 
-farthestPoint <- function(y, x=NULL){
-  if(is.null(x)) x <- 1:length(y)
-  d <- apply( cbind(x,y), 1, 
-              a=c(1,y[1]), b=c(length(y),rev(y)[1]), 
-              FUN=function(y, a, b){
-                v1 <- a-b
-                v2 <- y-a
-                abs(det(cbind(v1,v2)))/sqrt(sum(v1*v1))
-              })
-  order(d,decreasing=T)[1]
-}
-
-
-
 FisherSeparability <- function(PCAdims, py_script = system.file("extdata", "FisherSeparability.py", package="pipeComp")) {
+  if(is(PCAdims, "Seurat")){
+    PCAdims <- PCAdims[["pca"]]@cell.embeddings
+  } else if(is(PCAdims, "SingleCellExperiment")){
+    PCAdims <- reducedDim(dat, "PCA")
+  }
   # Adapted from https://github.com/auranic/FisherSeparabilityAnalysis
   suppressPackageStartupMessages(library(reticulate))
   suppressPackageStartupMessages(library(Seurat))
@@ -730,34 +654,9 @@ FisherSeparability <- function(PCAdims, py_script = system.file("extdata", "Fish
 }
 
 
-getDimensionality <- function(dat, method, maxDims=50){
-  suppressPackageStartupMessages(library(intrinsicDimension))
-  if(is(dat, "Seurat")){
-    x <- dat[["pca"]]@cell.embeddings
-    sdv <- Stdev(dat, "pca")
-  } else {
-    x <- reducedDim(dat, "PCA")
-    sdv <- attr(reducedDim(dat, "PCA"), "percentVar")
-  }
-  x <- switch(method,
-              essLocal.a=essLocalDimEst(x),
-              essLocal.b=essLocalDimEst(x, ver="b"),
-              pcaLocal.FO=pcaLocalDimEst(x,ver="FO"),
-              pcaLocal.fan=pcaLocalDimEst(x, ver="fan"),
-              pcaLocal.maxgap=pcaLocalDimEst(x, ver="maxgap"),
-              maxLikGlobal=maxLikGlobalDimEst(x, k=20, unbiased=TRUE),
-              pcaOtpmPointwise.max=pcaOtpmPointwiseDimEst(x,N=10),
-              elbow=farthestPoint(sdv)-1,
-              fisherSeparability=FisherSeparability(x),
-              scran.denoisePCA=scran.ndims.wrapper(se),
-              jackstraw.elbow=js.wrapper(dat,n.dims=ncol(dat)-1,ret="ndims")
-  )
-  if(is.list(x) && "dim.est" %in% names(x)) x <- max(x$dim.est)
-  round(x)
-}
-
-js.wrapper <- function(dat, n.dims=50, n.rep=500, doplot=TRUE, ret=c("Seurat", "sce","pvalues","ndims")){
+js.wrapper <- function(dat, n.dims=NULL, n.rep=500, doplot=FALSE, ret=c("ndims", "Seurat", "sce","pvalues")){
   ret <- match.arg(ret)
+  if(is.null(n.dims)) n.dims <- ncol(dat)-1
   if (!is(dat, "Seurat")) x <- seWrap(dat) else x <- dat
   x <- JackStraw(x, dims = n.dims, num.replicate=n.rep, verbose=FALSE)
   x <- ScoreJackStraw(x, dims = 1:n.dims, verbose=FALSE)

@@ -93,20 +93,20 @@ using the `dr` function.",
   # selection intermediate return
   if(pipeClass == "seurat") {
     selfun <- function(x, sel, selnb){                          
-      x <- pipeComp:::.runf(sel, x, n=selnb, alt=applySelString)
+      x <- pipeComp:::.runf(sel, x, n=selnb, alt="applySelString")
       list( x=x, intermediate_return=Seurat::VariableFeatures(x) )
     }
     filtfun <- function(x, filt){
-      x2 <- pipeComp:::.runf(filt, x, alt=applyFilterString)
+      x2 <- pipeComp:::.runf(filt, x, alt="applyFilterString")
       list(x=seWrap(x2), intermediate_return=pipeComp:::.compileExcludedCells(x,x2))
     }
   }else{
     selfun <- function(x, sel, selnb){                          
-      x <- pipeComp:::.runf(sel, x, n=selnb, alt=applySelString)
+      x <- pipeComp:::.runf(sel, x, n=selnb, alt="applySelString")
       list( x=x, intermediate_return=metadata(x)$VariableFeats )
     }
     filtfun <- function(x, filt){
-      x2 <- pipeComp:::.runf(filt, x, alt=applyFilterString)
+      x2 <- pipeComp:::.runf(filt, x, alt="applyFilterString")
       list(x=x2, intermediate_return=pipeComp:::.compileExcludedCells(x,x2))
     }
   }

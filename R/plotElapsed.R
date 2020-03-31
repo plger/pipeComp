@@ -43,7 +43,7 @@ plotElapsed <- function(res, steps=names(res$elapsed$stepwise), agg.by,
   m3 <- m3[which(m3$step %in% steps),]
   m3$id <- apply(m3[,agg.by,drop=FALSE], 1, collapse=" ", FUN=paste)
   if(return.df) return(m3)
-  p <- ggplot(m3, aes(id, value, fill=step)) + 
+  p <- ggplot(m3, aes_string('id', 'value', fill='step')) + 
     geom_bar( stat="identity", width=width,
               position=position_stack(reverse=TRUE) ) + 
     coord_flip() + xlab("") + ylab("Time (s)")
