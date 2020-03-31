@@ -60,7 +60,7 @@ wrapp.saverx <- function(sce,
   .out_check(sce, denois)
   denois <- .prep(sce, denois, out = "output")
   counts(sce) <- denois
-  # unlink(gsub("\\/.*", "", res), recursive = T)
+  # unlink(gsub("\\/.*", "", res), recursive = TRUE)
   cat("If you want to run SAVERX a second time, please restart the R session (open issue of the package).\n")
   
   return(sce)
@@ -209,7 +209,7 @@ wrapp.dca <- function(sce,
   
   system(command = command)
   denois <- read.csv(paste0(temp_fold, "/mean.tsv"),sep = "\t", row.names = 1 )
-  unlink(temp_fold, recursive = T)
+  unlink(temp_fold, recursive = TRUE)
   file.remove(temp_file)
   
   sce <- .prep(sce, denois, out = "input")
@@ -294,7 +294,7 @@ wrapp.enhance <- function(sce,
   data <- as.matrix(counts(sce))
  
   denois <- try(enhance(data))
-  if (class(denois) == "try-error")  denois <- enhance(data, k_nn = 2)
+  if (is(denois, "try-error"))  denois <- enhance(data, k_nn = 2)
   
   .out_check(sce, denois)
   denois <- .prep(sce, denois, out = "output")
@@ -361,7 +361,7 @@ imp.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="p
   suppressPackageStartupMessages(library(reticulate))
   if (length(py_path)>0) use_python(py_path ,required=TRUE)
   trysource <- try(source_python(py_script))
-  if (class(trysource) == "try-error") stop("Cannot source the python wrapper.") 
+  if (is(trysource, "try-error")) stop("Cannot source the python wrapper.") 
   tfile <- tempfile(fileext=".csv", tmpdir = ".")
   write.csv(counts(x), tfile)
   val <- t(scVI_imput(csv_file = tfile, csv_path = ".", n_cores = n_cores, train_size = train_size))
@@ -404,9 +404,9 @@ imp.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="p
                               max.expressed.ratio = 1, 
                               normalize.by.size.effect = FALSE){
   # preprocessign function from DrImpute 
-  if (class(x) == 'SummarizedExperiment')
+  if (is(x, 'SummarizedExperiment'))
     X <- assays(x)$count
-  else if (class(x) == 'matrix')
+  else if (is(x, 'matrix'))
     X <- x
   else if (is(x, 'sparseMatrix'))
     X <- x
@@ -423,10 +423,10 @@ imp.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="p
   }else
     X <- X[n, m]
   
-  if (class(x) == 'SummarizedExperiment'){
+  if (is(x, 'SummarizedExperiment')){
     x <- x[n, m]
     assays(x)$count <- X
-  }else if (class(x) == 'matrix'){
+  }else if (is(x, 'matrix')){
     x <- as.matrix(X)
   }else if (is(x, 'sparseMatrix')){
     x <- X

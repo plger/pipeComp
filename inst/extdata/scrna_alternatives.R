@@ -56,7 +56,7 @@ filt.mad <- function(x, nmads=3, min.cells=10, min.features=100,
     tryCatch(
       which(isOutlier(o[[x]], 
                       nmads=nm, 
-                      log=F, 
+                      log=FALSE, 
                       type=v[[x]]
       )),
       error=function(e){ 
@@ -82,9 +82,9 @@ filt.mad <- function(x, nmads=3, min.cells=10, min.features=100,
 #' @return A Seurat object.
 #' @export
 applyFilterString <- function(sce, filterstring){
-  x <- strsplit(filterstring,"_",fixed=T)[[1]]
+  x <- strsplit(filterstring,"_",fixed=TRUE)[[1]]
   mads <- as.numeric(x[[2]])
-  vars <- .translateFilterVars(strsplit(x,",",fixed=T)[[1]])
+  vars <- .translateFilterVars(strsplit(x,",",fixed=TRUE)[[1]])
   otimes <- ifelse(is.null(x[[3]]),1,as.numeric(x[[3]]))
   filt.mad(sce, nmads=mads, vars=vars, outlier.times=otimes)
 }
@@ -147,7 +147,7 @@ filt.stringent <- function(x){
            "top50"="pct_counts_in_top_50_features",
            "ratiodist"="featcount_dist"
   )
-  x <- strsplit(x,".",fixed=T)
+  x <- strsplit(x,".",fixed=TRUE)
   y <- sapply(x,FUN=function(x){ if(length(x)==1) return("both"); x[[2]] })
   names(y) <- sapply(x,vars=vars,FUN=function(x, vars) vars[x[[1]]])
   y
@@ -330,7 +330,7 @@ norm.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="
   suppressPackageStartupMessages(library(reticulate))
   if (length(py_path)>0) use_python(py_path ,required=TRUE)
   trysource <- try(source_python(py_script))
-  if (class(trysource) == "try-error") stop("Cannot source the python wrapper.") 
+  if (is(trysource, "try-error")) stop("Cannot source the python wrapper.") 
   tfile <- tempfile(fileext=".csv", tmpdir = ".")
   if (is(x, "Seurat")) dat <- GetAssayData(x, assay = "RNA", slot = "counts") else dat <- counts(x)
   write.csv(dat, tfile)
@@ -361,13 +361,13 @@ norm.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="
 #' @export
 subsetFeatureByType <- function(g, classes=c("Mt","conding","ribo")){
   if(length(classes)==0) return(g)
-  classes <- match.arg(gsub("ribosomal","ribo",classes), c("Mt","coding","ribo"), several.ok=T)
+  classes <- match.arg(gsub("ribosomal","ribo",classes), c("Mt","coding","ribo"), several.ok=TRUE)
   data("ctrlgenes", package="pipeComp")
   go <- g
   if(any(grepl("^ENSG|^ENSMUSG",head(g,n=100)))){
     ## we assume ^ENSEMBL\.whatever rownames
     cg <- lapply(classes, FUN=function(x){ union(ctrlgenes[[1]]$ensembl[[x]], ctrlgenes[[2]]$ensembl[[x]]) })
-    g <- sapply(strsplit(g,".",fixed=T),FUN=function(x) x[[1]])
+    g <- sapply(strsplit(g,".",fixed=TRUE),FUN=function(x) x[[1]])
   }else{
     # we assume HGNC/MGI symbols
     cg <- lapply(classes, FUN=function(x){ union(ctrlgenes[[1]]$symbols[[x]], ctrlgenes[[2]]$symbols[[x]]) })
@@ -409,7 +409,7 @@ sel.vst <- function(dat, n=2000, excl=c()){
 #' @export
 applySelString <- function(dat, selstring, n=2000){
   #vst:2000:coding_rmMt_rmribo
-  x <- strsplit(selstring,":",fixed=T)[[1]]
+  x <- strsplit(selstring,":",fixed=TRUE)[[1]]
   excl <- c()
   if(length(x)>2 && x[3]!="") excl <- gsub("rm","",strsplit(x[3], "_")[[1]])
   fn <- paste0("sel.",x[1])
@@ -439,7 +439,7 @@ sel.fromField <- function( dat, f, n=2000, excl=c() ){
     a@misc$rowData <- rowData(dat)
   }
   e <- a@misc$rowData[row.names(a),f]
-  VariableFeatures(a) <- row.names(a)[order(e, decreasing=T)[1:min(n,length(e))]]
+  VariableFeatures(a) <- row.names(a)[order(e, decreasing=TRUE)[1:min(n,length(e))]]
   VariableFeatures(a) <- subsetFeatureByType(VariableFeatures(a), excl)
   if(is(dat, "Seurat")) return(a)
   metadata(dat)$VariableFeats <- VariableFeatures(a)
@@ -586,15 +586,15 @@ scVI.LD <- function(x, dims = 50L, learning_rate = 1e-3, py_script = system.file
   suppressPackageStartupMessages(library(reticulate))
   if (length(py_path)>0) use_python(py_path ,required=TRUE)
   trysource <- try(source_python(py_script))
-  if (class(trysource) == "try-error") stop("Cannot source the python wrapper.") 
+  if (is(trysource, "try-error")) stop("Cannot source the python wrapper.") 
   tfile <- tempfile(fileext=".csv", tmpdir = ".")
   if (is(x, "Seurat")) dat <- GetAssayData(x, assay = "RNA", slot = "counts") else dat <- counts(x)
   write.csv(dat, tfile)
   val <- try(scVI_ld(csv_file = tfile, ndims = dims, csv_path = ".", n_cores = n_cores, lr = learning_rate))
   # Error with some dataset; "Loss was NaN 10 consecutive times: the model is not training properly. Consider using a lower learning rate" --> reduce lr
-  if (class(val) == "try-error") {
+  if (is(val, "try-error")) {
     ntry <- 0
-    while(ntry < 6 & class(val) == "try-error") {
+    while(ntry < 6 & is(val, "try-error")) {
       ntry <- ntry + 1
       learning_rate <- learning_rate/10
       message("Downgrading learning rate to ", learning_rate)
@@ -640,7 +640,7 @@ FisherSeparability <- function(PCAdims, py_script = system.file("extdata", "Fish
   suppressPackageStartupMessages(library(reticulate))
   suppressPackageStartupMessages(library(Seurat))
   trysource <- try(source_python(py_script))
-  if (class(trysource) == "try-error") stop("Cannot source 'FisherSeparability.py'. Make sure:\n1) You are running reticulate and redirecting to a valid Python3 bin/conda (use_python, use_conda)\n2) You have the following modules installed: numpy, math, sklearn.decomposition, seaborn, warnings, scipy.special, matplotlib, scipy.io\n3) You have 'FisherSeparability.py' in your current wd") 
+  if (is(trysource, "try-error")) stop("Cannot source 'FisherSeparability.py'. Make sure:\n1) You are running reticulate and redirecting to a valid Python3 bin/conda (use_python, use_conda)\n2) You have the following modules installed: numpy, math, sklearn.decomposition, seaborn, warnings, scipy.special, matplotlib, scipy.io\n3) You have 'FisherSeparability.py' in your current wd") 
   # Saving to numpy for correct coercion 
   np <- import("numpy")
   tdir <- "tempnpy"
@@ -702,7 +702,7 @@ scran.ndims.wrapper <- function(dat){
            "top50"="pct_counts_in_top_50_features",
            "ratiodist"="featcount_dist"
   )
-  x <- strsplit(x,"%",fixed=T)
+  x <- strsplit(x,"%",fixed=TRUE)
   y <- sapply(x,FUN=function(x){ if(length(x)==1) return("both"); x[[2]] })
   names(y) <- sapply(x,vars=vars,FUN=function(x, vars) vars[x[[1]]])
   y
@@ -725,7 +725,7 @@ getFilterStrings <- function(mads=c(2,2.5,3,5), times=1:2, dirs=c("higher","both
   v2 <- gsub("lcounts","counts", v2)
   varCombs <- c(varCombs,v2)
   mads<- c(2, 2.5, 3, 5)
-  varCombs <- unlist(lapply(strsplit(varCombs,",",fixed=T), dir=dirs, mads=mads, FUN=function(x, dir, mads){
+  varCombs <- unlist(lapply(strsplit(varCombs,",",fixed=TRUE), dir=dirs, mads=mads, FUN=function(x, dir, mads){
     y <- expand.grid(lapply(x, y=dir, sep="%", FUN=paste))
     apply(y,1,collapse=",",FUN=paste)
   }))
@@ -860,7 +860,7 @@ compute_all_gene_info <- function(sce){
   library(variancePartition)
   library(sctransform)
   library(Seurat)
-  cd <- as.data.frame(colData(sce))[,c("phenoid"),drop=F]
+  cd <- as.data.frame(colData(sce))[,c("phenoid"),drop=FALSE]
   en <- log(t(1000*t(1+counts(sce))/colSums(counts(sce))))
   vp1 <- fitExtractVarPartModel(en, ~phenoid, data=cd)
   vst.out <- vst(counts(sce), colData(sce))
@@ -910,7 +910,7 @@ add_meta <- function(ds){
   if(any(grepl("^ENSG|^ENSMUSG",head(row.names(ds),n=100)))){
     ## we assume ^ENSEMBL\.whatever rownames
     cg <- lapply(c("Mt", "coding", "ribo"), FUN=function(x){ union(ctrlgenes[[1]]$ensembl[[x]], ctrlgenes[[2]]$ensembl[[x]]) })
-    g <- sapply(strsplit(row.names(ds),".",fixed=T),FUN=function(x) x[[1]])
+    g <- sapply(strsplit(row.names(ds),".",fixed=TRUE),FUN=function(x) x[[1]])
   }else{
     # we assume HGNC/MGI symbols
     g <- row.names(ds)

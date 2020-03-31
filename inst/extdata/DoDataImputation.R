@@ -73,7 +73,7 @@ DoDataImputation <- function(count,
     suppressPackageStartupMessages({
       library(SAVERX)
       library(reticulate)
-      reticulate::use_python(python = python_path, required = T)
+      reticulate::use_python(python = python_path, required = TRUE)
       library(tensorflow)
       library(keras)
       config <- tf$ConfigProto(intra_op_parallelism_threads = n_cores,
@@ -101,8 +101,8 @@ DoDataImputation <- function(count,
     }
     
     denois <- readRDS(res) %>% .$estimate
-    # file.remove(res, recursive = T)
-    # unlink(gsub("\\/.*", "", res), recursive = T)
+    # file.remove(res, recursive = TRUE)
+    # unlink(gsub("\\/.*", "", res), recursive = TRUE)
     cat("If you want to run SAVERX a second time, please restart the R session (open issue of the package).\n")
     
   }
@@ -155,7 +155,7 @@ DoDataImputation <- function(count,
              out_dir =  paste0(getwd(), "/", rand_dir), infile = infile, outfile = "rds")
     denois <- readRDS(paste0(rand_dir, "scimpute_count.rds"))
     
-    # unlink(rand_dir, recursive = T)
+    # unlink(rand_dir, recursive = TRUE)
     
   }
   
@@ -193,7 +193,7 @@ DoDataImputation <- function(count,
 
   if (method == "dca") {
     
-    if (!class(count) == "character") stop("'dca' needs raw count data in TSV/CSV format as input.")
+    if (!is(count, "character")) stop("'dca' needs raw count data in TSV/CSV format as input.")
     
     rand_suffix <- sample(1:1000000, 1)
     temp_file <- paste0("temp_DCA", rand_suffix, ".csv")
@@ -222,7 +222,7 @@ DoDataImputation <- function(count,
     
     system(command = command)
     denois <- read.csv(paste0(temp_fold, "/mean.tsv"),sep = "\t", row.names = 1 )
-    # unlink(temp_fold, recursive = T)
+    # unlink(temp_fold, recursive = TRUE)
     # file.remove(temp_file)
     
   }
@@ -286,7 +286,7 @@ DoDataImputation <- function(count,
     }
     
     denois <- try(enhance(data))
-    if(class(denois) == "try-error")  denois <- enhance(data, k_nn = 2)
+    if(is(denois, "try-error"))  denois <- enhance(data, k_nn = 2)
 
   }
   
@@ -301,9 +301,9 @@ DoDataImputation <- function(count,
     # preprocessign function from DrImpute 
     preprocess <- function(x, min.expressed.gene = 0, min.expressed.cell = 2, max.expressed.ratio = 1, normalize.by.size.effect = FALSE){
       
-      if (class(x) == 'SummarizedExperiment')
+      if (is(x, 'SummarizedExperiment'))
         X <- assays(x)$count
-      else if (class(x) == 'matrix')
+      else if (is(x,'matrix'))
         X <- x
       else if (is(x, 'sparseMatrix'))
         X <- x
@@ -320,10 +320,10 @@ DoDataImputation <- function(count,
       }else
         X <- X[n, m]
       
-      if (class(x) == 'SummarizedExperiment'){
+      if (is(x, 'SummarizedExperiment')){
         x <- x[n, m]
         assays(x)$count <- X
-      }else if (class(x) == 'matrix'){
+      }else if (is(x, 'matrix')){
         x <- as.matrix(X)
       }else if (is(x, 'sparseMatrix')){
         x <- X
