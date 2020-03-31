@@ -30,7 +30,9 @@ right number of clusters}
 \item{value_format}{Format for displaying cells' values (use 
 `value_format=""` to disable)}
 
-\item{reorder_rows}{Logical; whether to sort rows (default TRUE)}
+\item{reorder_rows}{Logical; whether to sort rows (default TRUE). The row 
+names themselves can also be passed to specify an order, or a 
+`ComplexHeatmap`.}
 
 \item{reorder_columns}{Logical; whether to sort columns}
 

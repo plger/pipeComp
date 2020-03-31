@@ -24,9 +24,9 @@ A \code{\link{PipelineDefinition}}
 Add a step to an existing \code{\link{PipelineDefinition}}
 }
 \examples{
-pd <- scrna_pipeline()
+pd <- mockPipeline()
 pd
-pd <- addPipelineStep(pd, name="newstep", after="filtering", 
+pd <- addPipelineStep(pd, name="newstep", after="step1", 
                       slots=list(description="Step that does nothing..."))
 pd
 }

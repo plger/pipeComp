@@ -12,6 +12,8 @@ bioRxiv [2020.02.02.930578](https://doi.org/10.1101/2020.02.02.930578)
 
 However the framework can be applied to any other context.
 
+This readme provides an overview of the framework and package. For more detail, please refer to the two vignettes.
+
 * [Recent changes](#recent-changes)
 * [Installation](#installation)
 * [Using _pipeComp_](#using-pipecomp)
@@ -44,11 +46,13 @@ To use the scRNA-seq pipeline and wrappers, however, requires further packages t
 
 ## Using _pipeComp_
 
+<img src="inst/docs/pipeComp_scheme.png"/>
+
 ### PipelineDefinition
 
 The `PipelineDefinition` S4 class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. As simple pipeline can be constructed as follows:
 
-```{r, eval=FALSE}
+```{r}
 my_pip <- PipelineDefinition( list( step1=function(x, param1){
                                       # do something with x and param1
                                       x
@@ -67,7 +71,7 @@ my_pip <- PipelineDefinition( list( step1=function(x, param1){
 ```
 
 The PipelineDefinition can also include descriptions of each step or evaluation and aggregation functions. For example:
-```{r, eval=FALSE}
+```{r}
 my_pip <- PipelineDefinition( list( step1=function(x, meth1){ get(meth1)(x) },
                                     step2=function(x, meth2){ get(meth2)(x) } ),
                               evaluation=list( step2=function(x){ sum(x) }) )
@@ -109,18 +113,9 @@ A number of generic methods are implemented on the object, including `show`, `na
 pd2 <- pipDef[-1]
 ```
 
-Steps can be added using the `addPipelineStep` function:
-```{r}
-pd2 <- addPipelineStep(pd2, name="newstep", after="filtering")
-```
+Steps can also be added (using the `addPipelineStep` function) and edited - see the `pipeComp` vignette for more detail.
 
-Functions for the new step can be specified through the `slots` argument of `addPipelineStep` or afterwards through `stepFn`:
-
-```{r}
-stepFn(pd2, "newstep", type="function") <- function(x) do_something(x)
-```
-
-Finally, the `arguments()` method can be used to extract the arguments for each step, and the `defaultArguments` methods can be used to get or set the default arguments.
+<br/><br/>
 
 ### Running pipelines
 
@@ -128,7 +123,16 @@ Finally, the `arguments()` method can be used to extract the arguments for each 
 
 `runPipeline` requires 3 main arguments: i) the pipelineDefinition, ii) the list of alternative parameters values to try, and iii) the list of benchmark datasets.
 
-Functions can be passed as arguments through their name (if they are loaded in the environment).
+The scRNAseq datasets used in the papers can be downloaded from [figshare](https://doi.org/10.6084/m9.figshare.11787210.v1) and prepared in the following way:
+
+```{r}
+download.file("https://ndownloader.figshare.com/articles/11787210/versions/1", "datasets.zip")
+unzip("datasets.zip", exdir="datasets")
+datasets <- list.files("datasets", pattern="SCE\\.rds", full.names=TRUE)
+names(datasets) <- sapply(strsplit(basename(datasets),"\\."),FUN=function(x) x[1])
+```
+
+Next we prepare the alternative methods and parameters. Functions can be passed as arguments through their name (if they are loaded in the environment):
 
 ```{r}
 # load alternative functions
@@ -181,38 +185,3 @@ scrna_evalPlot_clust(res, what="ARI", atTrueK=TRUE, show_heatmap_legend = FALSE)
 
 <img src="inst/docs/clustK_stats_example.png"/>
 
-<br/><br/>
-
-### Running only a subset of the combinations
-
-Rather than running all possible combinations of parameters, one can run only a subset of them through the `comb` parameter of `runPipeline`. The parameter accepts either a matrix (of argument indices) or data.frame (of factors) which can be built manually, but the simplest way is to first create all combinations, and then get rid of the undesired ones:
-
-```{r}
-comb <- buildCombMatrix(alternatives)
-head(comb)
-```
-
-```
-##   doubletmethod         filt        norm     sel selnb         dr
-## 1          none filt.lenient norm.seurat sel.vst  2000 seurat.pca
-## 2          none filt.lenient norm.seurat sel.vst  2000 seurat.pca
-## 3          none filt.lenient norm.seurat sel.vst  2000 seurat.pca
-## 4          none filt.lenient norm.seurat sel.vst  2000 seurat.pca
-## 5          none filt.lenient norm.seurat sel.vst  2000 seurat.pca
-## 6          none filt.lenient norm.seurat sel.vst  2000 seurat.pca
-##    clustmethod maxdim dims  k steps resolution min.size
-## 1 clust.seurat     30   10 20     4       0.01       50
-## 2 clust.seurat     30   10 20     4        0.1       50
-## 3 clust.seurat     30   10 20     4        0.2       50
-## 4 clust.seurat     30   10 20     4        0.3       50
-## 5 clust.seurat     30   10 20     4        0.5       50
-## 6 clust.seurat     30   10 20     4        0.8       50
-```
-
-And then we could remove some combinations before passing the argument to `runPipeline`:
-
-```{r}
-comb <- comb[ (comb$norm != "norm.scran" | comb$resolution != 2) ,]
-res <- runPipeline( datasets, alternatives, pipDef, nthreads=3, comb=comb,
-                    output.prefix="myfolder/" )
-```

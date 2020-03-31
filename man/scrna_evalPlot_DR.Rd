@@ -4,19 +4,22 @@
 \alias{scrna_evalPlot_DR}
 \title{scrna_evalPlot_DR}
 \usage{
-scrna_evalPlot_DR(res, what = c("auto", "varExpl", "minSilWidth",
-  "meanSilWidth", "medianSilWidth", "maxSilWidth", "log10_total_counts",
-  "log10_total_features", "total_features"), reorder_rows = TRUE,
-  reorder_columns = NULL, agg.by = NULL, agg.fn = mean,
-  scale = FALSE, show_heatmap_legend = FALSE, value_format = "\%.2f",
-  col = NULL, col_title_fontsize = 11, value_cols = c("black",
-  "white"), title = NULL, anno_legend = TRUE, ...)
+scrna_evalPlot_DR(res, what = c("auto"),
+  covar.type = c("PC1.covar.adjR2", "meanAbsCorr.covariate2"),
+  reorder_rows = TRUE, reorder_columns = NULL, agg.by = NULL,
+  agg.fn = mean, scale = FALSE, show_heatmap_legend = FALSE,
+  value_format = "\%.2f", col = NULL, col_title_fontsize = 11,
+  value_cols = c("black", "white"), title = NULL, anno_legend = TRUE,
+  ...)
 }
 \arguments{
 \item{res}{Aggregated pipeline results (i.e. the output of `runPipeline` or
 `aggregateResults`)}
 
 \item{what}{What to plot (default plots main metrics)}
+
+\item{covar.type}{The measure of association to covariates to use, if 
+applicable.}
 
 \item{reorder_rows}{Logical; whether to sort rows (default TRUE)}
 

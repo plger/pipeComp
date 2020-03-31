@@ -12,7 +12,8 @@ evaluateClustering(x, tl)
 \item{tl}{The true labels}
 }
 \value{
-A numeric vector.
+A numeric vector of metrics (see the `pipeComp_scRNA` vignette for 
+details)
 }
 \description{
 Evaluates a clustering using 'true' labels

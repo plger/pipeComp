@@ -8,7 +8,8 @@
 #'
 #' @return Logical.
 #' @export
-#'
+#' 
+#' @importFrom utils installed.packages
 #' @examples
 #' checkPipelinePackages(list(argument1="mean"), scrna_seurat_pipeline())
 checkPipelinePackages <- function(alternatives, pipDef=NULL){
@@ -189,4 +190,40 @@ getQualitativePalette <- function(nbcolors){
                 "#AA4444", "#DD7777", "#771144", "#AA4477", "#DD77AA", "black"),
          distinctColorPalette(nbcolors)
   )
+}
+
+
+.getTrueLabelsFromNames <- function(x){
+  if(is.null(names(x))) return(NULL)
+  tl <- sapply(strsplit(names(x),".",fixed=TRUE), FUN=function(x) x[[1]])
+  names(tl) <- names(x)
+  tl
+}
+
+#' farthestPoint
+#'
+#' Identifies the point farthest from a line passing through by the first and 
+#' last points. Used for automatization of the elbow method.
+#'
+#' @param y Monotonically inscreasing or decreasing values
+#' @param x Optional x coordinates corresponding to `y` (defaults to seq)
+#'
+#' @return The value of `x` farthest from the diagonal.
+#' @export
+#'
+#' @examples
+#' y <- 2^(10:1)
+#' plot(y)
+#' x <- farthestPoint(y)
+#' points(x,y[x],pch=16)
+farthestPoint <- function(y, x=NULL){
+  if(is.null(x)) x <- seq_len(length(y))
+  d <- apply( cbind(x,y), 1, 
+              a=c(1,y[1]), b=c(length(y),rev(y)[1]), 
+              FUN=function(y, a, b){
+                v1 <- a-b
+                v2 <- y-a
+                abs(det(cbind(v1,v2)))/sqrt(sum(v1*v1))
+              })
+  order(d,decreasing=T)[1]
 }

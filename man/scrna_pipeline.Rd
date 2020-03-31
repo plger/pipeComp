@@ -4,7 +4,7 @@
 \alias{scrna_pipeline}
 \title{scrna_pipeline}
 \usage{
-scrna_pipeline(saveDimRed = FALSE, pipeClass = c("sce", "seurat"))
+scrna_pipeline(saveDimRed = FALSE, pipeClass = c("seurat", "sce"))
 }
 \arguments{
 \item{saveDimRed}{Logical; whether to save the dimensionality reduction for 
@@ -42,4 +42,8 @@ cluster size, if applicable). If using the `scrna_alternatives.R` wrappers,
 the dimensionality can be automatically estimated by specifying 
 `dims = "method_name"`. 
 }
+}
+\examples{
+pip <- scrna_pipeline()
+pip
 }

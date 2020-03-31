@@ -64,8 +64,14 @@
 #' \item A copy of the SimpleList returned by the function (`aggregated.rds`file). 
 #' }
 #' 
+#' @importFrom utils sessionInfo
 #' @import methods BiocParallel S4Vectors
 #' @export
+#' @examples
+#' pip <- mockPipeline()
+#' datasets <- list( ds1=1:3, ds2=c(5,10,15) )
+#' tmpdir1 <- paste0(tempdir(),"/")
+#' res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1)
 runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL, 
                          output.prefix="", nthreads=length(datasets), 
                          saveEndResults=TRUE, debug=FALSE, ...){
