@@ -2,8 +2,8 @@
 #' 
 #' Returns the estimated intrinsic dimensionality of a dataset.
 #'
-#' @param dat A Seurat or SCE object
-#' @param method The dimensionality method to use
+#' @param dat A Seurat or SCE object with a pca embedding.
+#' @param method The dimensionality method to use.
 #' @param maxDims Deprecated and ignored.
 #'
 #' @return An integer.

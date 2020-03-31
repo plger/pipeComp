@@ -24,3 +24,7 @@ A ggplot, or a data.frame if `returnTable=TRUE`
 \description{
 scrna_evalPlot_filtering
 }
+\examples{
+data("exampleResults", package="pipeComp")
+scrna_evalPlot_filtering(exampleResults)
+}

@@ -9,6 +9,18 @@
 #' details)
 #' @importFrom aricode clustComp
 #' @export
+#' 
+#' @examples
+#' # random data
+#' dat <- data.frame( 
+#'  cluster=rep(LETTERS[1:3], each=10),
+#'  x=c(rnorm(20, 0), rnorm(10, 1)),
+#'  y=c(rnorm(10, 1), rnorm(20, 0))
+#' )
+#' # clustering
+#' dat$predicted <- kmeans(dist(dat[,-1]),3)$cluster
+#' # evaluation
+#' evaluateClustering(dat$predicted, dat$cluster)
 evaluateClustering <- function(x, tl){
   e <- match_evaluate_multiple(x, tl)
   x <- as.character(x)
@@ -99,8 +111,20 @@ evaluateClustering <- function(x, tl){
 #' 
 #' @importFrom cluster silhouette
 #' @export
-evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
-  if(is.null(covars)) covars <- c("log10_total_features", "log10_total_counts", 
+#' @examples
+#' # random data
+#' library(scater)
+#' sce <- runPCA(logNormCounts(mockSCE(ngenes = 500)))
+#' sce <- addQCPerCell(sce)
+#' # random population labels
+#' sce$cluster <- sample(LETTERS[1:3], ncol(sce), replace=TRUE)
+#' res <- evaluateDimRed(sce, sce$cluster, covars=c("sum","detected"))
+#' # average silhouette widths:
+#' res$clust.avg.silwidth
+#' # adjusted R2 of covariates:
+#' res$covar.adjR2
+evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
+  if(missing(covars)) covars <- c("log10_total_features", "log10_total_counts", 
                                   "total_features")
   if(is(x,"Seurat")){
     if(is.character(covars)) covars <- x[[]][,covars]
@@ -298,9 +322,18 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars=NULL){
 #'
 #' @return A list.
 #' @export
-match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
-  library(clue)
-  
+#' @examples
+#' # random data
+#' dat <- data.frame( 
+#'  cluster=rep(LETTERS[1:3], each=10),
+#'  x=c(rnorm(20, 0), rnorm(10, 1)),
+#'  y=c(rnorm(10, 1), rnorm(20, 0))
+#' )
+#' # clustering
+#' dat$predicted <- kmeans(dist(dat[,-1]),3)$cluster
+#' # evaluation
+#' match_evaluate_multiple(dat$predicted, dat$cluster)
+match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL){
   if(is.null(clus_truth)){
     warning("Truth not given, trying to guess it from the names...")
     clus_truth <- .getTrueLabelsFromNames(clus_algorithm)
@@ -439,17 +472,28 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL) {
 #' @export
 #' @importFrom matrixStats rowMedians
 #' @importFrom Matrix rowMeans
-evaluateNorm <- function(x, clusters=NULL, covars=NULL){
+#' @importFrom Seurat GetAssayData
+#' @examples
+#' # random data
+#' library(scater)
+#' sce <- logNormCounts(mockSCE(ngenes = 500))
+#' sce <- addQCPerCell(sce)
+#' # random population labels
+#' sce$cluster <- sample(LETTERS[1:3], ncol(sce), replace=TRUE)
+#' evaluateNorm(sce, sce$cluster, covars="detected")
+evaluateNorm <- function(x, clusters=NULL, covars){
   library(Seurat)
-  if(is.null(covars)) covars <- c("log10_total_counts", "total_features")
+  if(missing(covars)) covars <- c("log10_total_counts", "total_features")
   if(is(x,"Seurat")){
     library(Seurat)
-    if(is.character(covars)) covars <- x[[]][,covars]
+    if(is.character(covars) && length(covars)>0) 
+      covars <- x[[]][,covars,drop=FALSE]
     if(is.null(clusters)) clusters <- x$phenoid
-    meanCount <- Matrix::rowMeans(Seurat::GetAssayData(x, assay="RNA", slot="counts"))
-    x <- Seurat::GetAssayData(x, assay="RNA", slot="data")
+    meanCount <- Matrix::rowMeans(GetAssayData(x, assay="RNA", slot="counts"))
+    x <- GetAssayData(x, assay="RNA", slot="data")
   }else if(is(x, "SingleCellExperiment")){
-    if(is.character(covars)) covars <- as.data.frame(colData(x)[,covars])
+    if(is.character(covars) && length(covars)>0) 
+      covars <- as.data.frame(colData(x)[,covars,drop=FALSE])
     if(is.null(clusters)) clusters <- x$phenoid
     meanCount <- Matrix::rowMeans(counts(x))
     x <- logcounts(x)

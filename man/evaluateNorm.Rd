@@ -4,7 +4,7 @@
 \alias{evaluateNorm}
 \title{evaluateNorm}
 \usage{
-evaluateNorm(x, clusters = NULL, covars = NULL)
+evaluateNorm(x, clusters = NULL, covars)
 }
 \arguments{
 \item{x}{An object of class 'Seurat' or 'SingleCellExperiment' with 
@@ -21,4 +21,13 @@ a data.frame.
 }
 \description{
 evaluateNorm
+}
+\examples{
+# random data
+library(scater)
+sce <- logNormCounts(mockSCE(ngenes = 500))
+sce <- addQCPerCell(sce)
+# random population labels
+sce$cluster <- sample(LETTERS[1:3], ncol(sce), replace=TRUE)
+evaluateNorm(sce, sce$cluster, covars="detected")
 }

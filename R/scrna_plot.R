@@ -26,6 +26,9 @@
 #'
 #' @return One or several `Heatmap` object.
 #' @export
+#' @examples
+#' data("exampleResults", package="pipeComp")
+#' scrna_evalPlot_DR(exampleResults)
 #'
 #' @import ComplexHeatmap grid S4Vectors
 #' @importFrom viridisLite inferno
@@ -122,7 +125,7 @@ scrna_evalPlot_DR <- function(res, what=c("auto"),
   if(reorder_columns){
     co <- order(colMeans(res), decreasing=TRUE)
   }else{
-    co <- 1:ncol(res)
+    co <- seq_len(ncol(res))
   }
   res <- res[ro,co]
   res2 <- res2[ro,co]
@@ -173,6 +176,9 @@ scrna_evalPlot_DR <- function(res, what=c("auto"),
 #'
 #' @return One or several `Heatmap` object.
 #' @export
+#' @examples
+#' data("exampleResults", package="pipeComp")
+#' scrna_evalPlot_clust(exampleResults)
 #'
 #' @import ComplexHeatmap grid
 #' @importFrom viridisLite inferno
@@ -242,7 +248,7 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   if(reorder_columns){
     co <- order(colMeans(res), decreasing=TRUE)
   }else{
-    co <- 1:ncol(res)
+    co <- seq_len(ncol(res))
   }
   res <- res[ro,co]
   res2 <- res2[ro,co]
@@ -376,9 +382,9 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   }
   # get back the initial number of cells
   mm <- ll[[1]]
-  for(i in 1:(length(ll)-1)){
+  for(i in seq_len(length(ll)-1)){
     f <- setdiff(colnames(ll[[i]]), c("N.before","N.lost","pc.lost"))
-    suf <- paste0(".",names(ll)[i:(i+1)])
+    suf <- paste0(".",names(ll)[i+0:1])
     if(i>1) suf[1] <- ""
     mm <- merge(mm, ll[[i+1]], by=f, suffixes=suf)
   }
@@ -402,6 +408,9 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
 #'
 #' @return A ggplot, or a data.frame if `returnTable=TRUE`
 #' @export
+#' @examples
+#' data("exampleResults", package="pipeComp")
+#' scrna_evalPlot_filtering(exampleResults)
 scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"), 
                                      clustMetric="mean_F1", returnTable=FALSE){
   param_fields <- unlist(arguments(metadata(res)$PipelineDefinition)[steps])

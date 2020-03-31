@@ -102,7 +102,7 @@ returning only running times.")
 
 .aggElapsed <- function(res){
   el.tot <- parsePipNames(names(res[[1]]))
-  el.tot <- el.tot[rep(1:nrow(el.tot), length(res)),,drop=FALSE]
+  el.tot <- el.tot[rep(seq_len(nrow(el.tot)), length(res)),,drop=FALSE]
   row.names(el.tot) <- NULL
   el.tot$dataset <- factor(rep(names(res), each=length(res[[1]])))
   el.tot$elapsed <- as.numeric(unlist(res))

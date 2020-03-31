@@ -120,8 +120,8 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
     intermediate_return_objects <- lapply(args, FUN=function(x) list() )
     rm(ds)
     
-    res <- sapply(1:nrow(eg), FUN=function(x) NULL)
-    for(n in 1:nrow(eg)){
+    res <- sapply(seq_len(nrow(eg)), FUN=function(x) NULL)
+    for(n in seq_len(nrow(eg))){
       newPar <- as.numeric(eg[n,])
       aa <- paste( mapply(an=names(alt), a=alt, i=newPar, 
                           FUN=function(an,a,i) paste0(an,"=",a[i]) )
@@ -143,7 +143,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
       # fetch the object from the previous step
       x <- objects[[which(names(objects)==names(args)[wStep])-1]]
       # proceed with the remaining steps of the pipeline
-      for(step in names(args)[wStep:length(args)]){
+      for(step in names(args)[seq.int(from=wStep, to=length(args))]){
         if(debug) message(step)
         # prepare the arguments
         a <- lapply(args[[step]], FUN=function(a){
@@ -172,7 +172,8 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
                        })
 
         # name the current results on the basis of the previous steps:
-        ws <- 1:sum(sapply(args[1:which(names(args)==step)], length))
+        ws <- seq_len(sum( sapply(args[seq_len(which(names(args)==step))], 
+                                  length) ))
         ename <- .args2name(newPar[ws], alt[ws])
         # save elapsed time for this step
         elapsed[[step]][[ename]] <- as.numeric(Sys.time()-st)
@@ -191,7 +192,8 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
 
       # compute total time for this iteration
       elapsed.total[[n]] <- sum(sapply(names(args),FUN=function(step){
-        ws <- 1:sum(sapply(args[1:which(names(args)==step)], length))
+        ws <- seq_len(sum( sapply(args[seq_len(which(names(args)==step))], 
+                                  length) ))
         ename <- .args2name(newPar[ws], alt[ws])
         elapsed[[step]][[ename]]
       }))

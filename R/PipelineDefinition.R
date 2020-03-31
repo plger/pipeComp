@@ -73,7 +73,8 @@ PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
   if(!is.list(functions) || !all(sapply(functions, is.function))) 
     stop("`functions` should be a (named) list of functions!")
   n <- names(functions)
-	if(is.null(n)) n <- names(functions) <- paste0("step",1:length(functions))
+	if(is.null(n)) 
+	  n <- names(functions) <- paste0("step",seq_len(length(functions)))
   descriptions <- .checkInputList(descriptions, functions, FALSE)
   evaluation <- .checkInputList(evaluation, functions)
   aggregation2 <- .checkInputList(aggregation, functions)
@@ -137,6 +138,12 @@ PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
 #' @seealso \code{\link{PipelineDefinition}}, \code{\link{addPipelineStep}}
 #' @param object An object of class \code{\link{PipelineDefinition}}
 #' @return Depends on the method.
+#' @examples
+#' pd <- mockPipeline()
+#' length(pd)
+#' names(pd)
+#' pd$step1
+#' pd[2:1]
 NULL
 
 #' @rdname PipelineDefinition-methods
@@ -298,8 +305,8 @@ addPipelineStep <- function(object, name, after=NULL, slots=list()){
     i2 <- seq_along(names(object))
   }else{
     w <- which(names(object)==after)
-    i1 <- 1:w
-    i2 <- (w+1):length(object)
+    i1 <- seq_len(w)
+    i2 <- seq.int(from=w+1, to=length(object))
     if(w==length(object)) i2 <- vector("integer")
   }
   ll <- list(NULL)

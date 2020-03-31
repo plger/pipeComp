@@ -69,7 +69,7 @@ parsePipNames <- function(x, setRowNames=FALSE, addcolumns=NULL){
   y <- sapply(strsplit(unlist(x2),"="),FUN=function(x) x[2])
   y <- as.data.frame(matrix(y, ncol=length(n), byrow=TRUE))
   colnames(y) <- n
-  for(i in 1:ncol(y)) y[[i]] <- type.convert(y[[i]])
+  for(i in seq_len(ncol(y))) y[[i]] <- type.convert(y[[i]])
   if(setRowNames) row.names(y) <- x
   if(!is.null(addcolumns)){
     row.names(addcolumns) <- NULL
@@ -105,7 +105,7 @@ parsePipNames <- function(x, setRowNames=FALSE, addcolumns=NULL){
 #' @examples
 #' buildCombMatrix(list(param1=LETTERS[1:3], param2=1:2))
 buildCombMatrix <- function(alt, returnIndexMatrix=FALSE){
-  eg <- data.table(expand.grid(lapply(alt, FUN=function(x){ 1:length(x) })))
+  eg <- data.table(expand.grid(lapply(alt, FUN=seq_along)))
   eg <- setorder(eg)
   if(returnIndexMatrix) return(as.matrix(eg))
   eg <- as.data.frame(eg)
@@ -225,5 +225,5 @@ farthestPoint <- function(y, x=NULL){
                 v2 <- y-a
                 abs(det(cbind(v1,v2)))/sqrt(sum(v1*v1))
               })
-  order(d,decreasing=T)[1]
+  order(d,decreasing=TRUE)[1]
 }
