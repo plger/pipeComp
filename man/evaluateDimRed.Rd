@@ -4,7 +4,7 @@
 \alias{evaluateDimRed}
 \title{evaluateDimRed}
 \usage{
-evaluateDimRed(x, clusters = NULL, n = c(10, 20, 50), covars = NULL)
+evaluateDimRed(x, clusters = NULL, n = c(10, 20, 50), covars)
 }
 \arguments{
 \item{x}{The matrix of the reduced space, with cells as rows and components 
@@ -27,4 +27,17 @@ explained by the clusters (i.e. R-squared of a linear model).
 }
 \description{
 Gathers evaluation statistics on a reduced space using known cell labels.
+}
+\examples{
+# random data
+library(scater)
+sce <- runPCA(logNormCounts(mockSCE(ngenes = 500)))
+sce <- addQCPerCell(sce)
+# random population labels
+sce$cluster <- sample(LETTERS[1:3], ncol(sce), replace=TRUE)
+res <- evaluateDimRed(sce, sce$cluster, covars=c("sum","detected"))
+# average silhouette widths:
+res$clust.avg.silwidth
+# adjusted R2 of covariates:
+res$covar.adjR2
 }

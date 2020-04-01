@@ -7,9 +7,9 @@
 defaultStepAggregation(x)
 }
 \arguments{
-\item{x}{A list of results per dataset, each containing a list (1 element per
-combination of parameters) of evaluation metrics (coercible to vectors or 
-matrix).}
+\item{x}{A list of results per dataset, each containing a list (1 element 
+per combination of parameters) of evaluation metrics (coercible to vectors 
+or matrix).}
 }
 \value{
 A data.frame.

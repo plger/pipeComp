@@ -41,6 +41,7 @@ PipelineDefinition(
 )
 }
 \seealso{
-\code{\link{PipelineDefinition-methods}}, \code{\link{addPipelineStep}}.
-For an example pipeline, see \code{\link{scrna_pipeline}}.
+\code{\link{PipelineDefinition-methods}}, 
+\code{\link{addPipelineStep}}. For an example pipeline, see 
+\code{\link{scrna_pipeline}}.
 }

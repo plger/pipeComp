@@ -59,6 +59,13 @@ Depends on the method.
 \description{
 Methods for \code{\link{PipelineDefinition}} class
 }
+\examples{
+pd <- mockPipeline()
+length(pd)
+names(pd)
+pd$step1
+pd[2:1]
+}
 \seealso{
 \code{\link{PipelineDefinition}}, \code{\link{addPipelineStep}}
 }

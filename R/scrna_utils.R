@@ -2,8 +2,8 @@
 #' 
 #' Returns the estimated intrinsic dimensionality of a dataset.
 #'
-#' @param dat A Seurat or SCE object
-#' @param method The dimensionality method to use
+#' @param dat A Seurat or SCE object with a pca embedding.
+#' @param method The dimensionality method to use.
 #' @param maxDims Deprecated and ignored.
 #'
 #' @return An integer.
@@ -51,8 +51,10 @@ getDimensionality <- function(dat, method, maxDims=NULL){
 # sce2se conversion
 # not exported
 #' @import SingleCellExperiment Seurat
+#' @importFrom SummarizedExperiment assayNames
 seWrap <- function(sce, min.cells=10, min.features=0){
   if(is(sce,"Seurat")) return(sce)
+  if(!is(sce,"SingleCellExperiment")) stop("not a SingleCellExperiment!")
   suppressPackageStartupMessages(library(Seurat))
   se <- CreateSeuratObject( counts=counts(sce), 
                             min.cells=min.cells, 
@@ -75,13 +77,13 @@ seWrap <- function(sce, min.cells=10, min.features=0){
 # se2sce conversion
 # not exported
 #' @import SingleCellExperiment Seurat
+#' @importFrom SummarizedExperiment rowData<-
 sceWrap <- function(seu) {
-  suppressPackageStartupMessages({
-    library(SingleCellExperiment)
-    library(Seurat)
-  })
-  sce <- SingleCellExperiment(list(counts=GetAssayData(seu, assay="RNA", slot="counts")), 
-                              colData = seu[[]])
+  if(is(seu,"SingleCellExperiment")) return(seu)
+  if(!is(seu,"Seurat")) stop("not a Seurat object!")
+  sce <- SingleCellExperiment(
+    list(counts=GetAssayData(seu, assay="RNA", slot="counts")), 
+    colData = seu[[]] )
   if(nrow(norm <- GetAssayData(seu, slot="scale.data"))>0){
     sce <- sce[row.names(norm),]
     logcounts(sce) <- norm
@@ -90,7 +92,8 @@ sceWrap <- function(seu) {
   if(length(VariableFeatures(seu)))
     metadata(sce)$VariableFeats <- VariableFeatures(seu)
   if(length(Reductions(seu))>0){
-    reducedDims(sce) <- lapply(seu@reductions, FUN=function(x) x@cell.embeddings)
+    reducedDims(sce) <- lapply( seu@reductions, 
+                                FUN=function(x) x@cell.embeddings )
   }
   sce
 }

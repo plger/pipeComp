@@ -12,6 +12,11 @@
 #' @param return.df Logical; whether to return the data.frame instead of plot
 #'
 #' @return A ggplot, or a data.frame if `return.df=TRUE`
+#' 
+#' @examples
+#' data("exampleResults", package="pipeComp")
+#' plotElapsed(exampleResults, agg.by = "norm")
+#' 
 #' @export
 #' @import ggplot2
 #' @importFrom reshape2 melt

@@ -16,11 +16,15 @@ steps will be averaged.}
 
 \item{clustMetric}{Clustering accuracy metric to use (default `mean_F1``)}
 
-\item{returnTable}{Logical; whether to return the data.frame rather than plot.}
+\item{returnTable}{Logical; whether to return the data rather than plot.}
 }
 \value{
 A ggplot, or a data.frame if `returnTable=TRUE`
 }
 \description{
 scrna_evalPlot_filtering
+}
+\examples{
+data("exampleResults", package="pipeComp")
+scrna_evalPlot_filtering(exampleResults)
 }

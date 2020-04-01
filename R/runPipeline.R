@@ -23,7 +23,7 @@
 #'
 #' @examples 
 #' 
-#' # Example of function list that will define the alternatives of the pipeline: 
+#' #Example of function list that will define the alternatives of the pipeline: 
 #' source(system.file("extdata", "scrna_alternatives.R", package="pipeComp"))
 #' scrna_seurat_defAlternatives()
 #' 
@@ -58,10 +58,11 @@
 #' \itemize{
 #' \item The clustering results for each dataset (`endOutputs.rds` files),
 #' \item A SimpletList of elapsed time and evaluations for each dataset 
-#' (`evaluation.rds` files),
-#' \item A list of the `pipelineDef`, `alternatives`, `sessionInfo()` and function 
-#' call used to produce the results (`runPipelineInfo.rds` file),
-#' \item A copy of the SimpleList returned by the function (`aggregated.rds`file). 
+#'  (`evaluation.rds` files),
+#' \item A list of the `pipelineDef`, `alternatives`, `sessionInfo()` and
+#'  function call used to produce the results (`runPipelineInfo.rds` file),
+#' \item A copy of the SimpleList returned by the function 
+#'  (`aggregated.rds`file). 
 #' }
 #' 
 #' @importFrom utils sessionInfo
@@ -116,12 +117,12 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
     elapsed <- lapply(pipDef, FUN=function(x) list())
     elapsed.total <- list()
     
-    objects <- c(list(BASE=ds), lapply(args[-length(args)],FUN=function(x)NULL))
+    objects <- c(list(BASE=ds),lapply(args[-length(args)],FUN=function(x)NULL))
     intermediate_return_objects <- lapply(args, FUN=function(x) list() )
     rm(ds)
     
-    res <- sapply(1:nrow(eg), FUN=function(x) NULL)
-    for(n in 1:nrow(eg)){
+    res <- sapply(seq_len(nrow(eg)), FUN=function(x) NULL)
+    for(n in seq_len(nrow(eg))){
       newPar <- as.numeric(eg[n,])
       aa <- paste( mapply(an=names(alt), a=alt, i=newPar, 
                           FUN=function(an,a,i) paste0(an,"=",a[i]) )
@@ -143,7 +144,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
       # fetch the object from the previous step
       x <- objects[[which(names(objects)==names(args)[wStep])-1]]
       # proceed with the remaining steps of the pipeline
-      for(step in names(args)[wStep:length(args)]){
+      for(step in names(args)[seq.int(from=wStep, to=length(args))]){
         if(debug) message(step)
         # prepare the arguments
         a <- lapply(args[[step]], FUN=function(a){
@@ -172,7 +173,8 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
                        })
 
         # name the current results on the basis of the previous steps:
-        ws <- 1:sum(sapply(args[1:which(names(args)==step)], length))
+        ws <- seq_len(sum( sapply(args[seq_len(which(names(args)==step))], 
+                                  length) ))
         ename <- .args2name(newPar[ws], alt[ws])
         # save elapsed time for this step
         elapsed[[step]][[ename]] <- as.numeric(Sys.time()-st)
@@ -191,7 +193,8 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
 
       # compute total time for this iteration
       elapsed.total[[n]] <- sum(sapply(names(args),FUN=function(step){
-        ws <- 1:sum(sapply(args[1:which(names(args)==step)], length))
+        ws <- seq_len(sum( sapply(args[seq_len(which(names(args)==step))], 
+                                  length) ))
         ename <- .args2name(newPar[ws], alt[ws])
         elapsed[[step]][[ename]]
       }))
@@ -242,7 +245,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   }
 
   message("
-                  Finished running on all datasets, now aggregating results...")
+                Finished running on all datasets, now aggregating results...")
   
   # save pipeline and resolved functions
   pipinfo <- list( pipDef=pipelineDef,
