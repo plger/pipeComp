@@ -10,8 +10,8 @@ evaluateNorm(x, clusters = NULL, covars)
 \item{x}{An object of class 'Seurat' or 'SingleCellExperiment' with 
 normalized data}
 
-\item{clusters}{A vector of true cluster identities. If missing, will attempt
-to fetch it from the `phenoid` colData.}
+\item{clusters}{A vector of true cluster identities. If missing, will 
+attempt to fetch it from the `phenoid` colData.}
 
 \item{covars}{Covariates to include, either as data.frame or as colData
 columns of `x`}

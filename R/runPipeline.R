@@ -23,7 +23,7 @@
 #'
 #' @examples 
 #' 
-#' # Example of function list that will define the alternatives of the pipeline: 
+#' #Example of function list that will define the alternatives of the pipeline: 
 #' source(system.file("extdata", "scrna_alternatives.R", package="pipeComp"))
 #' scrna_seurat_defAlternatives()
 #' 
@@ -58,10 +58,11 @@
 #' \itemize{
 #' \item The clustering results for each dataset (`endOutputs.rds` files),
 #' \item A SimpletList of elapsed time and evaluations for each dataset 
-#' (`evaluation.rds` files),
-#' \item A list of the `pipelineDef`, `alternatives`, `sessionInfo()` and function 
-#' call used to produce the results (`runPipelineInfo.rds` file),
-#' \item A copy of the SimpleList returned by the function (`aggregated.rds`file). 
+#'  (`evaluation.rds` files),
+#' \item A list of the `pipelineDef`, `alternatives`, `sessionInfo()` and
+#'  function call used to produce the results (`runPipelineInfo.rds` file),
+#' \item A copy of the SimpleList returned by the function 
+#'  (`aggregated.rds`file). 
 #' }
 #' 
 #' @importFrom utils sessionInfo
@@ -116,7 +117,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
     elapsed <- lapply(pipDef, FUN=function(x) list())
     elapsed.total <- list()
     
-    objects <- c(list(BASE=ds), lapply(args[-length(args)],FUN=function(x)NULL))
+    objects <- c(list(BASE=ds),lapply(args[-length(args)],FUN=function(x)NULL))
     intermediate_return_objects <- lapply(args, FUN=function(x) list() )
     rm(ds)
     
@@ -244,7 +245,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   }
 
   message("
-                  Finished running on all datasets, now aggregating results...")
+                Finished running on all datasets, now aggregating results...")
   
   # save pipeline and resolved functions
   pipinfo <- list( pipDef=pipelineDef,

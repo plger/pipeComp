@@ -68,7 +68,7 @@ evaluateClustering <- function(x, tl){
     colnames(x) <- names(a[[1]])
     for(f in c("pr","re","F1")){
       w <- grep(paste0("^",f,"\\."),colnames(x))
-      x[[paste0("min_",f)]] <- matrixStats::rowMins(as.matrix(x[,w,drop=FALSE]))
+      x[[paste0("min_",f)]]<- matrixStats::rowMins(as.matrix(x[,w,drop=FALSE]))
     }
     y <- as.data.frame(x[,grep("\\.",colnames(x),invert=TRUE)])
     y$true.nbClusts <- length(grep("^pr\\.", colnames(x)))
@@ -212,7 +212,8 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
   
   pi <- parsePipNames(names(res[[1]]))
   
-  agfns <- list(minSilWidth=min, meanSilWidth=mean, medianSilWidth=median, maxSilWidth=max)
+  agfns <- list(minSilWidth=min, meanSilWidth=mean, medianSilWidth=median, 
+                maxSilWidth=max)
   
   allsi <- lapply(res, FUN=function(x){
     subpops <- colnames(x[[1]]$clust.avg.silwidth)
@@ -236,7 +237,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
           aggregate(sil[,dim], by=list(cluster=sil[,1]), FUN=agf)[,2]
         }), stringsAsFactors=FALSE)
       }))
-      sils <- cbind(pi[rep(seq_len(nrow(pi)),each=length(subpops)),,drop=FALSE],
+      sils<- cbind(pi[rep(seq_len(nrow(pi)),each=length(subpops)),,drop=FALSE],
                     sils)
       row.names(sils) <- NULL
       sils
@@ -247,7 +248,8 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
   dims <- table(dims)[unique(dims)]
   names(dims) <- dims <- names(dims)[dims==length(allsi)]
   allsi <- lapply(dims, FUN=function(x){
-    x <- dplyr::bind_rows(lapply(allsi, FUN=function(y) y[[x]]), .id = "dataset")
+    x <- dplyr::bind_rows(lapply(allsi, FUN=function(y) 
+                                              y[[x]]), .id = "dataset")
     x$dataset <- factor(x$dataset)
     x
   })
@@ -297,7 +299,8 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
   if(!is.null(res[[1]][[1]]$covar.adjR2)){
     covar.adjR2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
       pi <- parsePipNames(names(x))
-      x <- do.call(rbind, lapply(x, FUN=function(x) x$covar.adjR2[1,,drop=FALSE]))
+      x <- do.call(rbind, 
+                   lapply(x, FUN=function(x) x$covar.adjR2[1,,drop=FALSE]))
       row.names(x) <- NULL
       cbind(pi, x)
     }), .id="dataset")
@@ -310,15 +313,17 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
 
 #' match_evaluate_multiple
 #' 
-#' Function to match cluster labels with 'true' clusters using the Hungarian algorithm, 
-#' and return precision, recall, and F1 score. Written by Lukas Weber in August 2016 as 
-#' part of his \href{https://github.com/lmweber/cytometry-clustering-comparison}{cytometry
-#' clustering comparison}, with just slight modifications on initial handling of 
-#' input arguments.
+#' Function to match cluster labels with 'true' clusters using the Hungarian 
+#' algorithm, and return precision, recall, and F1 score. Written by Lukas 
+#' Weber in August 2016 as part of his 
+#' \href{https://github.com/lmweber/cytometry-clustering-comparison}{cytometry
+#' clustering comparison}, with just slight modifications on initial handling 
+#' of input arguments.
 #'
 #' @param clus_algorithm cluster labels from algorithm
-#' @param clus_truth true cluster labels. If NULL, will attempt to read them from the names
-#' of `clus_algorithm` (expecting the format `clusterName.cellName`)
+#' @param clus_truth true cluster labels. If NULL, will attempt to read them 
+#' from the names of `clus_algorithm` (expecting the format 
+#' `clusterName.cellName`)
 #'
 #' @return A list.
 #' @export
@@ -368,8 +373,8 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL){
   
   for (i in 1:length(tbl_algorithm)) {
     for (j in 1:length(tbl_truth)) {
-      i_int <- as.integer(names(tbl_algorithm))[i]  # cluster number from algorithm
-      j_int <- as.integer(names(tbl_truth))[j]  # cluster number from true labels
+      i_int <- as.integer(names(tbl_algorithm))[i]  # cluster from algorithm
+      j_int <- as.integer(names(tbl_truth))[j]  # cluster from true labels
       
       true_positives <- sum(clus_algorithm == i_int & 
                               clus_truth == j_int, na.rm = TRUE)
@@ -391,8 +396,10 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL){
   
   # put back cluster labels (note some row names may be missing due to removal 
   # of unassigned cells)
-  rownames(pr_mat) <- rownames(re_mat) <- rownames(F1_mat) <- names(tbl_algorithm)
-  colnames(pr_mat) <- colnames(re_mat) <- colnames(F1_mat) <- names(tbl_truth)
+  rownames(pr_mat) <- rownames(re_mat) <- rownames(F1_mat) <- 
+    names(tbl_algorithm)
+  colnames(pr_mat) <- colnames(re_mat) <- colnames(F1_mat) <- 
+    names(tbl_truth)
   
   # match labels using Hungarian algorithm applied to matrix of F1 scores 
   # (Hungarian algorithm calculates an optimal one-to-one assignment)
@@ -401,8 +408,8 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL){
   F1_mat_trans <- t(F1_mat)
   
   if (nrow(F1_mat_trans) <= ncol(F1_mat_trans)) {
-    # if fewer (or equal no.) true populations than detected clusters, can match
-    # all true populations
+    # if fewer (or equal no.) true populations than detected clusters, can 
+    # match all true populations
     labels_matched <- clue::solve_LSAP(F1_mat_trans, maximum = TRUE)
     # use row and column names since some labels may have been removed due to 
     # unassigned cells
@@ -411,8 +418,8 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL){
     names(labels_matched) <- rownames(F1_mat_trans)
     
   } else {
-    # if fewer detected clusters than true populations, use transpose matrix and
-    #  assign NAs for true populations without any matching clusters
+    # if fewer detected clusters than true populations, use transpose matrix
+    # and assign NAs for true populations without any matching clusters
     labels_matched_flipped <- clue::solve_LSAP(F1_mat, maximum = TRUE)
     # use row and column names since some labels may have been removed due to 
     # unassigned cells
@@ -432,9 +439,9 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL){
     names(labels_matched)
   
   for (i in 1:ncol(F1_mat)) {
-    # set to 0 if no matching cluster (too few detected clusters); use character
-    #  names for row and column indices in case subsampling completely removes 
-    # some clusters
+    # set to 0 if no matching cluster (too few detected clusters); use 
+    # character names for row and column indices in case subsampling completely 
+    #  removes some clusters
     im <- labels_matched[i]
     pr[i] <- ifelse(is.na(im), 0, pr_mat[as.character(im), names(im)])
     re[i] <- ifelse(is.na(im), 0, re_mat[as.character(im), names(im)])
@@ -463,8 +470,8 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL){
 #' 
 #' @param x An object of class 'Seurat' or 'SingleCellExperiment' with 
 #' normalized data
-#' @param clusters A vector of true cluster identities. If missing, will attempt
-#' to fetch it from the `phenoid` colData.
+#' @param clusters A vector of true cluster identities. If missing, will 
+#' attempt to fetch it from the `phenoid` colData.
 #' @param covars Covariates to include, either as data.frame or as colData
 #' columns of `x`
 #'
