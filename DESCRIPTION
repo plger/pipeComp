@@ -3,9 +3,9 @@ Type: Package
 Title: pipeComp pipeline benchmarking framework
 Version: 0.99.7
 Authors@R: c(
-	person("Pierre-Luc", "Germain", email="pierre-luc.germain@hest.ethz.ch", role=c("cre","aut")), 
-	person("Anthony", "Sonrel", email="anthony.sonrel@uzh.ch", role="aut"), 
-	person("Mark D.", "Robinson", email="mark.robinson@imls.uzh.ch", role=c("aut","fnd")) )
+	person("Pierre-Luc", "Germain", email="pierre-luc.germain@hest.ethz.ch", role=c("cre","aut"), comment = c(ORCID = "0000-0003-3418-4218")), 
+	person("Anthony", "Sonrel", email="anthony.sonrel@uzh.ch", role="aut", comment = c(ORCID = "0000-0002-2414-715X")), 
+	person("Mark D.", "Robinson", email="mark.robinson@imls.uzh.ch", role=c("aut","fnd"), comment = c(ORCID = "0000-0002-3048-5518")) )
 Description: A simple framework to facilitate the comparison of pipelines involving various steps and parameters. 
 	The `pipelineDefinition` class represents pipelines as, minimally, a set of functions consecutively executed on 
 	the output of the previous one, and optionally accompanied by step-wise evaluation and aggregation functions. 
