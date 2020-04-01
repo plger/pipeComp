@@ -15,7 +15,7 @@ Description: A simple framework to facilitate the comparison of pipelines involv
 Depends: R (>= 3.6)
 Imports: BiocParallel, S4Vectors, ComplexHeatmap, SingleCellExperiment, SummarizedExperiment, Seurat, data.table, 
 	matrixStats, Matrix, cluster, aricode, methods, BiocParallel, utils, dplyr, grid, scales, scran, viridisLite, 
-	randomcoloR, ggplot2, cowplot, intrinsicDimension, scater, knitr, reshape2
+	randomcoloR, ggplot2, cowplot, intrinsicDimension, scater, knitr, reshape2, stats
 License: GPL
 Encoding: UTF-8
 RoxygenNote: 7.0.2

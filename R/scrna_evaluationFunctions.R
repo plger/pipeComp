@@ -109,6 +109,7 @@ evaluateClustering <- function(x, tl){
 #' * R2: the proportion of variance in each component (up to `max(n)`) that is 
 #' explained by the clusters (i.e. R-squared of a linear model).
 #' 
+#' @importFrom stats dist lm
 #' @importFrom cluster silhouette
 #' @export
 #' @examples
@@ -202,6 +203,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
         R2=R2 )
 }
 
+#' @importFrom stats as.formula median
 .aggregateDR <- function(res){
   res <- lapply(res, FUN=function(x){
     if("evaluation" %in% names(x)) x <- x$evaluation
