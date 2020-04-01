@@ -22,10 +22,11 @@ mergePipelineResults
 pip <- mockPipeline()
 datasets <- list( ds1=1:3, ds2=c(5,10,15) )
 tmpdir1 <- paste0(tempdir(),"/")
-res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1)
+res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1,
+                   alternatives=list() )
 alternatives <- list(meth1=c("log2","sqrt"), meth2="cumsum")
 tmpdir2 <- paste0(tempdir(),"/")
-res <- runPipeline(datasets, alternatives, pip, output.prefix=tmpdir2)
+res <- runPipeline(datasets, alternatives, pip, output.prefix=tmpdir2,
 # we read the evaluation files:
 res1 <- readPipelineResults(tmpdir1)
 res2 <- readPipelineResults(tmpdir2)
