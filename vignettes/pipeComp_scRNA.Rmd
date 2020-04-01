@@ -248,7 +248,9 @@ The scRNAseq `PipelineDefinition` can be modified or extented with new steps or 
 
 <br/><br/>
 
-# scRNAseq benchmark datasets used in the paper
+# Datasets
+
+## scRNAseq benchmark datasets used in the paper
 
 The scRNAseq datasets used in the paper can be downloaded from [figshare](https://doi.org/10.6084/m9.figshare.11787210.v1), for instance in the following way:
 
@@ -259,3 +261,13 @@ datasets <- list.files("datasets", pattern="SCE\\.rds", full.names=TRUE)
 names(datasets) <- sapply(strsplit(basename(datasets),"\\."),FUN=function(x) x[1])
 ```
 
+## Using new datasets
+
+In order to use new datasets with this pipeline, you need to have them in `r Biocpkg("SingleCellExperiment")` format, with the true subpopulations stored in the `phenoid` column of `colData`. In addition, if you wish to use some of the wrappers included in the package, some cell- and gene-statistics should be generated using the following function:
+
+```{r, eval=FALSE}
+source(system.file("extdata", "scrna_alternatives.R", package="pipeComp"))
+sce <- add_meta(sce)
+# requires the variancePartition packages installed:
+sce <- compute_all_gene_info(sce)
+```
