@@ -26,6 +26,9 @@
 #'
 #' @return One or several `Heatmap` object.
 #' @export
+#' @examples
+#' data("exampleResults", package="pipeComp")
+#' scrna_evalPlot_DR(exampleResults)
 #'
 #' @import ComplexHeatmap grid S4Vectors
 #' @importFrom viridisLite inferno
@@ -122,7 +125,7 @@ scrna_evalPlot_DR <- function(res, what=c("auto"),
   if(reorder_columns){
     co <- order(colMeans(res), decreasing=TRUE)
   }else{
-    co <- 1:ncol(res)
+    co <- seq_len(ncol(res))
   }
   res <- res[ro,co]
   res2 <- res2[ro,co]
@@ -173,6 +176,9 @@ scrna_evalPlot_DR <- function(res, what=c("auto"),
 #'
 #' @return One or several `Heatmap` object.
 #' @export
+#' @examples
+#' data("exampleResults", package="pipeComp")
+#' scrna_evalPlot_clust(exampleResults)
 #'
 #' @import ComplexHeatmap grid
 #' @importFrom viridisLite inferno
@@ -201,7 +207,8 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
       scrna_evalPlot_clust(res, "ARI", agg.by=agg.by, atTrueK=TRUE, 
                              scale=scale, reorder_rows=H, ...) + 
       scrna_evalPlot_clust(res, "delta.nbClust", agg.by=agg.by, atTrueK=FALSE,
-                           col=circlize::colorRamp2(c(-5, 0, 5), c("red", "white", "blue")),
+                           col=circlize::colorRamp2(c(-5, 0, 5), 
+                                                    c("red", "white", "blue")),
                            value_cols = c("black","black"), scale=FALSE, 
                            reorder_rows=H, value_format = "%.1f", ...)
     )
@@ -242,7 +249,7 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   if(reorder_columns){
     co <- order(colMeans(res), decreasing=TRUE)
   }else{
-    co <- 1:ncol(res)
+    co <- seq_len(ncol(res))
   }
   res <- res[ro,co]
   res2 <- res2[ro,co]
@@ -317,7 +324,9 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   if(!is.null(agg.by)){
     agg.by2 <- c(agg.by, intersect(colnames(res),c("dataset","subpopulation")))
     if(is.null(what)){
-      what <- colnames(res)[which(sapply(res,class) %in% c("integer","numeric"))]
+      what <- colnames(res)[which(
+        sapply(res,class) %in% c("integer","numeric")
+      )]
       what <- setdiff(what, agg.by)
     }
     res <- aggregate(res[,what,drop=FALSE], by=res[,agg.by2,drop=FALSE], 
@@ -376,9 +385,9 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   }
   # get back the initial number of cells
   mm <- ll[[1]]
-  for(i in 1:(length(ll)-1)){
+  for(i in seq_len(length(ll)-1)){
     f <- setdiff(colnames(ll[[i]]), c("N.before","N.lost","pc.lost"))
-    suf <- paste0(".",names(ll)[i:(i+1)])
+    suf <- paste0(".",names(ll)[i+0:1])
     if(i>1) suf[1] <- ""
     mm <- merge(mm, ll[[i+1]], by=f, suffixes=suf)
   }
@@ -398,10 +407,13 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
 #' @param steps Steps to include (default 'doublet' and 'filtering'); other 
 #' steps will be averaged.
 #' @param clustMetric Clustering accuracy metric to use (default `mean_F1``)
-#' @param returnTable Logical; whether to return the data.frame rather than plot.
+#' @param returnTable Logical; whether to return the data rather than plot.
 #'
 #' @return A ggplot, or a data.frame if `returnTable=TRUE`
 #' @export
+#' @examples
+#' data("exampleResults", package="pipeComp")
+#' scrna_evalPlot_filtering(exampleResults)
 scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"), 
                                      clustMetric="mean_F1", returnTable=FALSE){
   param_fields <- unlist(arguments(metadata(res)$PipelineDefinition)[steps])
@@ -414,7 +426,8 @@ scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"),
     sapply(ci, function(x) agf(co[x,"pc.lost"]) )
   })))
   x$total.lost <- sapply(ci, FUN=function(x) sum(co[x,"N.lost"]))
-  x$pc.lost <- sapply(ci,FUN=function(x) 100*sum(co[x,"N.lost"])/sum(co[x,"N"]))
+  x$pc.lost <- sapply(ci,
+                      FUN=function(x) 100*sum(co[x,"N.lost"])/sum(co[x,"N"]))
   x <- cbind(coI[sapply(ci,FUN=function(x) x[1]),], x)
   # get clustering data
   cl <- aggregate( res$clustering[,clustMetric,drop=FALSE], 
@@ -425,7 +438,7 @@ scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"),
   if(returnTable) return(m)
   if( length(param_fields)==2 && 
       all(sort(param_fields)==c("doubletmethod","filt")) ){
-    return(ggplot(m, aes(max.lost, mean_F1, colour=filt, shape=doubletmethod)) + 
+    return(ggplot(m, aes(max.lost, mean_F1, colour=filt, shape=doubletmethod))+ 
       geom_point(size=3) + facet_wrap(~dataset, scales="free") + 
       xlab("Max proportion of subpopulation excluded") +
       labs(colour="filterset", shape="doublet method"))
@@ -446,7 +459,8 @@ scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"),
 #' @return A plot_grid output
 #'
 #' @export
-#' @import SummarizedExperiment SingleCellExperiment scran scater ggplot2 scales
+#' @import SingleCellExperiment scran scater ggplot2 scales
+#' @importFrom SummarizedExperiment colData colData<-
 #' @importFrom cowplot plot_grid
 scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
   if(is.null(names(sces))) names(sces) <- paste0("dataset",seq_along(sces))
@@ -468,7 +482,7 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
     y
   })
   for(i in seq_along(sces)) 
-    sces[[i]]$cluster <- cols[[i]][as.character(sces[[i]]$phenoid)]
+    sces[[i]]$cluster <- cols[[i]][as.character(colData(sces[[i]])$phenoid)]
   cd <- lapply(sces, FUN=function(x) as.data.frame(colData(x)))
   names(cols2) <- cols2 <- unique(unlist(cols))
   noy <- theme( axis.line=element_blank(),axis.text.y=element_blank(),
@@ -484,12 +498,13 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
     facet_wrap(~dataset, scales="free_y", ncol=1, strip.position = "left") + 
     coord_flip() + ylab("Number of cells") + xlab("") +  noy + cs
   for(x in names(sces))
-    sces[[x]]$cluster <- unlist(cols)[paste(x, sces[[x]]$phenoid,sep=".")]
+    colData(sces[[x]])$cluster <- 
+      unlist(cols)[paste(x, colData(sces[[x]])$phenoid,sep=".")]
   d <- suppressWarnings(dplyr::bind_rows(lapply(cd, FUN=function(x) 
     x[,c("total_counts","total_features","cluster")]))
   )
   d$dataset <- rep(names(cd),sapply(cd,nrow))
-  pf <- function(d, x) ggplot(d, aes_string(x="cluster", y=x, fill="cluster")) + 
+  pf <- function(d, x) ggplot(d, aes_string(x="cluster", y=x, fill="cluster"))+ 
     geom_violin() + xlab("") + coord_flip() + noy + cs +
     facet_wrap(~dataset, scales="free_y", ncol=1) + 
     theme( strip.text.x = element_blank(), 

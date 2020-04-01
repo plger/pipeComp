@@ -42,10 +42,11 @@ The results are also stored in the output folder with:
 \itemize{
 \item The clustering results for each dataset (`endOutputs.rds` files),
 \item A SimpletList of elapsed time and evaluations for each dataset 
-(`evaluation.rds` files),
-\item A list of the `pipelineDef`, `alternatives`, `sessionInfo()` and function 
-call used to produce the results (`runPipelineInfo.rds` file),
-\item A copy of the SimpleList returned by the function (`aggregated.rds`file). 
+ (`evaluation.rds` files),
+\item A list of the `pipelineDef`, `alternatives`, `sessionInfo()` and
+ function call used to produce the results (`runPipelineInfo.rds` file),
+\item A copy of the SimpleList returned by the function 
+ (`aggregated.rds`file). 
 }
 }
 \description{
@@ -55,7 +56,7 @@ consecutively on their respective outputs. See 'examples' for more details.
 }
 \examples{
 
-# Example of function list that will define the alternatives of the pipeline: 
+#Example of function list that will define the alternatives of the pipeline: 
 source(system.file("extdata", "scrna_alternatives.R", package="pipeComp"))
 scrna_seurat_defAlternatives()
 

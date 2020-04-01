@@ -102,7 +102,7 @@ returning only running times.")
 
 .aggElapsed <- function(res){
   el.tot <- parsePipNames(names(res[[1]]))
-  el.tot <- el.tot[rep(1:nrow(el.tot), length(res)),,drop=FALSE]
+  el.tot <- el.tot[rep(seq_len(nrow(el.tot)), length(res)),,drop=FALSE]
   row.names(el.tot) <- NULL
   el.tot$dataset <- factor(rep(names(res), each=length(res[[1]])))
   el.tot$elapsed <- as.numeric(unlist(res))
@@ -116,7 +116,8 @@ returning only running times.")
     stop("The different datasets were not produced with the same pipeline!")
   for(step in names(res1[[1]])){
     tt <- table(unlist(lapply(res1, FUN=function(x) names(x[[step]]) )))
-    if(!all(tt==length(res1))) stop("The different datasets do not have the same",
+    if(!all(tt==length(res1))) 
+      stop("The different datasets do not have the same",
         " runs, i.e. they include different sets of alternative parameters.")
   }
   if(!is.null(res2)){
@@ -130,7 +131,8 @@ returning only running times.")
       pd1 <- metadata(res1)$PipelineDefinition
       pd2 <- metadata(res2)$PipelineDefinition
       if(!identical(pd1@evaluation,pd2@evaluation)){
-        msg <- "The evaluation functions of the PipelineDefinitions are not identical"
+        msg <- paste("The evaluation functions of the PipelineDefinitions are",
+                    "not identical")
         if(requirePDidentity) stop(msg)
         warning(msg)
       }
@@ -167,7 +169,7 @@ mergePipelineResults <- function(res1,res2){
   nn <- intersect(names(res1),names(res2))
   if(length(nn) != length(res1)){
     if(length(nn)==0) stop("The results do not share datasets.")
-    warning("The results will be reduced to the subset of datasets they share.")
+    warning("The results will be reduced to the datasets they share.")
     res1 <- res1[nn]
     res2 <- res2[nn]
   }
@@ -209,9 +211,9 @@ mergePipelineResults <- function(res1,res2){
 
 #' defaultStepAggregation
 #'
-#' @param x A list of results per dataset, each containing a list (1 element per
-#'  combination of parameters) of evaluation metrics (coercible to vectors or 
-#'  matrix).
+#' @param x A list of results per dataset, each containing a list (1 element 
+#' per combination of parameters) of evaluation metrics (coercible to vectors 
+#' or matrix).
 #'
 #' @return A data.frame.
 #' @export

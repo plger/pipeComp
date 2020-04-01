@@ -58,3 +58,8 @@ One or several `Heatmap` object.
 Plotting aggregated evaluation results at the level of clustering for the 
 scRNA pipelines.
 }
+\examples{
+data("exampleResults", package="pipeComp")
+scrna_evalPlot_clust(exampleResults)
+
+}

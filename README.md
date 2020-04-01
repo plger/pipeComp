@@ -123,7 +123,16 @@ Steps can also be added (using the `addPipelineStep` function) and edited - see 
 
 `runPipeline` requires 3 main arguments: i) the pipelineDefinition, ii) the list of alternative parameters values to try, and iii) the list of benchmark datasets.
 
-Functions can be passed as arguments through their name (if they are loaded in the environment).
+The scRNAseq datasets used in the papers can be downloaded from [figshare](https://doi.org/10.6084/m9.figshare.11787210.v1) and prepared in the following way:
+
+```{r}
+download.file("https://ndownloader.figshare.com/articles/11787210/versions/1", "datasets.zip")
+unzip("datasets.zip", exdir="datasets")
+datasets <- list.files("datasets", pattern="SCE\\.rds", full.names=TRUE)
+names(datasets) <- sapply(strsplit(basename(datasets),"\\."),FUN=function(x) x[1])
+```
+
+Next we prepare the alternative methods and parameters. Functions can be passed as arguments through their name (if they are loaded in the environment):
 
 ```{r}
 # load alternative functions

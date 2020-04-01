@@ -30,3 +30,8 @@ A ggplot, or a data.frame if `return.df=TRUE`
 \description{
 Plot total elapsed time per run, split per step.
 }
+\examples{
+data("exampleResults", package="pipeComp")
+plotElapsed(exampleResults, agg.by = "norm")
+
+}

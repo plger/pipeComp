@@ -56,3 +56,8 @@ One or several `Heatmap` object.
 Plotting aggregated evaluation results at the level of dimensionality 
 reduction for the scRNA pipelines.
 }
+\examples{
+data("exampleResults", package="pipeComp")
+scrna_evalPlot_DR(exampleResults)
+
+}
