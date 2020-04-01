@@ -55,7 +55,6 @@ getDimensionality <- function(dat, method, maxDims=NULL){
 seWrap <- function(sce, min.cells=10, min.features=0){
   if(is(sce,"Seurat")) return(sce)
   if(!is(sce,"SingleCellExperiment")) stop("not a SingleCellExperiment!")
-  suppressPackageStartupMessages(library(Seurat))
   se <- CreateSeuratObject( counts=counts(sce), 
                             min.cells=min.cells, 
                             min.features=min.features, 

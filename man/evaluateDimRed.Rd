@@ -15,6 +15,9 @@ as columns}
 \item{n}{A numeric vector indiciating the number of top dimensions at which 
 to gather statistics (default `c(10,20,50)`). Will use all available 
 dimensions if a higher number is given.}
+
+\item{covars}{A character vectors containing any additional covariates 
+(column names of `colData`) to track during evalutation.}
 }
 \value{
 A list with the following components:
