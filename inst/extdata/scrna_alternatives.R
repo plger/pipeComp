@@ -9,7 +9,6 @@
 #' @param ds An object of class `SingleCellExperiment`
 #'
 #' @return The `SingleCellExperiment` object with updated metadata.
-#' @export
 add_meta <- function(ds){
   library(scater)
   library(Matrix)
@@ -53,7 +52,6 @@ add_meta <- function(ds){
 #' TRUE), rather than a loess.
 #'
 #' @return A vector of differences.
-#' @export
 getFeatCountDist <- function(df, do.plot=FALSE, linear=TRUE){
   if(is(df,"SingleCellExperiment")) df <- as.data.frame(colData(df))
   if(linear){
@@ -80,7 +78,6 @@ getFeatCountDist <- function(df, do.plot=FALSE, linear=TRUE){
 #' @param sce An object of class `SingleCellExperiment`.
 #'
 #' @return The updated object.
-#' @export
 compute_all_gene_info <- function(sce){
   library(variancePartition)
   library(sctransform)
