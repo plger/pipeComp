@@ -54,6 +54,7 @@ getDimensionality <- function(dat, method, maxDims=NULL){
 #' @importFrom SummarizedExperiment assayNames
 seWrap <- function(sce, min.cells=10, min.features=0){
   if(is(sce,"Seurat")) return(sce)
+  if(!is(sce,"SingleCellExperiment")) stop("not a SingleCellExperiment!")
   suppressPackageStartupMessages(library(Seurat))
   se <- CreateSeuratObject( counts=counts(sce), 
                             min.cells=min.cells, 
@@ -78,10 +79,8 @@ seWrap <- function(sce, min.cells=10, min.features=0){
 #' @import SingleCellExperiment Seurat
 #' @importFrom SummarizedExperiment rowData<-
 sceWrap <- function(seu) {
-  suppressPackageStartupMessages({
-    library(SingleCellExperiment)
-    library(Seurat)
-  })
+  if(is(seu,"SingleCellExperiment")) return(seu)
+  if(!is(seu,"Seurat")) stop("not a Seurat object!")
   sce <- SingleCellExperiment(
     list(counts=GetAssayData(seu, assay="RNA", slot="counts")), 
     colData = seu[[]] )
