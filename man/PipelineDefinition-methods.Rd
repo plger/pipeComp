@@ -11,10 +11,15 @@
 \alias{length,PipelineDefinition-method}
 \alias{[,PipelineDefinition,ANY,ANY,ANY-method}
 \alias{as.list,PipelineDefinition-method}
+\alias{arguments}
 \alias{arguments,PipelineDefinition-method}
+\alias{defaultArguments}
+\alias{defaultArguments<-}
 \alias{defaultArguments,PipelineDefinition-method}
 \alias{defaultArguments<-,PipelineDefinition-method}
+\alias{stepFn}
 \alias{stepFn,PipelineDefinition-method}
+\alias{stepFn<-}
 \alias{stepFn<-,PipelineDefinition-method}
 \title{Methods for \code{\link{PipelineDefinition}} class}
 \usage{
@@ -32,13 +37,23 @@
 
 \S4method{as.list}{PipelineDefinition}(x)
 
+arguments(object)
+
 \S4method{arguments}{PipelineDefinition}(object)
+
+defaultArguments(object)
+
+defaultArguments(object) <- value
 
 \S4method{defaultArguments}{PipelineDefinition}(object)
 
 \S4method{defaultArguments}{PipelineDefinition}(object) <- value
 
+stepFn(object, step, type)
+
 \S4method{stepFn}{PipelineDefinition}(object, step, type)
+
+stepFn(object, step, type) <- value
 
 \S4method{stepFn}{PipelineDefinition}(object, step, type) <- value
 }
@@ -46,6 +61,12 @@
 \item{object}{An object of class \code{\link{PipelineDefinition}}}
 
 \item{x}{An object of class \code{\link{PipelineDefinition}}}
+
+\item{value}{Replacement values}
+
+\item{name}{The step name}
+
+\item{i}{The index(es) of the steps}
 
 \item{step}{The name of the step for which to set or get the function}
 

@@ -185,6 +185,7 @@ setMethod("names", signature("PipelineDefinition"), function(x){
   names(x@functions)
 })
 #' @rdname PipelineDefinition-methods
+#' @param value Replacement values
 setMethod("names<-", signature("PipelineDefinition"), function(x, value){
   if(any(duplicated(value))) stop("Some step names are duplicated!")
   names(x@functions) <- value
@@ -196,6 +197,7 @@ setMethod("names<-", signature("PipelineDefinition"), function(x, value){
 })
 
 #' @rdname PipelineDefinition-methods
+#' @param name The step name
 setMethod("$", signature("PipelineDefinition"), function(x, name){
   x@functions[[name]]
 })
@@ -206,6 +208,7 @@ setMethod("length", signature("PipelineDefinition"), function(x){
 })
 
 #' @rdname PipelineDefinition-methods
+#' @param i The index(es) of the steps
 setMethod("[",signature("PipelineDefinition"), function(x, i){
   new("PipelineDefinition", functions=x@functions[i], 
        descriptions=x@descriptions[i], evaluation=x@evaluation[i],
@@ -218,15 +221,18 @@ setMethod("as.list",signature("PipelineDefinition"), function(x){
 })
 
 #' @exportMethod arguments
+#' @rdname PipelineDefinition-methods
 setGeneric("arguments", function(object) args(object))
 #' @rdname PipelineDefinition-methods
 setMethod("arguments",signature("PipelineDefinition"), function(object){
   lapply(object@functions, FUN=function(x){ setdiff(names(formals(x)), "x") })
 })
 
+#' @rdname PipelineDefinition-methods
 #' @exportMethod defaultArguments
 setGeneric("defaultArguments", function(object) NULL)
 #' @exportMethod defaultArguments<-
+#' @rdname PipelineDefinition-methods
 setGeneric("defaultArguments<-", function(object, value) NULL)
 #' @rdname PipelineDefinition-methods
 setMethod("defaultArguments",signature("PipelineDefinition"), function(object){
@@ -241,6 +247,7 @@ setMethod( "defaultArguments<-",signature("PipelineDefinition"),
 })
 
 #' @exportMethod stepFn
+#' @rdname PipelineDefinition-methods
 setGeneric("stepFn", function(object, step, type) standardGeneric("stepFn"))
 #' @param step The name of the step for which to set or get the function
 #' @param type The type of function to set/get, either `functions`, 
@@ -255,6 +262,7 @@ setMethod("stepFn", signature("PipelineDefinition"),
   slot(object, type)[[step]]
 })
 #' @exportMethod stepFn<-
+#' @rdname PipelineDefinition-methods
 setGeneric( "stepFn<-", 
             function(object, step, type, value) standardGeneric("stepFn<-") )
 #' @rdname PipelineDefinition-methods

@@ -87,5 +87,6 @@ res <- runPipeline( datasets, alternatives, pipDef, nthreads=3,
 pip <- mockPipeline()
 datasets <- list( ds1=1:3, ds2=c(5,10,15) )
 tmpdir1 <- paste0(tempdir(),"/")
-res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1)
+res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1,
+                   alternatives=list() )
 }

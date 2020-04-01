@@ -32,6 +32,7 @@
 #'
 #' @import ComplexHeatmap grid S4Vectors
 #' @importFrom viridisLite inferno
+#' @importFrom stats quantile
 scrna_evalPlot_DR <- function(res, what=c("auto"), 
                               covar.type=c("PC1.covar.adjR2", "meanAbsCorr.covariate2"),
                               reorder_rows=TRUE, reorder_columns=NULL,
@@ -182,6 +183,7 @@ scrna_evalPlot_DR <- function(res, what=c("auto"),
 #'
 #' @import ComplexHeatmap grid
 #' @importFrom viridisLite inferno
+#' @importFrom circlize colorRamp2
 scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
                                  agg.by=NULL, agg.fn=mean, 
                                  scale=FALSE, value_format="%.2f", 
@@ -410,6 +412,7 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
 #' @param returnTable Logical; whether to return the data rather than plot.
 #'
 #' @return A ggplot, or a data.frame if `returnTable=TRUE`
+#' @importFrom stats median
 #' @export
 #' @examples
 #' data("exampleResults", package="pipeComp")
@@ -462,6 +465,9 @@ scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"),
 #' @import SingleCellExperiment scran scater ggplot2 scales
 #' @importFrom SummarizedExperiment colData colData<-
 #' @importFrom cowplot plot_grid
+#' @importFrom RColorBrewer brewer.pal
+#' @importFrom Rtsne Rtsne
+#' @importFrom uwot umap
 scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
   if(is.null(names(sces))) names(sces) <- paste0("dataset",seq_along(sces))
   if(is.character(sces)){
@@ -470,8 +476,8 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
       sce <- logNormCounts(sce)
       var.stats <- modelGeneVar(sce)
       sce <- denoisePCA(sce, technical=var.stats)
-      reducedDim(sce, "tSNE") <- Rtsne::Rtsne(reducedDim(sce))$Y
-      reducedDim(sce, "umap") <- uwot::umap(reducedDim(sce))
+      reducedDim(sce, "tSNE") <- Rtsne(reducedDim(sce))$Y
+      reducedDim(sce, "umap") <- umap(reducedDim(sce))
       sce
     })
   }
@@ -530,13 +536,14 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
              nrow=1 )
 }
 
+#' @importFrom circlize colorRamp2
 .silScale <- function(x, cols=NULL){
-  if(is.null(cols)) cols <- rev(RColorBrewer::brewer.pal(n=11,"RdBu"))
+  if(is.null(cols)) cols <- rev(brewer.pal(n=11,"RdBu"))
   if(is.function(cols)) cols <- cols(11)
   if(length(cols)!=11) stop("`cols` should contain 11 colors.")
   bb <- c( -seq(from=sqrt(abs(min(x, na.rm=TRUE))), to=0, length.out=6)^2, 
            seq(from=0, to=sqrt(max(x, na.rm=TRUE)), length.out=6)[-1]^2 )
-  circlize::colorRamp2(bb, cols)
+  colorRamp2(bb, cols)
 }
 
 .renameHrows <- function(h, f=function(x) gsub("norm\\.","",x)){
