@@ -5,8 +5,8 @@
 \title{runPipeline}
 \usage{
 runPipeline(datasets, alternatives, pipelineDef, comb = NULL,
-  output.prefix = "", nthreads = length(datasets),
-  saveEndResults = TRUE, debug = FALSE, ...)
+  output.prefix = "", nthreads = 1, saveEndResults = TRUE,
+  debug = FALSE, ...)
 }
 \arguments{
 \item{datasets}{A named vector of initial objects or paths to rds files.}
@@ -23,7 +23,8 @@ performed.}
 
 \item{output.prefix}{An optional prefix for the output files.}
 
-\item{nthreads}{Number of threads, defaults to the number of datasets.}
+\item{nthreads}{Number of threads, defaults to 1, but we recommend to use 
+the number of datasets.}
 
 \item{saveEndResults}{Logical; whether to save the output of the last step.}
 

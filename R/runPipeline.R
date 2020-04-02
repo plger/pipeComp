@@ -13,7 +13,8 @@
 #' indexes relative to this element. If omitted, all combinations will be 
 #' performed.
 #' @param output.prefix An optional prefix for the output files.
-#' @param nthreads Number of threads, defaults to the number of datasets.
+#' @param nthreads Number of threads, defaults to 1, but we recommend to use 
+#' the number of datasets.
 #' @param saveEndResults Logical; whether to save the output of the last step.
 #' @param debug Logical (default FALSE). When enabled, disables multithreading 
 #' and prints extra information.
@@ -75,7 +76,7 @@
 #' res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1,
 #'                    alternatives=list() )
 runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL, 
-                         output.prefix="", nthreads=length(datasets), 
+                         output.prefix="", nthreads=1, 
                          saveEndResults=TRUE, debug=FALSE, ...){
   mcall <- match.call()
   if(!is(pipelineDef,"PipelineDefinition")) 
