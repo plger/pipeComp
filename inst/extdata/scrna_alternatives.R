@@ -656,12 +656,12 @@ scran.denoisePCA <- function(x, dims=50, pca.method=c("exact","irlba"), ...){
   if(packageVersion("scran") >= "1.13"){
     var.stats <- modelGeneVar(dat)
     dat <- denoisePCA(dat, technical=var.stats, min.rank=2, max.rank=dims, 
-                      subset.row=metadata(dat)@VariableFeats, BSPARAM=BSPARAM, 
+                      subset.row=metadata(dat)$VariableFeats, BSPARAM=BSPARAM, 
                       ...)
   }else{
     td <- trendVar(dat, use.spikes=FALSE)
     dat <- denoisePCA(dat, technical=td$trend, min.rank=2, max.rank=dims, 
-                      subset.row=metadata(dat)@VariableFeats, BSPARAM=BSPARAM, 
+                      subset.row=metadata(dat)$VariableFeats, BSPARAM=BSPARAM, 
                       ...)
   }
   if(is(x, "Seurat")) return(sceDR2seurat(reducedDim(dat, "PCA"), x, "pca")) else return(dat)
@@ -711,7 +711,7 @@ scran.runPCA <- function(x, dims=50){
     dat <- x
   }
   dat <- scater::runPCA(dat, ncomponents = dims, 
-                        subset_row=metadata(dat)@VariableFeat)
+                        subset_row=metadata(dat)$VariableFeats)
   if(is(x, "Seurat")) return(sceDR2seurat(reducedDim(dat, "PCA"), x, "pca")) else return(dat)
 }
 
@@ -889,7 +889,7 @@ getFilterStrings <- function(mads=c(2,2.5,3,5), times=1:2, dirs=c("higher","both
 
 doublet.scDblFinder <- function(x, trans = "scran"){
   suppressPackageStartupMessages(library(scDblFinder))
-  x <- scDblFinder(x, trans = "scran", verbose=FALSE)
+  x <- scDblFinder(x, verbose=FALSE)
   x[,which(x$scDblFinder.class!="doublet")]
 }
 
