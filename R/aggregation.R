@@ -6,7 +6,6 @@
 #' or `resfiles` should be given.
 #'
 #' @return A list of results.
-#' @export
 #' @examples
 #' # we produce mock pipeline results:
 #' pip <- mockPipeline()
@@ -16,6 +15,7 @@
 #'                    alternatives=list() )
 #' # we read the evaluation files:
 #' res <- readPipelineResults(tmpdir1)
+#' @export
 readPipelineResults <- function(path=NULL, resfiles=NULL){
   if( (!is.null(path) && !is.null(resfiles)) ||
       (is.null(path) && is.null(resfiles)) )
@@ -148,8 +148,6 @@ returning only running times.")
 #' @param res2 A list of pipeline results, as produced by `readPipelineResults`
 #'
 #' @return A list of pipeline results.
-#' @export
-#' @import S4Vectors
 #' @examples
 #' # we produce 2 mock pipeline results:
 #' pip <- mockPipeline()
@@ -167,6 +165,8 @@ returning only running times.")
 #' res <- mergePipelineResults(res1,res2)
 #' # and we aggregate:
 #' res <- aggregatePipelineResults(res)
+#' @export
+#' @import S4Vectors
 mergePipelineResults <- function(res1,res2){
   .checkRes(res1,res2)
   nn <- intersect(names(res1),names(res2))

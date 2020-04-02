@@ -11,7 +11,7 @@
 #' 
 #' @importFrom utils installed.packages
 #' @examples
-#' checkPipelinePackages(list(argument1="mean"), scrna_seurat_pipeline())
+#' checkPipelinePackages(list(argument1="mean"), scrna_pipeline())
 checkPipelinePackages <- function(alternatives, pipDef=NULL){
   fns <- unlist(alternatives[sapply(alternatives, class)=="character"])
   fns <- lapply(fns, FUN=function(x){
