@@ -100,6 +100,8 @@ evaluateClustering <- function(x, tl){
 #' @param n A numeric vector indiciating the number of top dimensions at which 
 #' to gather statistics (default `c(10,20,50)`). Will use all available 
 #' dimensions if a higher number is given.
+#' @param covars A character vectors containing any additional covariates 
+#' (column names of `colData`) to track during evalutation.
 #'
 #' @return A list with the following components:
 #' * silhouettes: a matrix of the silhouette for each cell-cluster pair at each 
@@ -328,7 +330,10 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
 #' `clusterName.cellName`)
 #'
 #' @return A list.
+#' 
+#' @importFrom clue solve_LSAP
 #' @export
+#' 
 #' @examples
 #' # random data
 #' dat <- data.frame( 
@@ -412,7 +417,7 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL){
   if (nrow(F1_mat_trans) <= ncol(F1_mat_trans)) {
     # if fewer (or equal no.) true populations than detected clusters, can 
     # match all true populations
-    labels_matched <- clue::solve_LSAP(F1_mat_trans, maximum = TRUE)
+    labels_matched <- solve_LSAP(F1_mat_trans, maximum = TRUE)
     # use row and column names since some labels may have been removed due to 
     # unassigned cells
     labels_matched <- 
@@ -422,7 +427,7 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL){
   } else {
     # if fewer detected clusters than true populations, use transpose matrix
     # and assign NAs for true populations without any matching clusters
-    labels_matched_flipped <- clue::solve_LSAP(F1_mat, maximum = TRUE)
+    labels_matched_flipped <- solve_LSAP(F1_mat, maximum = TRUE)
     # use row and column names since some labels may have been removed due to 
     # unassigned cells
     labels_matched_flipped <- 
@@ -479,6 +484,7 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL){
 #'
 #' @return a data.frame.
 #' @export
+#' @importFrom SummarizedExperiment colData
 #' @importFrom matrixStats rowMedians
 #' @importFrom Matrix rowMeans
 #' @importFrom Seurat GetAssayData
@@ -491,10 +497,8 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL){
 #' sce$cluster <- sample(LETTERS[1:3], ncol(sce), replace=TRUE)
 #' evaluateNorm(sce, sce$cluster, covars="detected")
 evaluateNorm <- function(x, clusters=NULL, covars){
-  library(Seurat)
   if(missing(covars)) covars <- c("log10_total_counts", "total_features")
   if(is(x,"Seurat")){
-    library(Seurat)
     if(is.character(covars) && length(covars)>0) 
       covars <- x[[]][,covars,drop=FALSE]
     if(is.null(clusters)) clusters <- x$phenoid
