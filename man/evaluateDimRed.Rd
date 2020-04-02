@@ -35,7 +35,7 @@ Gathers evaluation statistics on a reduced space using known cell labels.
 # random data
 library(scater)
 sce <- runPCA(logNormCounts(mockSCE(ngenes = 500)))
-sce <- addQCPerCell(sce)
+sce <- addPerCellQC(sce)
 # random population labels
 sce$cluster <- sample(LETTERS[1:3], ncol(sce), replace=TRUE)
 res <- evaluateDimRed(sce, sce$cluster, covars=c("sum","detected"))
