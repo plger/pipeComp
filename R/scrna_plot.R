@@ -201,13 +201,20 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   if(length(what)==1 && what=="auto"){
     H <- scrna_evalPlot_clust(res, "MI", agg.by=agg.by, atTrueK=FALSE, 
                               scale=scale, reorder_rows=TRUE, ...)
+    H2 <- tryCatch(scrna_evalPlot_clust(res, "ARI", agg.by=agg.by, atTrueK=TRUE, 
+                                        scale=scale, reorder_rows=H, ...),
+                   error=function(e) NULL)
+    if(is.null(H2) || nrow(H)!=nrow(H2)){
+      H2 <- NULL
+      warning("ARI at the true number of clusters is omitted, most likely ",
+              "because some of the methods never yielded a clustering ",
+              "with the true number of clusters...")
+    }
     return( H +
       scrna_evalPlot_clust(res, "ARI", agg.by=agg.by, atTrueK=FALSE, 
                            scale=scale, reorder_rows=H, ...) + 
       scrna_evalPlot_clust(res, "min_F1", agg.by=agg.by, atTrueK=FALSE, 
-                           scale=scale, reorder_rows=H, ...) + 
-      scrna_evalPlot_clust(res, "ARI", agg.by=agg.by, atTrueK=TRUE, 
-                             scale=scale, reorder_rows=H, ...) + 
+                           scale=scale, reorder_rows=H, ...) + H2 + 
       scrna_evalPlot_clust(res, "delta.nbClust", agg.by=agg.by, atTrueK=FALSE,
                            col=circlize::colorRamp2(c(-5, 0, 5), 
                                                     c("red", "white", "blue")),
@@ -226,12 +233,13 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   if("evaluation" %in% names(res)) res <- res$evaluation
   if("clustering" %in% names(res)) res <- res$clustering
   if(atTrueK){
-    res2 <- res <- .prepRes(res[which(res$n_clus==res$true.nbClusts),], 
-                            what=what, agg.by, agg.fn, pipDef=pipDef)
+    res <- res[which(res$n_clus==res$true.nbClusts),,drop=FALSE]
+    if(any(sapply(res[,agg.by], FUN=function(x) any(table(x))==0)))
+      warning("Some methods never yielded the correct number of clusters...")
+    res2 <- res <- .prepRes(res, what=what, agg.by, agg.fn, pipDef=pipDef)
   }else{
     res2 <- res <- .prepRes(res, what=what, agg.by, agg.fn, pipDef=pipDef)
   }
-  
   if(scale) res2 <- .safescale(res)
   row.names(res2) <- row.names(res) <- 
     gsub("resolution=", "res=", gsub("norm=norm\\.","",row.names(res2)))
@@ -256,6 +264,7 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   res <- res[ro,co]
   res2 <- res2[ro,co]
   res2 <- as.matrix(res2)
+  if(sum(!is.na(res2))<2) stop("Too few non-NA values to plot!")
   cellfn <- .getCellFn(res,res2,value_format, value_cols)
   if(is.null(title)){
     title <- gsub("_re$","\nrecall",gsub("_pr$","\nprecision",what))
