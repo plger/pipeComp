@@ -67,7 +67,7 @@ readPipelineResults <- function(path=NULL, resfiles=NULL){
 #' # we aggregate the results (equivalent to the output of `runPipeline`):
 #' res <- aggregatePipelineResults(res)
 aggregatePipelineResults <- function(res, pipDef=NULL){
-  if(all(names(res)==c("evaluation","elapsed")))
+  if(length(res)==2 && all(names(res)==c("evaluation","elapsed")))
     stop("`res` appears to be already aggregated, or the results of a single",
          " dataset")
   .checkRes(res, requirePDidentity=is.null(pipDef))
