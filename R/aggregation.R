@@ -175,39 +175,43 @@ mergePipelineResults <- function(res1,res2){
     res2 <- res2[nn]
   }
   names(nn) <- nn
-  names(steps) <- steps <- names(res1[[1]]$evaluation)
-  esteps <- sapply(res1[[1]]$evaluation, FUN=function(x){
-    !is.null(x) && length(x)>0
-  })
   lapply(nn, FUN=function(ds){
-    edif <- setdiff( names(res2[[ds]]$elapsed$total), 
-                     names(res1[[ds]]$elapsed$total))
-    res <- SimpleList(
-      evaluation=lapply(steps[esteps], FUN=function(step){
-        r1 <- res1[[ds]]$evaluation[[step]]
-        r2 <- res2[[ds]]$evaluation[[step]]
-        dif <- setdiff(names(r2),names(r1))
-        c(r1, r2[dif])
-      }),
-      elapsed=list(
-        stepwise=lapply(steps, FUN=function(step){
-          r1 <- res1[[ds]]$elapsed$stepwise[[step]]
-          r2 <- res2[[ds]]$elapsed$stepwise[[step]]
-          dif <- setdiff(names(r2), names(r1))
-          c(r1, r2[dif])
-        }),
-        total=c(res1[[ds]]$elapsed$total,res2[[ds]]$elapsed$total[edif])
-      )
-    )
-    if(!is.null(metadata(res1[[ds]])$PipelineDefinition)){
-      metadata(res)$PipelineDefinition<-metadata(res1[[ds]])$PipelineDefinition
-    }else if(!is.null(metadata(res2[[ds]])$PipelineDefinition)){ 
-      metadata(res)$PipelineDefinition< metadata(res2[[ds]])$PipelineDefinition
-    }
-    res
+    .dsMergeResults(res1[[ds]], res2[[ds]])
   })
+    
 }
 
+.dsMergeResults <- function(res1, res2){
+  names(steps) <- steps <- names(res1$evaluation)
+  esteps <- sapply(res1$evaluation, FUN=function(x){
+    !is.null(x) && length(x)>0
+  })
+  edif <- setdiff( names(res2$elapsed$total), 
+                   names(res1$elapsed$total))
+  res <- SimpleList(
+    evaluation=lapply(steps[esteps], FUN=function(step){
+      r1 <- res1$evaluation[[step]]
+      r2 <- res2$evaluation[[step]]
+      dif <- setdiff(names(r2),names(r1))
+      c(r1, r2[dif])
+    }),
+    elapsed=list(
+      stepwise=lapply(steps, FUN=function(step){
+        r1 <- res1$elapsed$stepwise[[step]]
+        r2 <- res2$elapsed$stepwise[[step]]
+        dif <- setdiff(names(r2), names(r1))
+        c(r1, r2[dif])
+      }),
+      total=c(res1$elapsed$total,res2$elapsed$total[edif])
+    )
+  )
+  if(!is.null(metadata(res1)$PipelineDefinition)){
+    metadata(res)$PipelineDefinition<-metadata(res1)$PipelineDefinition
+  }else if(!is.null(metadata(res2)$PipelineDefinition)){ 
+    metadata(res)$PipelineDefinition< metadata(res2)$PipelineDefinition
+  }
+  res
+}
 
 
 #' defaultStepAggregation
