@@ -23,8 +23,9 @@ performed.}
 
 \item{output.prefix}{An optional prefix for the output files.}
 
-\item{nthreads}{Number of threads, defaults to 1, but we recommend to use 
-the number of datasets.}
+\item{nthreads}{Number of threads, default 1. If the memory requirements are
+very high or the first steps very long to compute, consider setting this as
+the number of datasets or below.}
 
 \item{saveEndResults}{Logical; whether to save the output of the last step.}
 
