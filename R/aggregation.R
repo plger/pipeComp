@@ -6,7 +6,6 @@
 #' or `resfiles` should be given.
 #'
 #' @return A list of results.
-#' @export
 #' @examples
 #' # we produce mock pipeline results:
 #' pip <- mockPipeline()
@@ -16,6 +15,7 @@
 #'                    alternatives=list() )
 #' # we read the evaluation files:
 #' res <- readPipelineResults(tmpdir1)
+#' @export
 readPipelineResults <- function(path=NULL, resfiles=NULL){
   if( (!is.null(path) && !is.null(resfiles)) ||
       (is.null(path) && is.null(resfiles)) )
@@ -60,13 +60,14 @@ readPipelineResults <- function(path=NULL, resfiles=NULL){
 #' pip <- mockPipeline()
 #' datasets <- list( ds1=1:3, ds2=c(5,10,15) )
 #' tmpdir1 <- paste0(tempdir(),"/")
-#' res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1)
+#' res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1,
+#'                    alternatives=list() )
 #' # we read the evaluation files:
 #' res <- readPipelineResults(tmpdir1)
 #' # we aggregate the results (equivalent to the output of `runPipeline`):
 #' res <- aggregatePipelineResults(res)
 aggregatePipelineResults <- function(res, pipDef=NULL){
-  if(all(names(res)==c("evaluation","elapsed")))
+  if(length(res)==2 && all(names(res)==c("evaluation","elapsed")))
     stop("`res` appears to be already aggregated, or the results of a single",
          " dataset")
   .checkRes(res, requirePDidentity=is.null(pipDef))
@@ -147,14 +148,13 @@ returning only running times.")
 #' @param res2 A list of pipeline results, as produced by `readPipelineResults`
 #'
 #' @return A list of pipeline results.
-#' @export
-#' @import S4Vectors
 #' @examples
 #' # we produce 2 mock pipeline results:
 #' pip <- mockPipeline()
 #' datasets <- list( ds1=1:3, ds2=c(5,10,15) )
 #' tmpdir1 <- paste0(tempdir(),"/")
-#' res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1)
+#' res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1,
+#'                    alternatives=list() )
 #' alternatives <- list(meth1=c("log2","sqrt"), meth2="cumsum")
 #' tmpdir2 <- paste0(tempdir(),"/")
 #' res <- runPipeline(datasets, alternatives, pip, output.prefix=tmpdir2)
@@ -165,6 +165,8 @@ returning only running times.")
 #' res <- mergePipelineResults(res1,res2)
 #' # and we aggregate:
 #' res <- aggregatePipelineResults(res)
+#' @export
+#' @import S4Vectors
 mergePipelineResults <- function(res1,res2){
   .checkRes(res1,res2)
   nn <- intersect(names(res1),names(res2))

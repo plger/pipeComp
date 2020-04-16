@@ -24,34 +24,12 @@
 #' multithreaded context.
 #'
 #' @examples 
-#' 
-#' #Example of function list that will define the alternatives of the pipeline: 
-#' source(system.file("extdata", "scrna_alternatives.R", package="pipeComp"))
-#' scrna_seurat_defAlternatives()
-#' 
-#' # We can also specify the alternatives manually:
-#' alternatives <- list(
-#'  doubletmethod=c("none"),
-#'  filt=c("filt.lenient"),
-#'  norm=c("norm.seurat", "norm.seuratvst", "norm.scran"),
-#'  sel=c("sel.vst"),
-#'  selnb=2000,
-#'  dr=c("seurat.pca"),
-#'  clustmethod=c("clust.seurat"),
-#'  maxdim=30,
-#'  dims=c(10, 15, 20, 30),
-#'  k=20,
-#'  steps=4,
-#'  resolution=c(0.01, 0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.2, 2),
-#'  min.size=50   
-#'  )
-#'  
-#' # run the pipeline:
-#' res <- runPipeline( datasets, alternatives, pipDef, nthreads=3,
-#'   output.prefix="myfolder/" )
-#'   
-#' # Any additional functions can be used in the pipeline by adding them in the 
-#' # global environment (via "scrna_alternatives.R", other R script, etc...).
+#' pip <- mockPipeline()
+#' datasets <- list( ds1=1:3, ds2=c(5,10,15) )
+#' tmpdir1 <- paste0(tempdir(),"/")
+#' res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1,
+#'                    alternatives=list() )
+#' # See the `pipeComp_scRNA` vignette for a more complex example
 #' 
 #' @return A SimpleList with elapsed time and the results of the evaluation 
 #' functions defined by the given `pipelineDef`.
@@ -70,12 +48,6 @@
 #' @importFrom utils sessionInfo
 #' @import methods BiocParallel S4Vectors
 #' @export
-#' @examples
-#' pip <- mockPipeline()
-#' datasets <- list( ds1=1:3, ds2=c(5,10,15) )
-#' tmpdir1 <- paste0(tempdir(),"/")
-#' res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1,
-#'                    alternatives=list() )
 runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL, 
                          output.prefix="", nthreads=1, 
                          saveEndResults=TRUE, debug=FALSE, ...){

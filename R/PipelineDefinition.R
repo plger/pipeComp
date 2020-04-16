@@ -351,8 +351,8 @@ mockPipeline <- function(){
     list( step1=function(x, meth1){ get(meth1)(x) },
           step2=function(x, meth2){ get(meth2)(x) } ),
     evaluation=list( step2=function(x) c(mean=mean(x), max=max(x)) ),
-    description=list( step1="This steps applies meth1 to x.",
-                      step2="This steps applies meth2 to x."),
+    descriptions=list( step1="This steps applies meth1 to x.",
+                       step2="This steps applies meth2 to x."),
     defaultArguments=list(meth1=c("log","sqrt"), meth2="cumsum")
   )
 }

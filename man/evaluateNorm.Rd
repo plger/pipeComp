@@ -26,7 +26,7 @@ evaluateNorm
 # random data
 library(scater)
 sce <- logNormCounts(mockSCE(ngenes = 500))
-sce <- addQCPerCell(sce)
+sce <- addPerCellQC(sce)
 # random population labels
 sce$cluster <- sample(LETTERS[1:3], ncol(sce), replace=TRUE)
 evaluateNorm(sce, sce$cluster, covars="detected")

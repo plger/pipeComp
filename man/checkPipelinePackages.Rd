@@ -19,5 +19,5 @@ Checks whether the packages required by a pipeline and its alternative
 methods are available.
 }
 \examples{
-checkPipelinePackages(list(argument1="mean"), scrna_seurat_pipeline())
+checkPipelinePackages(list(argument1="mean"), scrna_pipeline())
 }
