@@ -4,9 +4,15 @@
 \alias{dea_evalPlot_curve}
 \title{dea_evalPlot_curve}
 \usage{
-dea_evalPlot_curve(res, scales = "free", agg.by = NULL,
-  agg.fn = mean, xlim = c(NA, NA), colourBy = "method",
-  shapeBy = NULL)
+dea_evalPlot_curve(
+  res,
+  scales = "free",
+  agg.by = NULL,
+  agg.fn = mean,
+  xlim = c(NA, NA),
+  colourBy = "method",
+  shapeBy = NULL
+)
 }
 \arguments{
 \item{res}{}
@@ -30,4 +36,8 @@ A ggplot.
 }
 \description{
 dea_evalPlot_curve
+}
+\examples{
+data("exampleDEAresults", package="pipeComp")
+dea_evalPlot_curve(exampleDEAresults, agg.by=c("sva.method"))
 }

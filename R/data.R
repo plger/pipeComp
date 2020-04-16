@@ -42,3 +42,16 @@ NULL
 #'
 #' @return a list.
 NULL
+
+#' @rdname exampleDEAresults
+#' @name exampleDEAresults
+#' @aliases exampleDEAresults
+#'
+#' @title Example results from the DEA pipeline
+#'
+#' @description
+#' Example benchmarking results from a DEA pipeline (see vignette 
+#' `pipeComp_dea`).
+#'
+#' @return a list.
+NULL

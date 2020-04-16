@@ -4,9 +4,15 @@
 \alias{plotElapsed}
 \title{plotElapsed}
 \usage{
-plotElapsed(res, steps = names(res$elapsed$stepwise), agg.by,
-  agg.fn = mean, width = 0.9, split.datasets = TRUE,
-  return.df = FALSE)
+plotElapsed(
+  res,
+  steps = names(res$elapsed$stepwise),
+  agg.by,
+  agg.fn = mean,
+  width = 0.9,
+  split.datasets = TRUE,
+  return.df = FALSE
+)
 }
 \arguments{
 \item{res}{Aggregated pipeline results}

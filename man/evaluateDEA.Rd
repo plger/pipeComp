@@ -23,3 +23,11 @@ A list with two slots: `logFC` (vector of metrics on logFC) and
 \description{
 Evaluates a differential expression analysis (DEA).
 }
+\examples{
+# fake DEA results
+dea <- data.frame( row.names=paste0("gene",1:10), logFC=rnorm(10) )
+dea$PValue <- dea$FDR <- c(2:8/100, 0.2, 0.5, 1)
+truth <- data.frame( row.names=paste0("gene",1:10), expected.beta=rnorm(10),
+                     isDE=rep(c(TRUE,FALSE,TRUE,FALSE), c(3,1,2,4)) )
+evaluateDEA(dea, truth)
+}

@@ -4,12 +4,23 @@
 \alias{dea_evalPlot_logFCs}
 \title{dea_evalPlot_logFCs}
 \usage{
-dea_evalPlot_logFCs(res, what = c("logFC.pearson", "logFC.spearman",
-  "logFC.mad"), agg.by = NULL, agg.fn = mean, scale = TRUE,
-  value_format = "\%.2f", reorder_rows = TRUE,
-  show_heatmap_legend = FALSE, col = viridisLite::inferno(100),
-  col_title_fontsize = 12, row_split = NULL, value_cols = c("black",
-  "white"), title = NULL, anno_legend = TRUE, ...)
+dea_evalPlot_logFCs(
+  res,
+  what = c("logFC.pearson", "logFC.spearman", "logFC.mad"),
+  agg.by = NULL,
+  agg.fn = mean,
+  scale = TRUE,
+  value_format = "\%.2f",
+  reorder_rows = TRUE,
+  show_heatmap_legend = FALSE,
+  col = viridisLite::inferno(100),
+  col_title_fontsize = 12,
+  row_split = NULL,
+  value_cols = c("black", "white"),
+  title = NULL,
+  anno_legend = TRUE,
+  ...
+)
 }
 \arguments{
 \item{res}{Aggregated results of the DEA pipeline}
@@ -51,4 +62,9 @@ A Heatmap
 }
 \description{
 dea_evalPlot_logFCs
+}
+\examples{
+data("exampleDEAresults", package="pipeComp")
+dea_evalPlot_logFCs( exampleDEAresults, agg.by=c("sva.method","dea.method"), 
+                  row_split = "sva.method" )
 }
