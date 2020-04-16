@@ -216,11 +216,12 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
     )
   }
   if(length(what)>1){
-    H <- scrna_evalPlot_clust(res, what[1], agg.by=agg.by, atTrueK=atTrueK, 
-                              scale=scale, reorder_rows=TRUE, ...)
+    ro <- H <- scrna_evalPlot_clust(res, what[1], agg.by=agg.by, 
+                                    atTrueK=atTrueK, scale=scale, 
+                                    reorder_rows=TRUE, ...)
     for(i in what[-1]) H <- H +
         scrna_evalPlot_clust(res, i, agg.by=agg.by, atTrueK=atTrueK, 
-                                   scale=scale, reorder_rows=H, ...)
+                                   scale=scale, reorder_rows=ro, ...)
     return(H)
   }
   if("evaluation" %in% names(res)) res <- res$evaluation
@@ -321,7 +322,7 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
 }
 
 .prepRes <- function(res, what=NULL, agg.by=NULL, agg.fn=mean, pipDef=NULL, 
-                     long=FALSE){
+                     long=FALSE, shortNames=FALSE, returnParams=FALSE){
   if(is.null(what) && !long) stop("`what` should be defined.")
   if(!is.null(agg.by)){
     agg.by2 <- c(agg.by, intersect(colnames(res),c("dataset","subpopulation")))
@@ -336,29 +337,33 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
     pp <- res[,agg.by,drop=FALSE]
   }else{
     if(is.null(pipDef)) stop("Either `agg.by` or `pipDef` should be given.")
-    pp <- res[,intersect(colnames(res), unlist(arguments(pipDef)))]
+    pp <- res[,intersect(colnames(res), unlist(arguments(pipDef))),drop=FALSE]
   }
-  res$method <- .getReducedNames(pp)
+  pp$method <- res$method <- .getReducedNames(pp, short=shortNames)
   if(long) return(res)
   
   if("subpopulation" %in% colnames(res))
     res$dataset <- paste(res$dataset, res$subpopulation)
   r2 <- reshape2::dcast( res, method~dataset, value.var=what,  
                          drop=FALSE, fun.aggregate=agg.fn)
+  pp <- pp[!duplicated(pp$method),,drop=FALSE]
+  row.names(pp) <- pp$method
   row.names(r2) <- r2[,1]
-  as.matrix(r2[,-1])
+  res <- as.matrix(r2[,-1,drop=FALSE])
+  if(returnParams) return(list(res=res, pp=pp[row.names(res),,drop=FALSE]))
+  res
 }
 
-.getReducedNames <- function(res){
+.getReducedNames <- function(res, short=FALSE){
   if(is.character(res)) res <- parsePipNames(res)
   pp <- res[,sapply(res, FUN=function(x) length(unique(x))>1),drop=FALSE]
-  if(ncol(pp)>1){
+  if(!short && ncol(pp)>1){
     y <- apply(pp,1,FUN=function(x){
       x <- paste0(colnames(pp),"=",x)
       paste(x, collapse="; ")
     })
   }else{
-    y <- apply(pp,1,collapse=" ",FUN=paste)
+    y <- apply(pp,1,collapse=" > ",FUN=paste)
   }
   y
 }
