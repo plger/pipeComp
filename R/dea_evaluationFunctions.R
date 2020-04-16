@@ -13,6 +13,13 @@
 #' `significance` table of significance-related statistics.
 #' 
 #' @export
+#' @examples
+#' # fake DEA results
+#' dea <- data.frame( row.names=paste0("gene",1:10), logFC=rnorm(10) )
+#' dea$PValue <- dea$FDR <- c(2:8/100, 0.2, 0.5, 1)
+#' truth <- data.frame( row.names=paste0("gene",1:10), expected.beta=rnorm(10),
+#'                      isDE=rep(c(TRUE,FALSE,TRUE,FALSE), c(3,1,2,4)) )
+#' evaluateDEA(dea, truth)
 evaluateDEA <- function(dea, truth=NULL, th=c(0.01,0.05,0.1)){
   dea <- .homogenizeDEA(dea)
   if(is.null(truth)) truth <- metadata(dea)$truth
@@ -80,6 +87,9 @@ aggregateDEAeval <- function(res){
 #'
 #' @return A ggplot.
 #' @export
+#' @examples
+#' data("exampleDEAresults", package="pipeComp")
+#' dea_evalPlot_curve(exampleDEAresults, agg.by=c("sva.method"))
 dea_evalPlot_curve <- function(res, scales="free", agg.by=NULL, agg.fn=mean, 
                                xlim=c(NA,NA), colourBy="method", shapeBy=NULL){
   pd <- NULL
@@ -91,7 +101,7 @@ dea_evalPlot_curve <- function(res, scales="free", agg.by=NULL, agg.fn=mean,
   d <- aggregate(res[,c("FDR","TPR")], by=res[,c("dataset","threshold",agg.by)], na.rm=TRUE, FUN=agg.fn)
   pp <- d[,agg.by,drop=FALSE]
   d$method <- apply(pp, 1, collapse=" > ", FUN=paste)
-  if(c("filt","minCount") %in% colnames(d)) d$filter <- paste(d$filt, "(",d$minCount,")")
+  if(all(c("filt","minCount") %in% colnames(d))) d$filter <- paste(d$filt, "(",d$minCount,")")
   p <- ggplot(d, aes_string("FDR", "TPR", group="method", colour=colourBy, 
                             shape=shapeBy)) + 
     geom_vline(xintercept=unique(d$threshold), linetype="dashed", 
@@ -129,6 +139,10 @@ dea_evalPlot_curve <- function(res, scales="free", agg.by=NULL, agg.fn=mean,
 #' 
 #' @return A Heatmap
 #' @export
+#' @examples
+#' data("exampleDEAresults", package="pipeComp")
+#' dea_evalPlot_sig( exampleDEAresults, agg.by=c("sva.method","dea.method"), 
+#'                   row_split = "sva.method" )
 dea_evalPlot_sig <- function( res, what=c("TPR","FDR"), threshold=0.05,
                               agg.by=NULL, agg.fn=mean, scale=TRUE, 
                               value_format="%.2f", reorder_rows=TRUE,
@@ -217,6 +231,10 @@ dea_evalPlot_sig <- function( res, what=c("TPR","FDR"), threshold=0.05,
 #' 
 #' @return A Heatmap
 #' @export
+#' @examples
+#' data("exampleDEAresults", package="pipeComp")
+#' dea_evalPlot_logFCs( exampleDEAresults, agg.by=c("sva.method","dea.method"), 
+#'                   row_split = "sva.method" )
 dea_evalPlot_logFCs <- function(res,
                                 what=c("logFC.pearson","logFC.spearman","logFC.mad"), 
                                 agg.by=NULL, agg.fn=mean, scale=TRUE, 

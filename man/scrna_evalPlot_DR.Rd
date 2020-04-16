@@ -4,13 +4,24 @@
 \alias{scrna_evalPlot_DR}
 \title{scrna_evalPlot_DR}
 \usage{
-scrna_evalPlot_DR(res, what = c("auto"),
+scrna_evalPlot_DR(
+  res,
+  what = c("auto"),
   covar.type = c("PC1.covar.adjR2", "meanAbsCorr.covariate2"),
-  reorder_rows = TRUE, reorder_columns = NULL, agg.by = NULL,
-  agg.fn = mean, scale = FALSE, show_heatmap_legend = FALSE,
-  value_format = "\%.2f", col = NULL, col_title_fontsize = 11,
-  value_cols = c("black", "white"), title = NULL, anno_legend = TRUE,
-  ...)
+  reorder_rows = TRUE,
+  reorder_columns = NULL,
+  agg.by = NULL,
+  agg.fn = mean,
+  scale = FALSE,
+  show_heatmap_legend = FALSE,
+  value_format = "\%.2f",
+  col = NULL,
+  col_title_fontsize = 11,
+  value_cols = c("black", "white"),
+  title = NULL,
+  anno_legend = TRUE,
+  ...
+)
 }
 \arguments{
 \item{res}{Aggregated pipeline results (i.e. the output of `runPipeline` or

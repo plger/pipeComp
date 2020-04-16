@@ -5,9 +5,16 @@
 \alias{PipelineDefinition-class}
 \title{PipelineDefinition}
 \usage{
-PipelineDefinition(functions, descriptions = NULL, evaluation = NULL,
-  aggregation = NULL, initiation = identity,
-  defaultArguments = list(), misc = list(), verbose = TRUE)
+PipelineDefinition(
+  functions,
+  descriptions = NULL,
+  evaluation = NULL,
+  aggregation = NULL,
+  initiation = identity,
+  defaultArguments = list(),
+  misc = list(),
+  verbose = TRUE
+)
 }
 \arguments{
 \item{functions}{A list of functions for each step}
