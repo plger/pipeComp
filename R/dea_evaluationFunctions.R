@@ -2,8 +2,8 @@
 #' 
 #' Evaluates a differential expression analysis (DEA).
 #'
-#' @param dea Expects a data.frame with logFC and FDR, as produced by `edgeR::topTags`, `limma::topTable` or 
-#' `DESeq2::results`.
+#' @param dea Expects a data.frame with logFC and FDR, as produced by 
+#' `edgeR::topTags`, `limma::topTable` or `DESeq2::results`.
 #' @param truth A data.frame containing the columns `expected.beta` (real logFC)
 #' and `isDE` (logical indicating whether there is a difference or not; accepts
 #' NA values)
@@ -21,26 +21,31 @@
 #'                      isDE=rep(c(TRUE,FALSE,TRUE,FALSE), c(3,1,2,4)) )
 #' evaluateDEA(dea, truth)
 evaluateDEA <- function(dea, truth=NULL, th=c(0.01,0.05,0.1)){
-  dea <- .homogenizeDEA(dea)
+  ## we make sure that the column names of `dea` are standard:
+  dea <- pipeComp:::.homogenizeDEA(dea)
+  ## within Pipecomp, the truth should be passed along with the `dea` object, 
+  ## so we retrieve it here:
   if(is.null(truth)) truth <- metadata(dea)$truth
   dea <- cbind(dea, truth[row.names(dea),])
+  ## we get rid of genes for which the truth is unknown:
   dea <- dea[!is.na(dea$expected.beta),]
-  # comparison of estimated and expected log2 folchanges
-  res <- c(logFC.pearson=cor(dea$logFC, dea$expected.beta, 
-                             use = "pairwise"),
+  ## comparison of estimated and expected log2 folchanges:
+  res <- c(logFC.pearson=cor(dea$logFC, dea$expected.beta, use = "pairwise"),
            logFC.spearman=cor(dea$logFC, dea$expected.beta, 
                               use = "pairwise", method="spearman"),
            logFC.mad=median(abs(dea$logFC-dea$expected.beta),na.rm=TRUE),
            ntested=sum(!is.na(dea$PValue) & !is.na(dea$FDR)))
-  # evaluation of singificance calls
+  ## evaluation of singificance calls
   names(th) <- th
-  res2 <- t(vapply(th, FUN.VALUE=vector(mode="numeric", length=6), FUN=function(x){
-    called=sum(dea$FDR<x,na.rm=TRUE)
-    P <- sum(dea$isDE)
-    TP <- sum(dea$FDR<x & dea$isDE, na.rm=TRUE)
-    c( TP=TP, FP=called-TP, TPR=TP/P, PPV=TP/called, FDR=1-TP/called, 
-       FPR=(P-TP)/sum(!dea$isDE) )
-  }))
+  res2 <- t(vapply( th, FUN.VALUE=vector(mode="numeric", length=6), 
+                    FUN=function(x){
+            ## for each significance threshold, calculate the various metrics
+            called=sum(dea$FDR<x,na.rm=TRUE)
+            P <- sum(dea$isDE)
+            TP <- sum(dea$FDR<x & dea$isDE, na.rm=TRUE)
+            c( TP=TP, FP=called-TP, TPR=TP/P, PPV=TP/called, FDR=1-TP/called, 
+               FPR=(P-TP)/sum(!dea$isDE) )
+                    }))
   res2 <- cbind(threshold=as.numeric(row.names(res2)), as.data.frame(res2))
   row.names(res2) <- NULL
   list(logFC=res, significance=res2)
