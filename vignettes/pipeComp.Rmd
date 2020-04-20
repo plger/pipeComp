@@ -26,7 +26,7 @@ _pipeComp, a general framework for the evaluation of computational pipelines, re
 Pierre-Luc Germain, Anthony Sonrel & Mark D Robinson, 
 bioRxiv [2020.02.02.930578](https://doi.org/10.1101/2020.02.02.930578)
 
-However the framework can be applied to any other context. This vignette introduces the package and framework; for information specifically about the scRNAseq pipeline and evaluation metrics, see the `pipeComp_scRNA` vignette.
+However the framework can be applied to any other context (see the `pipeComp_dea` vignette for a completely different example). This vignette introduces the package and framework; for information specifically about the scRNAseq pipeline and evaluation metrics, see the `pipeComp_scRNA` vignette.
 
 # Installation
 
