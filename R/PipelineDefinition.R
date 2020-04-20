@@ -281,6 +281,11 @@ setMethod( "stepFn<-", signature("PipelineDefinition"),
     step <- match.arg(step, names(object))
     slot(object, type)[[step]] <- value
   }
+  if(type=="evaluation" && !is.null(value)){
+    # also add the default aggregation:
+    if(is.null(slot(object, "aggregation")[[step]]))
+      slot(object, "aggregation")[[step]] <- defaultStepAggregation
+  }
   object
 })
 
