@@ -5,7 +5,7 @@
 \alias{PipelineDefinition-method}
 \alias{show,PipelineDefinition-method}
 \alias{names,PipelineDefinition-method}
-\alias{names<-,PipelineDefinition,ANY-method}
+\alias{names<-,PipelineDefinition-method}
 \alias{$,PipelineDefinition-method}
 \alias{length,PipelineDefinition-method}
 \alias{[,PipelineDefinition,ANY,ANY,ANY-method}
@@ -26,7 +26,7 @@
 
 \S4method{names}{PipelineDefinition}(x)
 
-\S4method{names}{PipelineDefinition,ANY}(x) <- value
+\S4method{names}{PipelineDefinition}(x) <- value
 
 \S4method{$}{PipelineDefinition}(x, name)
 
@@ -78,6 +78,10 @@ Depends on the method.
 }
 \description{
 Methods for \code{\link{PipelineDefinition}} class
+
+get names of PipelineDefinition steps
+
+set names of PipelineDefinition steps
 }
 \examples{
 pd <- mockPipeline()

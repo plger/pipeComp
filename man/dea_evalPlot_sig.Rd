@@ -29,6 +29,8 @@ dea_evalPlot_sig(
 
 \item{what}{What to plot}
 
+\item{threshold}{Significance threshold to plot (default 0.05)}
+
 \item{agg.by}{Aggregate results by these columns (default no aggregation)}
 
 \item{agg.fn}{Function for aggregation (default mean)}
@@ -47,6 +49,9 @@ names themselves can also be passed to specify an order, or a
 \item{col}{Colors for the heatmap}
 
 \item{col_title_fontsize}{Fontsize of column titles.}
+
+\item{show_column_names}{Logical, whether to show column names (instead of
+relying on the color code only)}
 
 \item{value_cols}{A vector of length 2 indicating the colors of the values
 (above and below the mean), if printed}

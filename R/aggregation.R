@@ -226,9 +226,19 @@ mergePipelineResults <- function(res1,res2){
 #' @export
 #' @importFrom dplyr bind_rows
 defaultStepAggregation <- function(x){
+  y <- x[[1]][[1]]
+  if(is(y,"list") || is(y,"SimpleList")){
+    res <- lapply(seq_along(y), FUN=function(i){
+      defaultStepAggregation(lapply(x, FUN=function(x){
+        lapply(x, FUN=function(x) x[[i]])
+      }))
+    })
+    names(res) <- names(y)
+    return(res)
+  }
   dplyr::bind_rows(lapply(x, FUN=function(x){
-    x <- cbind(parsePipNames(names(x)), do.call(rbind, x))
-    row.names(x) <- NULL
-    x
-  }), .id="dataset")
+      x <- cbind(parsePipNames(names(x)), do.call(rbind, x))
+      row.names(x) <- NULL
+      x
+    }), .id="dataset")
 }

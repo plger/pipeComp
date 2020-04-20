@@ -2,7 +2,6 @@
 
 export(PipelineDefinition)
 export(addPipelineStep)
-export(aggregateDEAeval)
 export(aggregatePipelineResults)
 export(buildCombMatrix)
 export(checkPipelinePackages)

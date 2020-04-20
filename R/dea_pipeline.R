@@ -40,7 +40,14 @@ paste("Takes a SE object, passes it through the function `dea.method`, and",
   
   agg <- eva <- lapply(f, FUN=function(x) NULL)
   eva$dea <- evaluateDEA
-  agg$dea <- aggregateDEAeval
+  agg$dea <- function(res){
+    res <- defaultStepAggregation(res)
+    lapply( res, FUN=function(x){
+      x$sva.method <- gsub("^sva\\.","",x$sva.method)
+      x$dea.method <- gsub("^dea\\.","",x$dea.method)
+      x
+    })
+  }
 
   # default arguments
   def <- list(minCount=10, k=1)

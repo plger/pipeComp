@@ -46,36 +46,9 @@ evaluateDEA <- function(dea, truth=NULL, th=c(0.01,0.05,0.1)){
   list(logFC=res, significance=res2)
 }
 
-
-
-#' aggregateDEAeval
-#'
-#' Aggregates DEA results (as produced by `evaluateDEA`) across datasets.
-#'
-#' @param res A list (per-dataset) of lists of DEA evaluation results.
-#'
-#' @return A list of aggregated results.
-#' @export
-aggregateDEAeval <- function(res){
-  lfc <- dplyr::bind_rows(lapply(res, FUN=function(x){
-    x <- do.call(rbind, lapply(x, FUN=function(x) x$logFC))
-    parsePipNames(as.data.frame(x))
-  }), .id="dataset")
-  sig <- dplyr::bind_rows(lapply(res, FUN=function(x){
-    x <- dplyr::bind_rows( lapply(x, FUN=function(x) x$significance), 
-                           .id="method" )
-    cbind(parsePipNames(x$method), x[,-1])
-  }), .id="dataset")
-  lapply( list( logFC=lfc, significance=sig ), FUN=function(x){
-    x$sva.method <- gsub("^sva\\.","",x$sva.method)
-    x$dea.method <- gsub("^dea\\.","",x$dea.method)
-    x
-  })
-}
-
 #' dea_evalPlot_curve
 #'
-#' @param res 
+#' @param res Aggregated results of the DEA pipeline
 #' @param scales Passed to `facet_grid`
 #' @param agg.by Aggregate results by these columns (default no aggregation)
 #' @param agg.fn Function for aggregation (default mean)
@@ -119,6 +92,7 @@ dea_evalPlot_curve <- function(res, scales="free", agg.by=NULL, agg.fn=mean,
 #'
 #' @param res Aggregated results of the DEA pipeline
 #' @param what What to plot
+#' @param threshold Significance threshold to plot (default 0.05)
 #' @param agg.by Aggregate results by these columns (default no aggregation)
 #' @param agg.fn Function for aggregation (default mean)
 #' @param scale Logical; whether to scale columns (default FALSE)
@@ -128,6 +102,8 @@ dea_evalPlot_curve <- function(res, scales="free", agg.by=NULL, agg.fn=mean,
 #' names themselves can also be passed to specify an order, or a 
 #' `ComplexHeatmap`.
 #' @param show_heatmap_legend Passed to `Heatmap`
+#' @param show_column_names Logical, whether to show column names (instead of
+#' relying on the color code only)
 #' @param col Colors for the heatmap
 #' @param col_title_fontsize Fontsize of column titles.
 #' @param row_split Optional column by which to split rows.

@@ -179,11 +179,14 @@ setMethod("show", signature("PipelineDefinition"), function(object){
   cat("\n")
 })
 
+#' get names of PipelineDefinition steps
 #' @rdname PipelineDefinition-methods
 #' @param x An object of class \code{\link{PipelineDefinition}}
 setMethod("names", signature("PipelineDefinition"), function(x){
   names(x@functions)
 })
+
+#' set names of PipelineDefinition steps
 #' @rdname PipelineDefinition-methods
 #' @param value Replacement values
 setMethod("names<-", signature("PipelineDefinition"), function(x, value){
