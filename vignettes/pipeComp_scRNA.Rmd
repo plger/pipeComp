@@ -26,7 +26,7 @@ library(BiocStyle)
 
 # Introduction
 
-This vignette is centered around the application of `r Rpackage("pipeComp")` to scRNA-seq clustering pipelines, and assumes a general understanding of `r Rpackage("pipeComp")` (for an overview, see the `pipeComp` vignette).
+This vignette is centered around the application of `r Rpackage("pipeComp")` to scRNA-seq clustering pipelines, and assumes a general understanding of `r Rpackage("pipeComp")` (for an overview, see the [pipeComp vignette](pipeComp.html)).
 
 The scRNAseq `PipelineDefinition` comes in two variants determined by the object used as a backbone, either `r Biocpkg("SingleCellExperiment")` (SCE) or `r Githubpkg("satijalab.org/seurat")` (see `?scrna_pipeline`). Both use the same evaluation metrics, and most method wrappers included in the package have been made so that they are compatible with both. For simplicity, we will therefore stick to just one variant here, and will focus on few very basic comparisons to illustrate the main functionalities, metrics and evaluation plots. For more detailed benchmarks, refer to our preprint:
 
@@ -73,7 +73,7 @@ alternatives <- list(
 )
 ```
 
-We also assume three datasets in `SingleCellExperiment` (SCE) format (not included in the package - see the last section of this vignette) and run the pipeline:
+We also assume three datasets in \Rclass{SingleCellExperiment} (SCE) format (not included in the package - see the last section of this vignette) and run the pipeline:
 
 ```{r, eval=FALSE}
 # available on https://doi.org/10.6084/m9.figshare.11787210.v1
@@ -244,7 +244,7 @@ plotElapsed(res, agg.by="norm")
 
 # Extension and reuse
 
-The scRNAseq `PipelineDefinition` can be modified or extented with new steps or arguments like any other objects of that class (see the `pipeComp` vignette). In addition, the evaluation functions used at each step can be accessed from the package's namespace and use for other purposes. See in particular `?evaluateDimRed` and `?evaluateClustering`. If you feel like other metrics should be included, please contact us!
+The scRNAseq `PipelineDefinition` can be modified or extented with new steps or arguments like any other objects of that class (see the [pipeComp vignette](pipeComp.html)). In addition, the evaluation functions used at each step can be accessed from the package's namespace and use for other purposes. See in particular `?evaluateDimRed` and `?evaluateClustering`. If you feel like other metrics should be included, please contact us!
 
 <br/><br/>
 

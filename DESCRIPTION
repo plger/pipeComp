@@ -1,7 +1,7 @@
 Package: pipeComp
 Type: Package
 Title: pipeComp pipeline benchmarking framework
-Version: 0.99.22
+Version: 0.99.23
 Depends: R (>= 4.0)
 Authors@R: c(
 	person("Pierre-Luc", "Germain", email="pierre-luc.germain@hest.ethz.ch", role=c("cre","aut"), comment = c(ORCID = "0000-0003-3418-4218")), 
@@ -16,6 +16,7 @@ Description: A simple framework to facilitate the comparison of pipelines involv
 Imports: BiocParallel, S4Vectors, ComplexHeatmap, SingleCellExperiment, SummarizedExperiment, Seurat, data.table, 
 	matrixStats, Matrix, cluster, aricode, methods, utils, dplyr, grid, scales, scran, viridisLite, clue, randomcoloR, 
 	ggplot2, cowplot, intrinsicDimension, scater, knitr, reshape2, stats, Rtsne, uwot, circlize, RColorBrewer
+Suggests: BiocStyle
 License: GPL
 Encoding: UTF-8
 RoxygenNote: 7.1.0

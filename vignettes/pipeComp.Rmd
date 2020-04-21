@@ -26,7 +26,7 @@ _pipeComp, a general framework for the evaluation of computational pipelines, re
 Pierre-Luc Germain, Anthony Sonrel & Mark D Robinson, 
 bioRxiv [2020.02.02.930578](https://doi.org/10.1101/2020.02.02.930578)
 
-However the framework can be applied to any other context (see the `pipeComp_dea` vignette for a completely different example). This vignette introduces the package and framework; for information specifically about the scRNAseq pipeline and evaluation metrics, see the `pipeComp_scRNA` vignette.
+However the framework can be applied to any other context. This vignette introduces the package and framework; for information specifically about the scRNAseq pipeline and evaluation metrics, see the [pipeComp_scRNA](pipeComp_scRNA.html) vignette. For a completely different example, with walkthrough the creating of a new `PipelineDefinition`, see the [pipeComp_dea](pipeComp_dea.html) vignette.
 
 # Installation
 
@@ -37,7 +37,7 @@ BiocManager::install("plger/pipeComp")
 ```
 
 Because `r Rpackage("pipeComp")` was meant as a general pipeline benchmarking framework, we have tried to restrict the package's dependencies to a minimum. 
-To use the scRNA-seq pipeline and wrappers, however, requires further packages to be installed. To check whether these dependencies are met for a given `pipelineDefinition` and set of alternatives, see `?checkPipelinePackages`.
+To use the scRNA-seq pipeline and wrappers, however, requires further packages to be installed. To check whether these dependencies are met for a given `PipelineDefinition` and set of alternatives, see `?checkPipelinePackages`.
 
 <br/><br/>
 
@@ -63,15 +63,30 @@ alternatives <- list(
 )
 ```
 
+Each parameter (slot of the list) can take any number of alternative scalar values (e.g. character, numeric, logical). The name of functions (which should be loaded in the environment) can be passed if the `PipelineDefinition` allows it.
+
 Given a `PipelineDefinition`, a list of alternative parameters and a list benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step (with the same parameters) twice and compiling evaluations on the fly to avoid storing potentially large intermediate data:
 
 ```{r, eval=FALSE}
 res <- runPipeline(datasets, alternatives, pipelineDef=PipelineDefinition)
 ```
 
-Aggregated evaluation metrics for each combination of parameters, along with computing times, are returned as simple lists. In addition to the (aggregated) output returned by the function, `runPipeline` will produce two RDS files (saved according to the `output.prefix` argument) per dataset: the `*.evaluation.rds` contain the (non-aggregated) evaluation results at each step, while the `.endOutputs.rds` files (assuming `saveEndResults=TRUE`) contain the final output of each combination (i.e. the output of the final step).
+Aggregated evaluation metrics for each combination of parameters, along with computing times, are returned as \Rclass{SimpleList}s with the following structure:
 
-The `r Rpackage("pipeComp")` package includes a `PipelineDefinition` for single-cell RNA sequencing (scRNAseq) data. For more information about this application and examples of real outputs, see the `pipeComp_scRNA` vignette.
+* res$evaluation (step evaluations)
+    + $step1
+    + $step2
+        - $metric_table_1
+        - $metric_table_2
+* res$elapsed (running times)
+    + $stepwise
+        - $step1
+        - $step2
+    + $total
+
+In addition to the (aggregated) output returned by the function, `runPipeline` will produce at least one RDS file (saved according to the `output.prefix` argument) per dataset: the `*.evaluation.rds` contain the (non-aggregated) evaluation results at each step, while the `.endOutputs.rds` files (assuming `saveEndResults=TRUE`) contain the final output of each combination (i.e. the output of the final step).
+
+The `r Rpackage("pipeComp")` package includes a `PipelineDefinition` for single-cell RNA sequencing (scRNAseq) data. For more information about this application and examples of real outputs, see the [pipeComp_scRNA](pipeComp_scRNA.html) vignette.
 
 <br/><br/>
 
@@ -117,7 +132,7 @@ my_pip <- PipelineDefinition( list(
 my_pip
 ```
 
-The PipelineDefinition can also include descriptions of each step or evaluation and aggregation functions. For example:
+The `PipelineDefinition` can also include descriptions of each step or evaluation and aggregation functions. For example:
 ```{r}
 my_pip <- PipelineDefinition( 
   list( step1=function(x, meth1){ get(meth1)(x) },
@@ -143,6 +158,13 @@ Computing times can be accessed through `res$elapsed`; they can either be access
 ```{r, fig.width=5, fig.height=2}
 plotElapsed(res, agg.by=FALSE)
 ```
+
+Evaluation results can be accessed through `res$evaluation`, or can be plotted using the `evalHeatmap` function:
+
+```{r}
+  evalHeatmap(res, what=c("mean", "max"))
+```
+
 
 ### Manipulating a PipelineDefinition
 
@@ -217,4 +239,4 @@ res$evaluation$step2
 <br/><br/>
 
 
-For a real example of a PipelineDefinition and its evaluation outputs, see the `pipeComp_scRNA` vignette.
+For a more complex, 'real-life' example of the creation of a `PipelineDefinition`, see the [pipeComp_dea](pipeComp_dea.html) vignette. For a complex example of evaluation outputs, see the [pipeComp_scRNA](pipeComp_scRNA.html) vignette.
