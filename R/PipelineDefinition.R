@@ -259,8 +259,8 @@ setGeneric("stepFn", function(object, step, type) standardGeneric("stepFn"))
 #' @rdname PipelineDefinition-methods
 setMethod("stepFn", signature("PipelineDefinition"), 
           function(object, step, type){
-  type <- match.arg( type, 
-                     c("functions","evaluation","aggregation","descriptions") )
+  ft <- c("functions","evaluation","aggregation","descriptions","initiation")
+  type <- match.arg( type, ft )
   step <- match.arg(step, names(object))
   slot(object, type)[[step]]
 })

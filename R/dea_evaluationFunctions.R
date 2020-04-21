@@ -94,186 +94,25 @@ dea_evalPlot_curve <- function(res, scales="free", agg.by=NULL, agg.fn=mean,
 }
 
 #' dea_evalPlot_sig
+#' 
+#' This is a wrapper around `evalHeatmap` to enable the choice of the 
+#' significance threshold when plotting results of the DEA pipeline.
 #'
 #' @param res Aggregated results of the DEA pipeline
 #' @param what What to plot
 #' @param threshold Significance threshold to plot (default 0.05)
-#' @param agg.by Aggregate results by these columns (default no aggregation)
-#' @param agg.fn Function for aggregation (default mean)
-#' @param scale Logical; whether to scale columns (default FALSE)
-#' @param value_format Format for displaying cells' values (use 
-#' `value_format=""` to disable)
-#' @param reorder_rows Logical; whether to sort rows (default TRUE). The row 
-#' names themselves can also be passed to specify an order, or a 
-#' `ComplexHeatmap`.
-#' @param show_heatmap_legend Passed to `Heatmap`
-#' @param show_column_names Logical, whether to show column names (instead of
-#' relying on the color code only)
-#' @param col Colors for the heatmap
-#' @param col_title_fontsize Fontsize of column titles.
-#' @param row_split Optional column by which to split rows.
-#' @param value_cols A vector of length 2 indicating the colors of the values
-#' (above and below the mean), if printed
-#' @param title Plot title
-#' @param anno_legend Logical; whether to plot the legend for the datasets
-#' @param ... Passed to `Heatmap`
+#' @param ... Any further argument to `evalHeatmap`
 #' 
 #' @return A Heatmap
 #' @export
 #' @examples
 #' data("exampleDEAresults", package="pipeComp")
 #' dea_evalPlot_sig( exampleDEAresults, agg.by=c("sva.method","dea.method"), 
-#'                   row_split = "sva.method" )
-dea_evalPlot_sig <- function( res, what=c("TPR","FDR"), threshold=0.05,
-                              agg.by=NULL, agg.fn=mean, scale=TRUE, 
-                              value_format="%.2f", reorder_rows=TRUE,
-                              show_heatmap_legend=FALSE,
-                              col=viridisLite::inferno(100), 
-                              col_title_fontsize=12, show_column_names=FALSE,
-                              value_cols=c("black","white"), title=NULL,
-                              anno_legend=TRUE, row_split=NULL, ...){
-  pd <- NULL
-  if(is(res,"SimpleList")) pd <- metadata(res)$PipelineDefinition
-  if(length(what)>1){
-    ro <- H <- dea_evalPlot_sig(res, what[1], agg.by=agg.by, scale=scale, 
-                            reorder_rows=reorder_rows, anno_legend=anno_legend,
-                            row_split=row_split, 
-                            show_column_names=show_column_names, ...)
-    for(i in what[-1]) H <- H +
-        dea_evalPlot_sig(res, i, agg.by=agg.by, scale=scale, reorder_rows=ro, 
-                         anno_legend=anno_legend, row_split=row_split,
-                         show_column_names=show_column_names, ...)
-    return(H)
-  }
-  if(is(res,"SimpleList") && "evaluation" %in% names(res)) res <- res$evaluation
-  if(is(res,"list") && "dea" %in% names(res)) res <- res$dea
-  if(is(res,"list") && "significance" %in% names(res)) res <- res$significance
-  res <- res[res$threshold==threshold,]
-  what <- match.arg(what)
-  res <- .prepRes(res, what=what, agg.by=agg.by, pipDef=pd, 
-                          shortNames=TRUE, returnParams=TRUE)
-  pp <- res$pp
-  res2 <- res <- res$res
-  if(scale) res2 <- .safescale(res)
-  if(is(reorder_rows, "Heatmap")){
-    ro <- row.names(reorder_rows@matrix)
-  }else{
-    if(length(reorder_rows)>1){
-      ro <- reorder_rows
-    }else{
-      if(reorder_rows){
-        ro <- order(rowMeans(res2, na.rm=TRUE), decreasing=TRUE)
-      }else{
-        ro <- seq_len(nrow(res2))
-      }
-    }
-  }
-  if(!is.null(row_split)){
-    if(row_split %in% colnames(pp)){
-      row_split <- pp[,row_split]
-    }else{
-      warning("`row_split` wasn't found and will be ignored.")
-      row_split <- NULL
-    }
-  }
-  if(!is.numeric(ro)) ro <- sapply(ro, FUN=function(x) which(row.names(res)==x))
-  res2 <- as.matrix(res2)
-  cellfn <- .getCellFn(res, res2, value_format, value_cols)
-  if(is.null(title)) title <- what
-  Heatmap( res2, name=what, cluster_rows=FALSE, cluster_columns=FALSE, 
-           show_heatmap_legend=show_heatmap_legend, row_order=ro,
-           bottom_annotation=.ds_anno(colnames(res),anno_legend), 
-           show_column_names=show_column_names, cell_fun=cellfn, col=col,
-           column_title=title, row_split=row_split,
-           column_title_gp=gpar(fontisze=col_title_fontsize), ...)
-}
-
-#' dea_evalPlot_logFCs
-#'
-#' @param res Aggregated results of the DEA pipeline
-#' @param what What to plot
-#' @param agg.by Aggregate results by these columns (default no aggregation)
-#' @param agg.fn Function for aggregation (default mean)
-#' @param scale Logical; whether to scale columns (default FALSE)
-#' @param value_format Format for displaying cells' values (use 
-#' `value_format=""` to disable)
-#' @param reorder_rows Logical; whether to sort rows (default TRUE). The row 
-#' names themselves can also be passed to specify an order, or a 
-#' `ComplexHeatmap`.
-#' @param show_heatmap_legend Passed to `Heatmap`
-#' @param col Colors for the heatmap
-#' @param col_title_fontsize Fontsize of column titles.
-#' @param row_split Optional column by which to split rows.
-#' @param value_cols A vector of length 2 indicating the colors of the values
-#' (above and below the mean), if printed
-#' @param title Plot title
-#' @param anno_legend Logical; whether to plot the legend for the datasets
-#' @param ... Passed to `Heatmap`
-#' 
-#' @return A Heatmap
-#' @export
-#' @examples
-#' data("exampleDEAresults", package="pipeComp")
-#' dea_evalPlot_logFCs( exampleDEAresults, agg.by=c("sva.method","dea.method"), 
-#'                   row_split = "sva.method" )
-dea_evalPlot_logFCs <- function(res,
-                                what=c("logFC.pearson","logFC.spearman","logFC.mad"), 
-                                agg.by=NULL, agg.fn=mean, scale=TRUE, 
-                                value_format="%.2f", reorder_rows=TRUE,
-                                show_heatmap_legend=FALSE,
-                                col=viridisLite::inferno(100), 
-                                col_title_fontsize=12, row_split=NULL, 
-                                value_cols=c("black","white"), title=NULL,
-                                anno_legend=TRUE, ...){
-  pd <- NULL
-  if(is(res,"SimpleList")) pd <- metadata(res)$PipelineDefinition
-  if(length(what)>1){
-    ro <- H <- dea_evalPlot_logFCs(res, what[1], agg.by=agg.by, scale=scale, 
-                             reorder_rows=reorder_rows, row_split=row_split, 
-                             anno_legend=anno_legend, ...)
-    for(i in what[-1]) H <- H +
-        dea_evalPlot_logFCs(res, i, agg.by=agg.by, scale=scale, reorder_rows=ro, 
-                            anno_legend=anno_legend, row_split=row_split, ...)
-    return(H)
-  }
-  if(is(res,"SimpleList") && "evaluation" %in% names(res)) res <- res$evaluation
-  if(is(res,"list") && "dea" %in% names(res)) res <- res$dea
-  if(is(res,"list") && "logFC" %in% names(res)) res <- res$logFC
-  what <- match.arg(what)
-  res <- .prepRes(res, what=what, agg.by=agg.by, pipDef=pd, 
-                          shortNames=TRUE, returnParams = TRUE)
-  pp <- res$pp
-  res2 <- res <- res$res
-  if(scale) res2 <- .safescale(res)
-  if(is(reorder_rows, "Heatmap")){
-    ro <- row.names(reorder_rows@matrix)
-  }else{
-    if(length(reorder_rows)>1){
-      ro <- reorder_rows
-    }else{
-      if(reorder_rows){
-        ro <- order(rowMeans(res2, na.rm=TRUE), decreasing=TRUE)
-      }else{
-        ro <- seq_len(nrow(res2))
-      }
-    }
-  }
-  if(!is.numeric(ro)) ro <- sapply(ro, FUN=function(x) which(row.names(res)==x))
-  res2 <- as.matrix(res2)
-  cellfn <- .getCellFn(res, res2, value_format, value_cols)
-  if(is.null(title)) title <- gsub("\\.","\n",what)
-  if(!is.null(row_split)){
-    if(row_split %in% colnames(pp)){
-      row_split <- pp[,row_split]
-    }else{
-      warning("`row_split` wasn't found and will be ignored.")
-      row_split <- NULL
-    }
-  }
-  Heatmap( res2, name=what, cluster_rows=FALSE, cluster_columns=FALSE, 
-           show_heatmap_legend=show_heatmap_legend, row_order=ro,
-           bottom_annotation=.ds_anno(colnames(res),anno_legend), 
-           show_column_names = FALSE, cell_fun=cellfn, col=col,
-           column_title=title, row_split=row_split,
-           column_title_gp=gpar(fontisze=col_title_fontsize), ...)
+#'                   threshold=0.05, row_split = "sva.method" )
+dea_evalPlot_sig <- function( res, what=c("TPR","FDR"), threshold=0.05, ...){
+  r2 <- res$evaluation$dea$significance
+  res$evaluation$dea$significance <- r2[which(r2$threshold==threshold),]
+  if(nrow(res$evaluation$dea$significance)==0) 
+    stop("Threshold not found!")
+  evalHeatmap(res, what=what, what2="significance", ...)
 }

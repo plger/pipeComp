@@ -4,25 +4,7 @@
 \alias{dea_evalPlot_sig}
 \title{dea_evalPlot_sig}
 \usage{
-dea_evalPlot_sig(
-  res,
-  what = c("TPR", "FDR"),
-  threshold = 0.05,
-  agg.by = NULL,
-  agg.fn = mean,
-  scale = TRUE,
-  value_format = "\%.2f",
-  reorder_rows = TRUE,
-  show_heatmap_legend = FALSE,
-  col = viridisLite::inferno(100),
-  col_title_fontsize = 12,
-  show_column_names = FALSE,
-  value_cols = c("black", "white"),
-  title = NULL,
-  anno_legend = TRUE,
-  row_split = NULL,
-  ...
-)
+dea_evalPlot_sig(res, what = c("TPR", "FDR"), threshold = 0.05, ...)
 }
 \arguments{
 \item{res}{Aggregated results of the DEA pipeline}
@@ -31,47 +13,17 @@ dea_evalPlot_sig(
 
 \item{threshold}{Significance threshold to plot (default 0.05)}
 
-\item{agg.by}{Aggregate results by these columns (default no aggregation)}
-
-\item{agg.fn}{Function for aggregation (default mean)}
-
-\item{scale}{Logical; whether to scale columns (default FALSE)}
-
-\item{value_format}{Format for displaying cells' values (use 
-`value_format=""` to disable)}
-
-\item{reorder_rows}{Logical; whether to sort rows (default TRUE). The row 
-names themselves can also be passed to specify an order, or a 
-`ComplexHeatmap`.}
-
-\item{show_heatmap_legend}{Passed to `Heatmap`}
-
-\item{col}{Colors for the heatmap}
-
-\item{col_title_fontsize}{Fontsize of column titles.}
-
-\item{show_column_names}{Logical, whether to show column names (instead of
-relying on the color code only)}
-
-\item{value_cols}{A vector of length 2 indicating the colors of the values
-(above and below the mean), if printed}
-
-\item{title}{Plot title}
-
-\item{anno_legend}{Logical; whether to plot the legend for the datasets}
-
-\item{row_split}{Optional column by which to split rows.}
-
-\item{...}{Passed to `Heatmap`}
+\item{...}{Any further argument to `evalHeatmap`}
 }
 \value{
 A Heatmap
 }
 \description{
-dea_evalPlot_sig
+This is a wrapper around `evalHeatmap` to enable the choice of the 
+significance threshold when plotting results of the DEA pipeline.
 }
 \examples{
 data("exampleDEAresults", package="pipeComp")
 dea_evalPlot_sig( exampleDEAresults, agg.by=c("sva.method","dea.method"), 
-                  row_split = "sva.method" )
+                  threshold=0.05, row_split = "sva.method" )
 }
