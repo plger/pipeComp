@@ -17,8 +17,9 @@ evalHeatmap(
   show_heatmap_legend = FALSE,
   show_column_names = FALSE,
   col = viridisLite::inferno(100),
-  col_title_fontsize = 12,
+  font_factor = 1,
   row_split = NULL,
+  shortNames = TRUE,
   value_cols = c("black", "white"),
   title = NULL,
   anno_legend = TRUE,
@@ -55,9 +56,14 @@ names themselves can also be passed to specify an order, or a
 
 \item{col}{Colors for the heatmap}
 
-\item{col_title_fontsize}{Fontsize of column titles.}
+\item{font_factor}{A scaling factor applied to fontsizes (default 1)}
 
-\item{row_split}{Optional column by which to split rows.}
+\item{row_split}{Optional column (included in `agg.by`) by which to split
+the rows.}
+
+\item{shortNames}{Logical; whether to use short row names (with only
+the parameter values instead of the parameter name and value pairs), default
+TRUE.}
 
 \item{value_cols}{A vector of length 2 indicating the colors of the values
 (above and below the mean), if printed}

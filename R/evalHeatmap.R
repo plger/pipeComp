@@ -16,14 +16,18 @@
 #' @param reorder_rows Logical; whether to sort rows (default FALSE). The row 
 #' names themselves can also be passed to specify an order, or a 
 #' `ComplexHeatmap`.
+#' @param row_split Optional column (included in `agg.by`) by which to split
+#' the rows.
 #' @param show_heatmap_legend Passed to `Heatmap` (default FALSE)
 #' @param show_column_names Passed to `Heatmap` (default FALSE)
 #' @param col Colors for the heatmap
-#' @param col_title_fontsize Fontsize of column titles.
-#' @param row_split Optional column by which to split rows.
+#' @param font_factor A scaling factor applied to fontsizes (default 1)
 #' @param value_cols A vector of length 2 indicating the colors of the values
 #' (above and below the mean), if printed
 #' @param title Plot title
+#' @param shortNames Logical; whether to use short row names (with only
+#' the parameter values instead of the parameter name and value pairs), default
+#' TRUE.
 #' @param anno_legend Logical; whether to plot the legend for the datasets
 #' @param ... Passed to `Heatmap`
 #' 
@@ -38,7 +42,7 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
                          agg.fn=mean, scale=TRUE, value_format="%.2f", 
                          reorder_rows=FALSE, show_heatmap_legend=FALSE, 
                          show_column_names=FALSE, col=viridisLite::inferno(100),
-                         col_title_fontsize=12, row_split=NULL, 
+                         font_factor=1, row_split=NULL, shortNames=TRUE,
                          value_cols=c("black","white"), title=NULL, 
                          anno_legend=TRUE, ...){
   pd <- NULL
@@ -49,10 +53,16 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   if(length(what)>1){
     ro <- H <- evalHeatmap(res, step=step, what[1], agg.by=agg.by, scale=scale, 
                            reorder_rows=reorder_rows, row_split=row_split, 
+                           show_column_names=show_column_names,
+                           font_factor=font_factor, shortNames=shortNames,
+                           show_heatmap_legend=show_heatmap_legend,
                            anno_legend=anno_legend, ... )
     for(i in what[-1]) H <- H +
         evalHeatmap( res, step=step, what=i, agg.by=agg.by, scale=scale, 
                      reorder_rows=ro, anno_legend=anno_legend, 
+                     show_column_names=show_column_names,
+                     show_heatmap_legend=show_heatmap_legend,
+                     font_factor=font_factor, shortNames=shortNames,
                      row_split=row_split, ... )
     return(H)
   }
@@ -61,7 +71,8 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   if(is(res,"list")){
     if(is.null(what2)){
       # try to guess the table
-      test <- which(sapply(res, FUN=function(x) what %in% colnames(x)))
+      test <- which(vapply( res, FUN=function(x) what %in% colnames(x), 
+                            logical(1) ))
       if(length(test)==0) stop("`what2` is undefined and could not be guessed.")
       if(length(test)>1) message("`what2` is undefined, and `what` is present ",
         "in more than one results data.frame. '", test[1], "' will be used.")
@@ -74,7 +85,7 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
                            c("dataset",unlist(arguments(pd))) )
   what <- match.arg(what, choices=what_options)
   res <- .prepRes(res, what=what, agg.by=agg.by, pipDef=pd, 
-                  shortNames=TRUE, returnParams = TRUE)
+                  shortNames=shortNames, returnParams = TRUE)
   pp <- res$pp
   res2 <- res <- res$res
   if(scale) res2 <- .safescale(res)
@@ -91,9 +102,10 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
       }
     }
   }
-  if(!is.numeric(ro)) ro <- sapply(ro, FUN=function(x) which(row.names(res)==x))
+  if(!is.numeric(ro))
+    ro <- vapply(ro, FUN=function(x) which(row.names(res)==x), integer(1))
   res2 <- as.matrix(res2)
-  cellfn <- .getCellFn(res, res2, value_format, value_cols)
+  cellfn <- .getCellFn(res, res2, value_format, value_cols, font_factor)
   if(is.null(title)) title <- gsub("\\.","\n",what)
   if(!is.null(row_split)){
     if(row_split %in% colnames(pp)){
@@ -105,10 +117,13 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   }
   Heatmap( res2, name=what, cluster_rows=FALSE, cluster_columns=FALSE, 
            show_heatmap_legend=show_heatmap_legend, row_order=ro,
-           bottom_annotation=.ds_anno(colnames(res),anno_legend), 
-           show_column_names = FALSE, cell_fun=cellfn, col=col,
+           bottom_annotation=.ds_anno(colnames(res),anno_legend,font_factor), 
+           show_column_names=show_column_names, cell_fun=cellfn, col=col,
            column_title=title, row_split=row_split,
-           column_title_gp=gpar(fontisze=col_title_fontsize), ...)
+           row_title_gp = gpar(fontsize = (14*font_factor)),
+           column_title_gp = gpar(fontsize = (14*font_factor)),
+           row_names_gp = gpar(fontsize = (12*font_factor)),
+           column_names_gp = gpar(fontsize = (12*font_factor)), ...)
 }
 
 # NA-robust scale
@@ -125,11 +140,16 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
 }
 
 #' @importFrom ComplexHeatmap HeatmapAnnotation
-.ds_anno <- function(x, legend=TRUE){
-  y <- sapply(strsplit(gsub("stepElapsed\\.","",x)," "),FUN=function(x) x[[1]])
+.ds_anno <- function(x, legend=TRUE, font_factor=1){
+  y <- vapply( strsplit(gsub("stepElapsed\\.","",x)," "),
+               FUN=function(x) x[[1]], FUN.VALUE=character(1))
   cols <- getQualitativePalette(length(unique(y)))
   names(cols) <- sort(unique(y))
   HeatmapAnnotation(dataset=y, col=list(dataset=cols), 
+                    annotation_legend_param=list(
+                      labels_gp=gpar(fontsize=10*font_factor),
+                      title_gp=gpar(fontsize=10*font_factor, fontface = "bold")
+                    ),
                     show_annotation_name = FALSE, show_legend=legend)
 }
 
@@ -155,7 +175,7 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
     agg.by2 <- c(agg.by, intersect(colnames(res),c("dataset","subpopulation")))
     if(is.null(what)){
       what <- colnames(res)[which(
-        sapply(res,class) %in% c("integer","numeric")
+        vapply(res, function(x) is.integer(x) | is.numeric(x), logical(1))
       )]
       what <- setdiff(what, agg.by)
     }
@@ -183,7 +203,8 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
 
 .getReducedNames <- function(res, short=FALSE){
   if(is.character(res)) res <- parsePipNames(res)
-  pp <- res[,sapply(res, FUN=function(x) length(unique(x))>1),drop=FALSE]
+  pp <- vapply(res, FUN=function(x) length(unique(x))>1, logical(1))
+  pp <- res[,pp,drop=FALSE]
   if(!short && ncol(pp)>1){
     y <- apply(pp,1,FUN=function(x){
       x <- paste0(colnames(pp),"=",x)
@@ -194,7 +215,8 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   }
   y
 }
-.getCellFn  <- function(res,res2,value_format,cols=c("black","white")){
+.getCellFn  <- function( res, res2, value_format, cols=c("black","white"), 
+                         font_factor=1 ){
   resmid <- range(res2, na.rm=TRUE)
   resmid <- resmid[1]+(resmid[2]-resmid[1])/2
   function(j, i, x, y, width, height, fill){
@@ -208,6 +230,6 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
     lab <- gsub("^1.00$","1",lab)
     lab <- gsub("^.00$","0",lab)
     cols <- ifelse(res2[i,j]>resmid,cols[1],cols[2])
-    grid.text(lab, x, y, gp = gpar(fontsize = 10, col=cols))
+    grid.text(lab, x, y, gp = gpar(fontsize = 10*font_factor, col=cols))
   }
 }
