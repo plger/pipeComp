@@ -1,0 +1,9 @@
+Changes in version 0.99.3 (2020-02-07)
++ made important changes to the scRNAseq pipeline, greatly simplifying the format of the output. As a consequence, results produced with older version of the package are not anymore compatible with the current version's aggregation and plotting functions.
+
+Changes in version 0.99.7 (2020-04-01)
++ Submitted to Bioconductor
+
+Changes in version 0.99.23 (2020-04-21)
++ Added SVA-DEA pipeline and vignette
++ Standardized results heatmaps for any PipelineDefinition
