@@ -381,8 +381,8 @@ match_evaluate_multiple <- function(clus_algorithm, clus_truth=NULL){
   pr_mat <- re_mat <- F1_mat <- 
     matrix(NA, nrow = length(tbl_algorithm), ncol = length(tbl_truth))
   
-  for (i in seq_len(tbl_algorithm)) {
-    for (j in seq_len(tbl_truth)) {
+  for (i in seq_len(length(tbl_algorithm))) {
+    for (j in seq_len(length(tbl_truth))) {
       i_int <- as.integer(names(tbl_algorithm))[i]  # cluster from algorithm
       j_int <- as.integer(names(tbl_truth))[j]  # cluster from true labels
       
