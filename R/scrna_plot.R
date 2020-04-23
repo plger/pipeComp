@@ -235,7 +235,7 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   if("clustering" %in% names(res)) res <- res$clustering
   if(atTrueK){
     res <- res[which(res$n_clus==res$true.nbClusts),,drop=FALSE]
-    if(any(sapply(res[,agg.by], FUN=function(x) any(table(x))==0)))
+    if(any(vapply(res[,agg.by], function(x) any(table(x))==0, logical(1))))
       warning("Some methods never yielded the correct number of clusters...")
     res2 <- res <- .prepRes(res, what=what, agg.by, agg.fn, pipDef=pipDef)
   }else{
@@ -289,9 +289,8 @@ scrna_evalPlot_clust <- function(res, what="auto", atTrueK=FALSE,
   fields <- unlist(arguments(pipDef))
   fields <- setdiff(fields, c("k", "dims", "steps","resolution","min.size"))
   fields <- intersect(colnames(res), fields)
-  fields[sapply(res[,fields,drop=FALSE], FUN=function(x){
-    length(unique(x))>1
-  })]
+  fields[vapply( res[,fields,drop=FALSE], FUN=function(x) length(unique(x))>1,
+                 logical(1) )]
 }
 
 .mergeFilterOut <- function(ll){
@@ -340,12 +339,12 @@ scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"),
   ci <- split(seq_len(nrow(co)), coI, drop=TRUE)
   agfns <- list(min.lost=min, mean.lost=mean, median.lost=median, max.lost=max)
   x <- as.data.frame(do.call(cbind, lapply( agfns, FUN=function(agf){
-    sapply(ci, function(x) agf(co[x,"pc.lost"]) )
+    vapply( ci, function(x) agf(co[x,"pc.lost"]), numeric(1) )
   })))
-  x$total.lost <- sapply(ci, FUN=function(x) sum(co[x,"N.lost"]))
-  x$pc.lost <- sapply(ci,
-                      FUN=function(x) 100*sum(co[x,"N.lost"])/sum(co[x,"N"]))
-  x <- cbind(coI[sapply(ci,FUN=function(x) x[1]),], x)
+  x$total.lost <- vapply(ci, FUN=function(x) sum(co[x,"N.lost"]), numeric(1))
+  x$pc.lost <- vapply( ci, FUN.VALUE=numeric(1), 
+                       FUN=function(x) 100*sum(co[x,"N.lost"])/sum(co[x,"N"]) )
+  x <- cbind(coI[vapply(ci, FUN=function(x) x[1], integer(1)),], x)
   # get clustering data
   cl <- aggregate( res$clustering[,clustMetric,drop=FALSE], 
                    by=res$clustering[,c("dataset",param_fields)], FUN=mean )
@@ -411,8 +410,8 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
                   aspect.ratio = 1, axis.text=element_text(size=10),
                   plot.margin=margin(l=0,r=0))
   cs <- scale_fill_manual(values=cols2)
-  d <- data.frame(dataset=rep(names(sces),sapply(tt,length)), 
-                  cluster=unlist(cols), nb=unlist(tt))
+  d <- data.frame( dataset=rep(names(sces), vapply(tt, length, integer(1))), 
+                   cluster=unlist(cols), nb=unlist(tt) )
   p1 <- ggplot(d, aes(x=cluster, y=nb, fill=cluster)) +
     geom_bar(stat = "identity") + scale_y_log10() + 
     facet_wrap(~dataset, scales="free_y", ncol=1, strip.position = "left") + 
@@ -423,7 +422,7 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
   d <- suppressWarnings(dplyr::bind_rows(lapply(cd, FUN=function(x) 
     x[,c("total_counts","total_features","cluster")]))
   )
-  d$dataset <- rep(names(cd),sapply(cd,nrow))
+  d$dataset <- rep(names(cd), vapply(cd, nrow, integer(1)))
   pf <- function(d, x) ggplot(d, aes_string(x="cluster", y=x, fill="cluster"))+ 
     geom_violin() + xlab("") + coord_flip() + noy + cs +
     facet_wrap(~dataset, scales="free_y", ncol=1) + 

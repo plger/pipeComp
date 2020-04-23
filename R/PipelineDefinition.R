@@ -1,13 +1,18 @@
 .validatePipelineDef <- function(object){
+  
   e <- c()
-  if(!is.list(object@functions) || !all(sapply(object@functions, is.function))) 
+  if( !is.list(object@functions) || 
+      !all(vapply(object@functions, is.function, logical(1))) ) 
     e <- c("`functions` should be a (named) list of functions!")
-  if(!all(sapply(object@functions,FUN=function(x) "x" %in% names(formals(x))))) 
+  if(!all(vapply( object@functions, FUN.VALUE=logical(1),
+                  FUN=function(x) "x" %in% names(formals(x)))))
     e <- c(e, "Each function should at least take the argument `x`.")
   isf <- function(x) is.null(x) || is.function(x)
-  if(!is.list(object@aggregation) || !all(sapply(object@aggregation, isf))) 
+  if( !is.list(object@aggregation) || 
+      !all(vapply(object@aggregation, isf, logical(1))) ) 
     stop("`aggregation` should be a list of functions and/or NULL slots!")
-  if(!is.list(object@evaluation) || !all(sapply(object@evaluation, isf))) 
+  if( !is.list(object@evaluation) || 
+      !all(vapply(object@evaluation, isf, logical(1))) ) 
     stop("`evaluation` should be a list of functions and/or NULL slots!")
   if(!all(names(object@descriptions)==names(object@functions))) 
     e <- c(e, "descriptions do not match functions.")
@@ -71,7 +76,7 @@ PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
                                 aggregation=NULL, initiation=identity, 
                                 defaultArguments=list(), 
                                 misc=list(), verbose=TRUE ){
-  if(!is.list(functions) || !all(sapply(functions, is.function))) 
+  if(!is.list(functions) || !all(vapply(functions, is.function, logical(1)))) 
     stop("`functions` should be a (named) list of functions!")
   n <- names(functions)
   if(is.null(n)) 
@@ -90,8 +95,8 @@ PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
          evaluation=evaluation, aggregation=aggregation2, 
          initiation=initiation, defaultArguments=defaultArguments, misc=misc)
   
-  w <- which( !sapply(x@aggregation,is.null) & 
-                sapply(x@evaluation,is.null) )
+  w <- which( !vapply(x@aggregation, is.null, logical(1)) & 
+                vapply(x@evaluation, is.null, logical(1)) )
   if(verbose && length(w)>0){
     warning(paste("An aggregation is defined for some steps that do not have",
                   "a defined evaluation function: ",
@@ -126,8 +131,8 @@ PipelineDefinition <- function( functions, descriptions=NULL, evaluation=NULL,
   }else{
     x <- lapply(fns,FUN=function(x) NULL)
   }
-  if( containsFns && 
-      !all(sapply(x, FUN=function(x) is.null(x) || is.function(x))) )
+  if(containsFns && 
+     !all(vapply(x, FUN=function(x) is.null(x) || is.function(x), logical(1))))
     stop(name," should be a list of functions")
   x
 }
@@ -156,15 +161,15 @@ setMethod("show", signature("PipelineDefinition"), function(object){
   isKnit <- tryCatch( isTRUE(getOption('knitr.in.progress')) || 
                         length(knitr::opts_current$get())>0,
                       error=function(e) FALSE)
-  fns <- sapply(names(object@functions), FUN=function(x){ 
+  fns <- unlist(lapply(names(object@functions), FUN=function(x){ 
     x2 <- x
     if(!isKnit) x2 <- paste0("\033[1m",x,"\033[22m")
-    y <- sapply( names(formals(object@functions[[x]])), FUN=function(n){
+    y <- lapply( names(formals(object@functions[[x]])), FUN=function(n){
       if(!is.null(def <- object@defaultArguments[[n]]))
         n <- paste0(n,"=",deparse(def,100,FALSE))
       n
     })
-    y <- paste0("  - ", x2, "(", paste(y, collapse=", "), ")")
+    y <- paste0("  - ", x2, "(", paste(unlist(y), collapse=", "), ")")
     if(!is.null(object@evaluation[[x]]) || !is.null(object@aggregation[[x]])) 
       y <- paste0(y, ifelse(isKnit, " * ", " \033[34m*\033[39m "))
     if(!is.null(object@descriptions[[x]])){
@@ -173,7 +178,7 @@ setMethod("show", signature("PipelineDefinition"), function(object){
       y <- paste(y, x2, sep="\n")
     }
     y
-  })
+  }))
   cat("A PipelineDefinition object with the following steps:\n")
   cat(paste(fns,collapse="\n"))
   cat("\n")
@@ -321,7 +326,8 @@ addPipelineStep <- function(object, name, after=NULL, slots=list()){
     stop("`after` should either be null or the name of a step.")
   n <- c("functions","evaluation","aggregation","descriptions")
   if(length(slots)>0) 
-    names(slots) <- sapply(names(slots), choices=n, FUN=match.arg)
+    names(slots) <- vapply( names(slots), choices=n, FUN=match.arg, 
+                            FUN.VALUE=character(1) )
   if(!all(names(slots) %in% n)) 
     stop(paste("fns should be a function or a list", 
     "with one or more of the following names:\n", paste(n,collapse=", ")))

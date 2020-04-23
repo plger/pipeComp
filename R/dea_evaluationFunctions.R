@@ -79,7 +79,10 @@ dea_evalPlot_curve <- function(res, scales="free", agg.by=NULL, agg.fn=mean,
   d <- aggregate(res[,c("FDR","TPR")], by=res[,c("dataset","threshold",agg.by)], na.rm=TRUE, FUN=agg.fn)
   pp <- d[,agg.by,drop=FALSE]
   d$method <- apply(pp, 1, collapse=" > ", FUN=paste)
-  if(all(c("filt","minCount") %in% colnames(d))) d$filter <- paste(d$filt, "(",d$minCount,")")
+  if(all(c("filt","minCount") %in% colnames(d))){
+    d$filter <- paste(d$filt, "(",d$minCount,")")
+    d$filter[which(d$filt=="none")] <- "none"
+  } 
   p <- ggplot(d, aes_string("FDR", "TPR", group="method", colour=colourBy, 
                             shape=shapeBy)) + 
     geom_vline(xintercept=unique(d$threshold), linetype="dashed", 

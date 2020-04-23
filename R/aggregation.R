@@ -28,7 +28,8 @@ readPipelineResults <- function(path=NULL, resfiles=NULL){
                                             ".*\\.evaluation\\.rds$") )
     if(length(resfiles)==0) stop("Could not find evaluation files.")
   }
-  ds <- sapply(strsplit(basename(resfiles),"\\."), FUN=function(x) rev(x)[3])
+  ds <- vapply( strsplit(basename(resfiles),"\\."), FUN=function(x) rev(x)[3], 
+                FUN.VALUE=character(1) )
   if(any(duplicated(ds)))
     stop("Some datasets appear to occur in more than one file.",
          "If these are the result of multiple `runPipeline` calls, please read",
@@ -84,7 +85,7 @@ aggregatePipelineResults <- function(res, pipDef=NULL){
   ))
   metadata(reso)$PipelineDefinition <- pipDef
   
-  isn <- sapply(pipDef@aggregation, is.null)
+  isn <- vapply(pipDef@aggregation, is.null, logical(1))
   if(all(isn)){
     warning("No aggregation defined in the pipelineDefinition; 
 returning only running times.")
@@ -185,9 +186,9 @@ mergePipelineResults <- function(res1,res2){
 
 .dsMergeResults <- function(res1, res2){
   names(steps) <- steps <- names(res1$evaluation)
-  esteps <- sapply(res1$evaluation, FUN=function(x){
+  esteps <- vapply(res1$evaluation, FUN=function(x){
     !is.null(x) && length(x)>0
-  })
+  }, logical(1))
   edif <- setdiff( names(res2$elapsed$total), 
                    names(res1$elapsed$total))
   res <- SimpleList(

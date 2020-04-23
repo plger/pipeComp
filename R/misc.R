@@ -13,7 +13,8 @@
 #' @examples
 #' checkPipelinePackages(list(argument1="mean"), scrna_pipeline())
 checkPipelinePackages <- function(alternatives, pipDef=NULL){
-  fns <- unlist(alternatives[sapply(alternatives, class)=="character"])
+  fns <- unlist(alternatives[ vapply( alternatives, FUN=is.character, 
+                                      FUN.VALUE=logical(1) ) ])
   fns <- lapply(fns, FUN=function(x){
     if(exists(x) && is.function(get(x))) return(get(x))
     ""
@@ -63,10 +64,10 @@ parsePipNames <- function(x, setRowNames=FALSE, addcolumns=NULL){
     x <- row.names(x)
   }
   x2 <- lapply(strsplit(x,";"),FUN=function(x) x)
-  if(length(unique(sapply(x2,length)))>1) 
+  if(length(unique(vapply(x2, length, numeric(1))))>1) 
     stop("The different names do not have the same number of components.")
-  n <- sapply(strsplit(x2[[1]],"="),FUN=function(x) x[1])
-  y <- sapply(strsplit(unlist(x2),"="),FUN=function(x) x[2])
+  n <- vapply(strsplit(x2[[1]],"="),FUN=function(x) x[1], character(1))
+  y <- vapply(strsplit(unlist(x2),"="),FUN=function(x) x[2], character(1))
   y <- as.data.frame(matrix(y, ncol=length(n), byrow=TRUE))
   colnames(y) <- n
   for(i in seq_len(ncol(y))) y[[i]] <- type.convert(y[[i]])
@@ -195,7 +196,8 @@ getQualitativePalette <- function(nbcolors){
 
 .getTrueLabelsFromNames <- function(x){
   if(is.null(names(x))) return(NULL)
-  tl <- sapply(strsplit(names(x),".",fixed=TRUE), FUN=function(x) x[[1]])
+  tl <- vapply(strsplit(names(x),".",fixed=TRUE), FUN.VALUE=character(1),
+               FUN=function(x) x[[1]])
   names(tl) <- names(x)
   tl
 }
