@@ -161,8 +161,8 @@ plotElapsed(res, agg.by=FALSE)
 
 Evaluation results can be accessed through `res$evaluation`, or can be plotted using the `evalHeatmap` function:
 
-```{r}
-  evalHeatmap(res, what=c("mean", "max"))
+```{r, fig.width=3.5, fig.height=2.5}
+evalHeatmap(res, what=c("mean", "max"))
 ```
 
 
