@@ -45,10 +45,10 @@ To use the scRNA-seq pipeline and wrappers, however, requires further packages t
 # _pipeComp_ overview 
 
 ```{r echo = FALSE, fig.cap = "Overview of PipeComp and the PipelineDefinition"}
-knitr::include_graphics(system.file('docs', 'pipeComp_scheme.png', package = 'pipeComp'))
+knitr::include_graphics(system.file('docs', 'pipeComp_scheme.png', package = 'pipeComp'),)
 ```
 
-`r Rpackage("pipeComp")` is built around the S4 class `PipelineDefinition` which defines a basic abstract workflow with different steps (which can have any number of parameters, including subroutines), as depicted in Figure 1. When a pipeline is executed, each step is consecutively applied to a starting object. In addition, each step can optionally have evaluation functions, which take the output of the step as an input, and outputs evaluation metrics. Finally, functions can be specified to aggregate these metrics across multiple datasets.
+`r Rpackage("pipeComp")` is built around the S4 class `PipelineDefinition` which defines a basic abstract workflow with different steps (which can have any number of parameters, including subroutines), as depicted in Figure 1A. When a pipeline is executed, each step is consecutively applied to a starting object. In addition, each step can optionally have evaluation functions, which take the output of the step as an input, and outputs evaluation metrics. Finally, functions can be specified to aggregate these metrics across multiple datasets (in case the evalation output isn't a data.frame or list of data.frames).
 
 To run a benchmark one in addition needs a set of alternative values to the parameters. For example, alternative values for the parameters depicted in Figure 1 could be defined as follows:
 
@@ -63,9 +63,9 @@ alternatives <- list(
 )
 ```
 
-Each parameter (slot of the list) can take any number of alternative scalar values (e.g. character, numeric, logical). The name of functions (which should be loaded in the environment) can be passed if the `PipelineDefinition` allows it.
+Each parameter (slot of the list) can take any number of alternative scalar values (e.g. character, numeric, logical). The name of functions (which should be loaded in the environment) can be passed if the `PipelineDefinition` allows it. This means that wrappers should be created for distinct methods, and the name of the wrapper functions passed as alternative parameter values.
 
-Given a `PipelineDefinition`, a list of alternative parameters and a list benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step (with the same parameters) twice and compiling evaluations on the fly to avoid storing potentially large intermediate data:
+Given a `PipelineDefinition`, a list of alternative parameters and a list benchmark datasets, the `runPipeline` (Figure 1B) function proceeds through all combinations arguments, avoiding recomputing the same step (with the same parameters) twice and compiling evaluations on the fly to avoid storing potentially large intermediate data:
 
 ```{r, eval=FALSE}
 res <- runPipeline(datasets, alternatives, pipelineDef=PipelineDefinition)

@@ -1,16 +1,29 @@
 #' evalHeatmap
 #' 
-#' General heatmap representation of aggregated evaluation results.
+#' General heatmap representation of aggregated evaluation results. By default,
+#' the actual metric values are printed in the cells, and while the coloring is
+#' determined by \code{\link{colCenterScale}} (number of matrix-median absolute
+#'  deviations from the column means). Unless the total number of analyses is
+#'  small, it is strongly recommended to use the `agg.by` argument to limit the
+#'  size and improve the readability of the heatmap.
 #'
 #' @param res Aggregated pipeline results (i.e. the output of `runPipeline` or
 #' `aggregateResults`)
-#' @param step Name of the step for which to plot the evaluation results
-#' @param what What metric to plot
+#' @param step Name of the step for which to plot the evaluation results. If 
+#' unspecified, will use the latest step that has evaluation results.
+#' @param what What metric to plot.
 #' @param what2 If the step has more than one benchmark data.frame, which one
-#' to use.
+#' to use. The function will attempt to guess that automatically based on 
+#' `what`, and will notify in case of ambiguity.
 #' @param agg.by Aggregate results by these columns (default no aggregation)
 #' @param agg.fn Function for aggregation (default mean)
-#' @param scale Logical; whether to scale columns (default FALSE)
+#' @param filterExpr An optional filtering expression based on the columns of 
+#' the target dataframe, (e.g. `filterExpr=param1=="value1"`).
+#' @param scale Controls the scaling of the columns for the color mapping. Can 
+#' either be a logical (TRUE will use NA-safe column z-scores, FALSE will not 
+#' scale) or a function performing the scaling. The default uses the
+#'  `colCenterScale` function (per-column centering, but per-matrix variance
+#'  scaling).
 #' @param value_format Format for displaying cells' values (use 
 #' `value_format=""` to disable)
 #' @param reorder_rows Logical; whether to sort rows (default FALSE). The row 
@@ -33,37 +46,42 @@
 #' 
 #' @return A Heatmap
 #' @export
+#' @importFrom grid gpar
 #' @import ComplexHeatmap
 #' @examples
-#' data("exampleDEAresults", package="pipeComp")
-#' evalHeatmap( exampleDEAresults, what=c("logFC.pearson", "TPR","FDR"), 
-#'              agg.by=c("sva.method","dea.method"), row_split = "sva.method" )
+#' data("exampleResults", package="pipeComp")
+#' evalHeatmap( exampleResults, what=c("ARI", "MI", "min_pr"), 
+#'              agg.by=c("filt", "norm"), row_split = "norm" ) +
+#' evalHeatmap( exampleResults, what="ARI", agg.by=c("filt", "norm"), 
+#'              filterExpr=n_clue==true.nbClusts, title="ARI at
+#' true K" )
 evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL, 
-                         agg.fn=mean, scale=TRUE, value_format="%.2f", 
-                         reorder_rows=FALSE, show_heatmap_legend=FALSE, 
-                         show_column_names=FALSE, col=viridisLite::inferno(100),
-                         font_factor=1, row_split=NULL, shortNames=TRUE,
+                         agg.fn=mean, filterExpr=NULL, scale="colCenterScale", 
+                         value_format="%.2f", reorder_rows=FALSE, 
+                         show_heatmap_legend=FALSE, show_column_names=FALSE, 
+                         col=viridisLite::inferno(100), font_factor=0.9, 
+                         row_split=NULL, shortNames=TRUE,
                          value_cols=c("black","white"), title=NULL, 
                          anno_legend=TRUE, ...){
   pd <- NULL
   if(is(res,"SimpleList")) pd <- metadata(res)$PipelineDefinition
   if(is.null(pd)) stop("Could not find the PipelineDefinition.")
-  if(is.null(step)) step <- rev(names(res$evaluation))[1]
+  if(is.null(step)){
+    step <- rev(names(res$evaluation))[1]
+    if(length(res$evaluation)>1) message("Using step '",step,"'.")
+  }
   step <- match.arg(step, names(res$evaluation))
   if(length(what)>1){
-    ro <- H <- evalHeatmap(res, step=step, what[1], agg.by=agg.by, scale=scale, 
-                           reorder_rows=reorder_rows, row_split=row_split, 
-                           show_column_names=show_column_names,
-                           font_factor=font_factor, shortNames=shortNames,
-                           show_heatmap_legend=show_heatmap_legend,
-                           anno_legend=anno_legend, ... )
-    for(i in what[-1]) H <- H +
-        evalHeatmap( res, step=step, what=i, agg.by=agg.by, scale=scale, 
-                     reorder_rows=ro, anno_legend=anno_legend, 
-                     show_column_names=show_column_names,
-                     show_heatmap_legend=show_heatmap_legend,
-                     font_factor=font_factor, shortNames=shortNames,
-                     row_split=row_split, ... )
+    title <- lapply(seq_along(what), FUN=function(i){
+      tryCatch( title[[i]], error=function(e) what[[i]] )
+    })
+    fcall <- match.call()
+    H <- NULL
+    for(i in seq_along(what)){
+      fcall$what <- what[[i]]
+      fcall$title <- title[[i]]
+      H <- H + eval(fcall)
+    }
     return(H)
   }
   if(is(res,"SimpleList") && "evaluation" %in% names(res)) res <- res$evaluation
@@ -75,7 +93,9 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
                             logical(1) ))
       if(length(test)==0) stop("`what2` is undefined and could not be guessed.")
       if(length(test)>1) message("`what2` is undefined, and `what` is present ",
-        "in more than one results data.frame. '", test[1], "' will be used.")
+        "in more than one results data.frame (",
+        paste(paste0("`",names(res)[test],"`"), collapse=", "), "). ",
+        names(res)[test[1]], "' will be used.")
       what2 <- names(res)[test[1]]
     }
     what2 <- match.arg(what2, names(res))
@@ -85,25 +105,12 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
                            c("dataset",unlist(arguments(pd))) )
   what <- match.arg(what, choices=what_options)
   res <- .prepRes(res, what=what, agg.by=agg.by, pipDef=pd, 
-                  shortNames=shortNames, returnParams = TRUE)
+                  filt=substitute(filterExpr), shortNames=shortNames, 
+                  returnParams=TRUE)
   pp <- res$pp
-  res2 <- res <- res$res
-  if(scale) res2 <- .safescale(res)
-  if(is(reorder_rows, "Heatmap")){
-    ro <- row.names(reorder_rows@matrix)
-  }else{
-    if(length(reorder_rows)>1){
-      ro <- reorder_rows
-    }else{
-      if(reorder_rows){
-        ro <- order(rowMeans(res2, na.rm=TRUE), decreasing=TRUE)
-      }else{
-        ro <- seq_len(nrow(res2))
-      }
-    }
-  }
-  if(!is.numeric(ro))
-    ro <- vapply(ro, FUN=function(x) which(row.names(res)==x), integer(1))
+  res <- res$res
+  res2 <- .doscale(res, param=scale)
+  ro <- .dosort(res2, reorder_rows)
   res2 <- as.matrix(res2)
   cellfn <- .getCellFn(res, res2, value_format, value_cols, font_factor)
   if(is.null(title)) title <- gsub("\\.","\n",what)
@@ -126,6 +133,35 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
            column_names_gp = gpar(fontsize = (12*font_factor)), ...)
 }
 
+.doscale <- function(res, param){
+  if(is.null(param)) param <- colCenterScale
+  if(is.logical(param) && !param) return(res)
+  if(is.logical(param) && param) return(.safescale(res))
+  if(is.function(param)) return(param(res))
+  if(is.character(param) && is.function(get(param))) return(get(param)(res))
+  warning("Unknown scaling parameter, will use column z-scores.")
+  .safescale(res)
+}
+
+.dosort <- function(res, reorder_rows){
+  if(is(reorder_rows, "Heatmap")){
+    ro <- row.names(reorder_rows@matrix)
+  }else{
+    if(length(reorder_rows)>1){
+      ro <- reorder_rows
+    }else{
+      if(reorder_rows){
+        ro <- order(rowMeans(res, na.rm=TRUE), decreasing=TRUE)
+      }else{
+        ro <- seq_len(nrow(res))
+      }
+    }
+  }
+  if(!is.numeric(ro))
+    ro <- vapply(ro, FUN=function(x) which(row.names(res)==x), integer(1))
+  ro
+}
+
 # NA-robust scale
 .safescale <- function(x){
   if(!is.null(dim(x))){
@@ -137,6 +173,37 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   if(sd(x,na.rm=TRUE)>0) return(base::scale(x))
   if(sum(!is.na(x))==0) return(base::scale(as.numeric(!is.na(x))))
   rep(0,length(x))
+}
+
+#' colCenterScale
+#'
+#' Matrix scaling by centering columns separately and then performing variance 
+#' scaling on the whole matrix, in a NA-robust fashion. With the default 
+#' arguments, the output will be the number of (matrix-)median absolute 
+#' deviations from the column-median.
+#'
+#' @param x A numeric matrix.
+#' @param centerFn The function for calculating centers. Should accept the 
+#' `na.rm` argument. E.g. `centerFn=mean` or `centerFn=median`.
+#' @param scaleFn The function for calculating the (matrix-wise) scaling
+#' factor. Should accept the `na.rm` argument. Default `median(abs(x))`.
+#'
+#' @return A scaled matrix of the same dimensions as `x`.
+#' @export
+#'
+#' @examples
+#' # random data with column mean differences
+#' d <- cbind(A=rnorm(5, 10, 2), B=rnorm(5, 20, 2), C=rnorm(5,30, 2))
+#' colCenterScale(d)
+colCenterScale <- function(x, centerFn=median, 
+                           scaleFn=function(x,na.rm) median(abs(x),na.rm=na.rm)
+                           ){
+  if(is.null(dim(x))) stop("`x` should be a numeric matrix or data.frame.")
+  centers <- apply(x, MARGIN=2, na.rm=TRUE, FUN=centerFn)
+  x2 <- t(t(x)-centers)
+  x2 <- x2/scaleFn(x2, na.rm=TRUE)
+  if(all(is.na(x2))) x2[is.na(x2)] <- 0
+  x2
 }
 
 #' @importFrom ComplexHeatmap HeatmapAnnotation
@@ -153,24 +220,14 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
                     show_annotation_name = FALSE, show_legend=legend)
 }
 
-.getReducedNames <- function(res){
-  if(is.character(res)) res <- parsePipNames(res)
-  res <- res[,grep("^stepElapsed\\.",colnames(res),invert=TRUE)]
-  pp <- pp[,apply(pp,2,FUN=function(x) length(unique(x))>1),drop=FALSE]
-  if(ncol(pp)>1){
-    y <- apply(pp,1,FUN=function(x){
-      x <- paste0(colnames(pp),"=",x)
-      paste(x, collapse("; "))
-    })
-  }else{
-    y <- apply(pp,1,collapse=" ",FUN=paste)
-  }
-  y
-}
-
 .prepRes <- function(res, what=NULL, agg.by=NULL, agg.fn=mean, pipDef=NULL, 
-                     long=FALSE, shortNames=FALSE, returnParams=FALSE){
+                     filt=NULL, long=FALSE, shortNames=FALSE, 
+                     returnParams=FALSE){
   if(is.null(what) && !long) stop("`what` should be defined.")
+  if(!is.null(filt) && filt!=TRUE){
+    if(is.null(pipDef)) stop("Filtering requires providing a `pipDef`.")
+    res <- res[which(eval(filt, res)),]
+  }
   if(!is.null(agg.by)){
     agg.by2 <- c(agg.by, intersect(colnames(res),c("dataset","subpopulation")))
     if(is.null(what)){
@@ -215,6 +272,8 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   }
   y
 }
+
+#' @importFrom grid grid.text
 .getCellFn  <- function( res, res2, value_format, cols=c("black","white"), 
                          font_factor=1 ){
   resmid <- range(res2, na.rm=TRUE)
@@ -232,4 +291,34 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
     cols <- ifelse(res2[i,j]>resmid,cols[1],cols[2])
     grid.text(lab, x, y, gp = gpar(fontsize = 10*font_factor, col=cols))
   }
+}
+
+# legacy...
+.renameHrows <- function(h, f) renameHrows(h,f)
+
+
+#' renameHrows
+#'
+#' Applies a function to the row labels of a Heatmap or HeatmapList
+#'
+#' @param h A `Heatmap` or `HeatmapList`
+#' @param f The function to apply on row labels.
+#'
+#' @return the modified `h`
+#' @export
+#'
+#' @examples
+#' data("exampleResults", package="pipeComp")
+#' H <- evalHeatmap(exampleResults, what=c("ARI", "MI"), agg.by="norm")
+#' H
+#' H <- renameHrows(H, function(x) gsub("^norm\\.", "", x))
+#' H
+renameHrows <- function(h, f=identity){
+  if(is(h,"HeatmapList")){
+    h@ht_list <- lapply(h@ht_list, f=f, FUN=.renameHrows)
+    return(h)
+  }
+  h@row_names_param$anno@var_env$value <- 
+    f(h@row_names_param$anno@var_env$value)
+  h
 }

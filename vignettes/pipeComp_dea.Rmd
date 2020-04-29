@@ -283,11 +283,11 @@ evalHeatmap( res, what=c("TPR","FDR","logFC.pearson"),
              agg.by=c("sva.method", "dea.method"), row_split = "sva.method" )
 ```
 
-The `agg.by` argument let's you control for which of the parameters the values should be shown for each alternative (the values are averaged across the alternatives of other parameters). By default, TRP and FDR are here averaged across the three significance thresholds used in the evaluation, so we have created a pipeline-specific plotting wrapper which allows the selection of a significance threshold:
+The `agg.by` argument let's you control for which of the parameters the values should be shown for each alternative (the values are averaged across the alternatives of other parameters). By default, TRP and FDR are here averaged across the significance thresholds used in the evaluation, but we can filter to use a specific threshold:
 
 ```{r}
-dea_evalPlot_sig( res, what=c("TPR","FDR","logFC.pearson"), agg.by="sva.method", 
-                  threshold=0.05 )
+evalHeatmap( res, what=c("TPR","FDR"), agg.by=c("sva.method", "dea.method"), 
+             row_split="sva.method", filterExpr=threshold==0.05 )
 ```
 
 We see from the previous plots that using SVA-based methods improve the correlation with the expected foldchange as well as the power of the DEA, while ensuring error control (with the exception of RUVr).
@@ -306,7 +306,7 @@ The three points in the curve indicate the nominal FDR thresholds of 0.01, 0.05 
 We can also see that error control is maintained even when increasing the number of surrogate variables:
 
 ```{r, fig.height=7, fig.width=5}
-dea_evalPlot_sig(res, agg.by=c("sva.method","k"), 
+evalHeatmap(res, what=c("TPR","FDR"), agg.by=c("sva.method","k"), 
                  show_column_names=TRUE, anno_legend = FALSE, 
-                 row_split="sva.method")
+                 row_split="sva.method", filterExpr=threshold==0.05 )
 ```

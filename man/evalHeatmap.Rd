@@ -11,13 +11,14 @@ evalHeatmap(
   what2 = NULL,
   agg.by = NULL,
   agg.fn = mean,
-  scale = TRUE,
+  filterExpr = NULL,
+  scale = "colCenterScale",
   value_format = "\%.2f",
   reorder_rows = FALSE,
   show_heatmap_legend = FALSE,
   show_column_names = FALSE,
   col = viridisLite::inferno(100),
-  font_factor = 1,
+  font_factor = 0.9,
   row_split = NULL,
   shortNames = TRUE,
   value_cols = c("black", "white"),
@@ -30,18 +31,27 @@ evalHeatmap(
 \item{res}{Aggregated pipeline results (i.e. the output of `runPipeline` or
 `aggregateResults`)}
 
-\item{step}{Name of the step for which to plot the evaluation results}
+\item{step}{Name of the step for which to plot the evaluation results. If 
+unspecified, will use the latest step that has evaluation results.}
 
-\item{what}{What metric to plot}
+\item{what}{What metric to plot.}
 
 \item{what2}{If the step has more than one benchmark data.frame, which one
-to use.}
+to use. The function will attempt to guess that automatically based on 
+`what`, and will notify in case of ambiguity.}
 
 \item{agg.by}{Aggregate results by these columns (default no aggregation)}
 
 \item{agg.fn}{Function for aggregation (default mean)}
 
-\item{scale}{Logical; whether to scale columns (default FALSE)}
+\item{filterExpr}{An optional filtering expression based on the columns of 
+the target dataframe, (e.g. `filterExpr=param1=="value1"`).}
+
+\item{scale}{Controls the scaling of the columns for the color mapping. Can 
+either be a logical (TRUE will use NA-safe column z-scores, FALSE will not 
+scale) or a function performing the scaling. The default uses the
+ `colCenterScale` function (per-column centering, but per-matrix variance
+ scaling).}
 
 \item{value_format}{Format for displaying cells' values (use 
 `value_format=""` to disable)}
@@ -78,10 +88,18 @@ TRUE.}
 A Heatmap
 }
 \description{
-General heatmap representation of aggregated evaluation results.
+General heatmap representation of aggregated evaluation results. By default,
+the actual metric values are printed in the cells, and while the coloring is
+determined by \code{\link{colCenterScale}} (number of matrix-median absolute
+ deviations from the column means). Unless the total number of analyses is
+ small, it is strongly recommended to use the `agg.by` argument to limit the
+ size and improve the readability of the heatmap.
 }
 \examples{
-data("exampleDEAresults", package="pipeComp")
-evalHeatmap( exampleDEAresults, what=c("logFC.pearson", "TPR","FDR"), 
-             agg.by=c("sva.method","dea.method"), row_split = "sva.method" )
+data("exampleResults", package="pipeComp")
+evalHeatmap( exampleResults, what=c("ARI", "MI", "min_pr"), 
+             agg.by=c("filt", "norm"), row_split = "norm" ) +
+evalHeatmap( exampleResults, what="ARI", agg.by=c("filt", "norm"), 
+             filterExpr=n_clue==true.nbClusts, title="ARI at
+true K" )
 }

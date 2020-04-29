@@ -95,27 +95,3 @@ dea_evalPlot_curve <- function(res, scales="free", agg.by=NULL, agg.fn=mean,
                   limits=xlim ) + 
     theme(axis.text.x=element_text(angle = 90, hjust = 1))
 }
-
-#' dea_evalPlot_sig
-#' 
-#' This is a wrapper around `evalHeatmap` to enable the choice of the 
-#' significance threshold when plotting results of the DEA pipeline.
-#'
-#' @param res Aggregated results of the DEA pipeline
-#' @param what What to plot
-#' @param threshold Significance threshold to plot (default 0.05)
-#' @param ... Any further argument to `evalHeatmap`
-#' 
-#' @return A Heatmap
-#' @export
-#' @examples
-#' data("exampleDEAresults", package="pipeComp")
-#' dea_evalPlot_sig( exampleDEAresults, agg.by=c("sva.method","dea.method"), 
-#'                   threshold=0.05, row_split = "sva.method" )
-dea_evalPlot_sig <- function( res, what=c("TPR","FDR"), threshold=0.05, ...){
-  r2 <- res$evaluation$dea$significance
-  res$evaluation$dea$significance <- r2[which(r2$threshold==threshold),]
-  if(nrow(res$evaluation$dea$significance)==0) 
-    stop("Threshold not found!")
-  evalHeatmap(res, what=what, what2="significance", ...)
-}
