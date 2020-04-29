@@ -41,19 +41,22 @@
 #' @param shortNames Logical; whether to use short row names (with only
 #' the parameter values instead of the parameter name and value pairs), default
 #' TRUE.
+#' @param name Heatmap name (e.g. used for the legend)
 #' @param anno_legend Logical; whether to plot the legend for the datasets
 #' @param ... Passed to `Heatmap`
 #' 
 #' @return A Heatmap
 #' @export
+#' @importFrom viridisLite inferno
 #' @importFrom grid gpar
 #' @import ComplexHeatmap
 #' @examples
 #' data("exampleResults", package="pipeComp")
-#' evalHeatmap( exampleResults, what=c("ARI", "MI", "min_pr"), 
+#' evalHeatmap( exampleResults, step="clustering", what=c("ARI","MI","min_pr"), 
 #'              agg.by=c("filt", "norm"), row_split = "norm" ) +
-#' evalHeatmap( exampleResults, what="ARI", agg.by=c("filt", "norm"), 
-#'              filterExpr=n_clue==true.nbClusts, title="ARI at
+#' evalHeatmap( exampleResults, step="clustering", what="ARI", 
+#'              agg.by=c("filt", "norm"), filterExpr=n_clus==true.nbClusts, 
+#'              name="ARI at true k", title="ARI at
 #' true K" )
 evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL, 
                          agg.fn=mean, filterExpr=NULL, scale="colCenterScale", 
@@ -62,7 +65,7 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
                          col=viridisLite::inferno(100), font_factor=0.9, 
                          row_split=NULL, shortNames=TRUE,
                          value_cols=c("black","white"), title=NULL, 
-                         anno_legend=TRUE, ...){
+                         name=NULL, anno_legend=TRUE, ...){
   pd <- NULL
   if(is(res,"SimpleList")) pd <- metadata(res)$PipelineDefinition
   if(is.null(pd)) stop("Could not find the PipelineDefinition.")
@@ -122,7 +125,8 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
       row_split <- NULL
     }
   }
-  Heatmap( res2, name=what, cluster_rows=FALSE, cluster_columns=FALSE, 
+  if(is.null(name)) name <- what
+  Heatmap( res2, name=name, cluster_rows=FALSE, cluster_columns=FALSE, 
            show_heatmap_legend=show_heatmap_legend, row_order=ro,
            bottom_annotation=.ds_anno(colnames(res),anno_legend,font_factor), 
            show_column_names=show_column_names, cell_fun=cellfn, col=col,

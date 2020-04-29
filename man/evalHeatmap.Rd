@@ -23,6 +23,7 @@ evalHeatmap(
   shortNames = TRUE,
   value_cols = c("black", "white"),
   title = NULL,
+  name = NULL,
   anno_legend = TRUE,
   ...
 )
@@ -80,6 +81,8 @@ TRUE.}
 
 \item{title}{Plot title}
 
+\item{name}{Heatmap name (e.g. used for the legend)}
+
 \item{anno_legend}{Logical; whether to plot the legend for the datasets}
 
 \item{...}{Passed to `Heatmap`}
@@ -97,9 +100,10 @@ determined by \code{\link{colCenterScale}} (number of matrix-median absolute
 }
 \examples{
 data("exampleResults", package="pipeComp")
-evalHeatmap( exampleResults, what=c("ARI", "MI", "min_pr"), 
+evalHeatmap( exampleResults, step="clustering", what=c("ARI","MI","min_pr"), 
              agg.by=c("filt", "norm"), row_split = "norm" ) +
-evalHeatmap( exampleResults, what="ARI", agg.by=c("filt", "norm"), 
-             filterExpr=n_clue==true.nbClusts, title="ARI at
+evalHeatmap( exampleResults, step="clustering", what="ARI", 
+             agg.by=c("filt", "norm"), filterExpr=n_clus==true.nbClusts, 
+             name="ARI at true k", title="ARI at
 true K" )
 }
