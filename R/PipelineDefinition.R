@@ -278,7 +278,7 @@ setMethod( "stepFn<-", signature("PipelineDefinition"),
            function(object, step, type, value){
   ft <- c("functions","evaluation","aggregation","descriptions","initiation")
   type <- match.arg(type, ft)
-  if(type!="descriptions" &&  !is.function(value)) 
+  if(type!="descriptions" && !is.null(value) && !is.function(value))
     stop("Replacement value should be a function.")
   if(type=="initiation"){
     slot(object, type) <- value
