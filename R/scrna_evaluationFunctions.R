@@ -223,15 +223,18 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
     subpops <- colnames(x[[1]]$clust.avg.silwidth)
     x <- lapply(x,FUN=function(y) y$silhouettes)
     dims <- table(unlist(lapply(x, FUN=function(x) colnames(x)[-1:-2])))
-    if(length(unique(dims))==1 && ncol(x[[1]])==3){
+    if(!any(dims==length(x))){
+      warning("Silhouettes computed over incompatible dimensionalities.",
+              "Will use the first available one.")
+      dims <- c(1,1)
+    }
+    if(length(unique(dims))==1){
       # single dimensionality
       if(length(dims)>1){
         x <- lapply(x, FUN=function(x) names(x)[3] <- "selected")
         dims <- table(unlist(lapply(x, FUN=function(x) colnames(x)[-1:-2])))
       }
     }
-    if(!any(dims==length(x))) 
-      stop("Silhouettes computed over incompatible dimensionalities")
     
     names(dims) <- dims <- intersect( unique(unlist(lapply(x, FUN=colnames))),
                                       names(dims)[dims==length(x)] )
@@ -270,13 +273,16 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
     cbind(pi, x)
   }), .id="dataset")
   
+  if(is.null(tmp <- dim(res[[1]][[1]]$covar.cor)) || any(tmp==0)){
+    top5 <- covar.adjR2 <- covar <- NULL
+  }else{
   covar <- dplyr::bind_rows(lapply(res, FUN=function(x){
     a <- pi[rep(seq_len(nrow(pi)),each=ncol(x[[1]]$covar.cor)),,drop=FALSE]
     a <- cbind(a, dplyr::bind_rows(lapply(x, FUN=function(x){
       y <- t(x$covar.cor)
       colnames(y) <- paste0("PC",seq_len(ncol(y)))
       data.frame(covariate=colnames(x$covar.cor), y, stringsAsFactors=FALSE)
-    })))
+   })))
     row.names(a) <- NULL
     a
   }), .id="dataset")
@@ -286,8 +292,8 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
     covar.cor2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
       x <- lapply(x, FUN=function(x){
         i <- seq_len(min(nrow(x),5))
-        reshape2::melt(vapply(x$covar.cor2, FUN.VALUE=numeric(i), 
-                              FUN=function(x) rowMeans(x[,,drop=FALSE])),
+        reshape2::melt(vapply(x$covar.cor2, FUN.VALUE=numeric(length(i)), 
+                              FUN=function(x) rowMeans(x[i,,drop=FALSE])),
                        value.name = "meanCor")
       })
       cbind( pi[rep(seq_len(nrow(pi)),vapply(x,nrow,integer(1))),,drop=FALSE], 
@@ -312,7 +318,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
       cbind(pi, x)
     }), .id="dataset")
   }
-
+  }
   list( silhouette=allsi, varExpl.subpops=R2, corr.covariate=covar,
         meanAbsCorr.covariate2=top5, PC1.covar.adjR2=covar.adjR2 )
 }
