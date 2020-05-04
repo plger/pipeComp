@@ -653,6 +653,8 @@ scran.denoisePCA <- function(x, dims=50, pca.method=c("exact","irlba"), ...){
   } else {
     dat <- x
   }
+  lcmin <- min(logcounts(dat))
+  if(lcmin<0) logcounts(dat) <- logcounts(dat) - lcmin
   if(packageVersion("scran") >= "1.13"){
     var.stats <- modelGeneVar(dat)
     dat <- denoisePCA(dat, technical=var.stats, min.rank=2, max.rank=dims, 
@@ -808,8 +810,8 @@ FisherSeparability <- function(PCAdims, py_script = system.file("extdata", "Fish
 
 js.wrapper <- function(dat, n.dims=NULL, n.rep=500, doplot=FALSE, ret=c("ndims", "Seurat", "sce","pvalues")){
   ret <- match.arg(ret)
-  if(is.null(n.dims)) n.dims <- ncol(dat)-1
   if (!is(dat, "Seurat")) x <- seWrap(dat) else x <- dat
+  if(is.null(n.dims)) n.dims <- ncol(Reductions(x, "pca")@cell.embeddings)-1
   x <- JackStraw(x, dims = n.dims, num.replicate=n.rep, verbose=FALSE)
   x <- ScoreJackStraw(x, dims = 1:n.dims, verbose=FALSE)
   if(ret=="pvalues") return( Reductions(x,"pca")@jackstraw$overall.p.values[,2] )
