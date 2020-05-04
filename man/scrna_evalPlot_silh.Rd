@@ -7,6 +7,7 @@
 scrna_evalPlot_silh(
   res,
   what = c("minSilWidth", "meanSilWidth"),
+  step = "dimreduction",
   dims = 1,
   agg.by = NULL,
   agg.fn = mean,
@@ -17,7 +18,7 @@ scrna_evalPlot_silh(
   show_heatmap_legend = TRUE,
   show_column_names = FALSE,
   col = rev(RColorBrewer::brewer.pal(n = 11, "RdBu")),
-  font_factor = 1,
+  font_factor = 0.9,
   row_split = NULL,
   shortNames = TRUE,
   value_cols = c("white", "black"),
@@ -32,6 +33,9 @@ scrna_evalPlot_silh(
 
 \item{what}{What metric to plot, possible values are “minSilWidth”, 
 “meanSilWidth” (default), “medianSilWidth”, or “maxSilWidth”.}
+
+\item{step}{Name of the step for which to plot the evaluation results. 
+Defaults to "dimreduction".}
 
 \item{dims}{If multiple sets of dimensions are available, which one to use
 (defaults to the first).}
@@ -60,7 +64,8 @@ names themselves can also be passed to specify an order, or a
 \item{font_factor}{A scaling factor applied to fontsizes (default 1)}
 
 \item{row_split}{Optional column (included in `agg.by`) by which to split
-the rows.}
+the rows. Alternatively, an expression using the columns (retained after
+aggregation) can be passed.}
 
 \item{shortNames}{Logical; whether to use short row names (with only
 the parameter values instead of the parameter name and value pairs), default

@@ -17,7 +17,7 @@ evalHeatmap(
   reorder_rows = FALSE,
   show_heatmap_legend = FALSE,
   show_column_names = FALSE,
-  col = viridisLite::inferno(100),
+  col = NULL,
   font_factor = 0.9,
   row_split = NULL,
   shortNames = TRUE,
@@ -70,7 +70,8 @@ names themselves can also be passed to specify an order, or a
 \item{font_factor}{A scaling factor applied to fontsizes (default 1)}
 
 \item{row_split}{Optional column (included in `agg.by`) by which to split
-the rows.}
+the rows. Alternatively, an expression using the columns (retained after
+aggregation) can be passed.}
 
 \item{shortNames}{Logical; whether to use short row names (with only
 the parameter values instead of the parameter name and value pairs), default
