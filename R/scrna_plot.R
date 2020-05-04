@@ -7,6 +7,8 @@
 #' `aggregateResults`)
 #' @param what What metric to plot, possible values are “minSilWidth”, 
 #' “meanSilWidth” (default), “medianSilWidth”, or “maxSilWidth”.
+#' @param step Name of the step for which to plot the evaluation results. 
+#' Defaults to "dimreduction".
 #' @param dims If multiple sets of dimensions are available, which one to use
 #' (defaults to the first).
 #' @param agg.by Aggregate results by these columns (default no aggregation)
@@ -19,7 +21,8 @@
 #' `ComplexHeatmap`.
 #' @param reorder_columns Whether to sort columns (default TRUE).
 #' @param row_split Optional column (included in `agg.by`) by which to split
-#' the rows.
+#' the rows. Alternatively, an expression using the columns (retained after
+#' aggregation) can be passed.
 #' @param show_heatmap_legend Passed to `Heatmap` (default FALSE)
 #' @param show_column_names Passed to `Heatmap` (default FALSE)
 #' @param col Colors for the heatmap
@@ -41,13 +44,13 @@
 #' scrna_evalPlot_silh( exampleResults, agg.by=c("filt","norm"), 
 #'                      row_split="norm" )
 scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"), 
-                                 dims=1, agg.by=NULL, agg.fn=mean, 
-                                 filterExpr=NULL, value_format="", 
+                                 step="dimreduction", dims=1, agg.by=NULL, 
+                                 agg.fn=mean, filterExpr=NULL, value_format="", 
                                  reorder_rows=FALSE, reorder_columns=TRUE,
                                  show_heatmap_legend=TRUE, 
                                  show_column_names=FALSE, 
                                  col=rev(RColorBrewer::brewer.pal(n=11,"RdBu")),
-                                 font_factor=1, row_split=NULL, shortNames=TRUE,
+                                 font_factor=0.9, row_split=NULL, shortNames=TRUE,
                                  value_cols=c("white","black"), title=NULL, 
                                  anno_legend=TRUE, ...){
   pd <- NULL
@@ -64,8 +67,8 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
   }
   if(is(res,"SimpleList") && "evaluation" %in% names(res)) 
     res <- res$evaluation
-  if(is(res,"list") && "dimreduction" %in% names(res))
-    res <- res[["dimreduction"]]
+  if(is(res,"list") && step %in% names(res))
+    res <- res[[step]]
   if(is(res,"list") && "silhouette" %in% names(res))
     res <- res[["silhouette"]]
   res <- res[[dims]]
@@ -81,14 +84,20 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
   
   cellfn <- .getCellFn(res, res, value_format, value_cols, font_factor)
   if(is.null(title)) title <- gsub("\\.","\n",what)
-  if(!is.null(row_split)){
-    if(row_split %in% colnames(pp)){
-      row_split <- pp[,row_split]
-    }else{
-      warning("`row_split` wasn't found and will be ignored.")
-      row_split <- NULL
+  suppressWarnings({
+    if(!tryCatch(is.null(row_split), error=function(e) FALSE)){
+      if(tryCatch(is.character(row_split), error=function(e) FALSE)){
+        if(row_split %in% colnames(pp)){
+          row_split <- pp[,row_split]
+        }else{
+          warning("`row_split` wasn't found and will be ignored.")
+          row_split <- NULL
+        }
+      }else{
+        row_split <- eval(substitute(row_split), envir=pp)
+      }
     }
-  }
+  })
   col <- .silScale(res, col)
   Heatmap( res, name=what, cluster_rows=FALSE, cluster_columns=FALSE, 
            show_heatmap_legend=show_heatmap_legend, row_order=ro,
@@ -275,4 +284,5 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
            seq(from=0, to=sqrt(max(x, na.rm=TRUE)), length.out=6)[-1]^2 )
   colorRamp2(bb, cols)
 }
+
 

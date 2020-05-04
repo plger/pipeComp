@@ -30,7 +30,8 @@
 #' names themselves can also be passed to specify an order, or a 
 #' `ComplexHeatmap`.
 #' @param row_split Optional column (included in `agg.by`) by which to split
-#' the rows.
+#' the rows. Alternatively, an expression using the columns (retained after
+#' aggregation) can be passed.
 #' @param show_heatmap_legend Passed to `Heatmap` (default FALSE)
 #' @param show_column_names Passed to `Heatmap` (default FALSE)
 #' @param col Colors for the heatmap
@@ -62,7 +63,7 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
                          agg.fn=mean, filterExpr=NULL, scale="colCenterScale", 
                          value_format="%.2f", reorder_rows=FALSE, 
                          show_heatmap_legend=FALSE, show_column_names=FALSE, 
-                         col=viridisLite::inferno(100), font_factor=0.9, 
+                         col=NULL, font_factor=0.9, 
                          row_split=NULL, shortNames=TRUE,
                          value_cols=c("black","white"), title=NULL, 
                          name=NULL, anno_legend=TRUE, ...){
@@ -117,15 +118,22 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   res2 <- as.matrix(res2)
   cellfn <- .getCellFn(res, res2, value_format, value_cols, font_factor)
   if(is.null(title)) title <- gsub("\\.","\n",what)
-  if(!is.null(row_split)){
-    if(row_split %in% colnames(pp)){
-      row_split <- pp[,row_split]
-    }else{
-      warning("`row_split` wasn't found and will be ignored.")
-      row_split <- NULL
+  suppressWarnings({
+    if(!tryCatch(is.null(row_split), error=function(e) FALSE)){
+      if(tryCatch(is.character(row_split), error=function(e) FALSE)){
+        if(row_split %in% colnames(pp)){
+          row_split <- pp[,row_split]
+        }else{
+          warning("`row_split` wasn't found and will be ignored.")
+          row_split <- NULL
+        }
+      }else{
+        row_split <- eval(substitute(row_split), envir=pp)
+      }
     }
-  }
+  })
   if(is.null(name)) name <- what
+  if(is.null(col)) col <- .silScale(res2, viridisLite::inferno(11))
   Heatmap( res2, name=name, cluster_rows=FALSE, cluster_columns=FALSE, 
            show_heatmap_legend=show_heatmap_legend, row_order=ro,
            bottom_annotation=.ds_anno(colnames(res),anno_legend,font_factor), 
