@@ -144,6 +144,7 @@ using the `dr` function.",
       }else{
         dims <- getDimensionality(x, dims)
       }
+      dims <- max(dims,2,na.rm=TRUE)
       x <- get(clustmethod)(x, dims=dims, resolution=resolution, k=k, 
                             steps=steps, min.size=min.size)
       list( x=x, intermediate_return=evaluateClustering(x,tl) )

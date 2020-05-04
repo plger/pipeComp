@@ -192,7 +192,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   intermediate_return_objects <- lapply(args, FUN=function(x) list() )
   rm(ds)
   
-  res <- sapply(seq_len(nrow(eg)), FUN=function(x) NULL)
+  res <- vector(mode="list", length=nrow(eg))
   for(n in seq_len(nrow(eg))){
     newPar <- as.numeric(eg[n,])
     aa <- paste( mapply(an=names(alt), a=alt, i=newPar, 
@@ -211,7 +211,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
     }
     # identify the first parameters that changes and the corresponding step
     chParam <- names(alt)[which(newPar!=oldPar)[1]]
-    wStep <- which(sapply(args,FUN=function(x){ chParam %in% x }))
+    wStep <- which(vapply(args,FUN=function(x){ chParam %in% x },logical(1)))
     # fetch the object from the previous step
     x <- objects[[which(names(objects)==names(args)[wStep])-1]]
     # proceed with the remaining steps of the pipeline
@@ -234,8 +234,8 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
                      })
       
       # name the current results on the basis of the previous steps:
-      ws <- seq_len(sum( sapply(args[seq_len(which(names(args)==step))], 
-                                length) ))
+      ws <- seq_len(sum( vapply(args[seq_len(which(names(args)==step))], 
+                                length, integer(1)) ))
       ename <- .args2name(newPar[ws], alt[ws])
       # save elapsed time for this step
       elapsed[[step]][[ename]] <- as.numeric(Sys.time()-st)
@@ -258,12 +258,12 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
     }
     
     # compute total time for this iteration
-    elapsed.total[[n]] <- sum(sapply(names(args),FUN=function(step){
-      ws <- seq_len(sum( sapply(args[seq_len(which(names(args)==step))], 
-                                length) ))
+    elapsed.total[[n]] <- sum(vapply(names(args),FUN=function(step){
+      ws <- seq_len(sum( vapply(args[seq_len(which(names(args)==step))], 
+                                length, integer(1)) ))
       ename <- .args2name(newPar[ws], alt[ws])
       elapsed[[step]][[ename]]
-    }))
+    }, numeric(1) ))
     
     # return final results
     res[[n]] <- x
@@ -299,10 +299,10 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
 # build function call (for a step of runPipeline) from list of arguments
 .mycall <- function(fn, args){
   if(is.function(fn)) fn <- deparse(match.call()$fn)
-  args <- paste(paste(names(args), sapply(args, FUN=function(x){
-    if(is.numeric(x)) return(x)
+  args <- paste(paste(names(args), vapply(args, FUN=function(x){
+    if(is.numeric(x)) return(as.character(x))
     paste0("\"",x,"\"")
-  }), sep="="), collapse=", ")
+  }, character(1)), sep="="), collapse=", ")
   parse(text=paste0(fn, "(x=x, ", args, ")"))
 }
 
@@ -310,7 +310,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   if(any(grepl(";|=",names(alternatives)))) 
     stop("Some of the pipeline arguments contain unaccepted characters ",
       "(e.g. ';' or '=').")
-  if(any(sapply(alternatives, FUN=function(x) any(grepl(";|=",x)))))
+  if(any(vapply(alternatives, function(x) any(grepl(";|=",x)), logical(1))))
     stop("Some of the alternative argument values contain unaccepted ",
       "characters (e.g. ';' or '=').")
   if(!is.null(pipDef)){
@@ -322,7 +322,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
       stop("`alternatives` should have entries for the following slots defined",
         " in the pipeline: ", paste(missingParams ,collapse=", "))
     }
-    if(!all( sapply(def, FUN=length)>0)){
+    if(!all( vapply(def, length, integer(1))>0)){
       stop("All steps of `alternatives` should contain at least one option.")
     }
     alternatives <- def

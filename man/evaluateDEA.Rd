@@ -7,8 +7,8 @@
 evaluateDEA(dea, truth = NULL, th = c(0.01, 0.05, 0.1))
 }
 \arguments{
-\item{dea}{Expects a data.frame with logFC and FDR, as produced by `edgeR::topTags`, `limma::topTable` or 
-`DESeq2::results`.}
+\item{dea}{Expects a data.frame with logFC and FDR, as produced by 
+`edgeR::topTags`, `limma::topTable` or `DESeq2::results`.}
 
 \item{truth}{A data.frame containing the columns `expected.beta` (real logFC)
 and `isDE` (logical indicating whether there is a difference or not; accepts

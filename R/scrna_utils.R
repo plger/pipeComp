@@ -12,6 +12,8 @@
 #' @importFrom SingleCellExperiment reducedDim
 #' @import intrinsicDimension
 getDimensionality <- function(dat, method, maxDims=NULL){
+  if(is.numeric(method) || grepl("^[0-9]+$", method))
+    return(as.integer(round(as.numeric(method))))
   if(is(dat, "Seurat")){
     x <- dat[["pca"]]@cell.embeddings
     sdv <- Stdev(dat, "pca")

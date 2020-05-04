@@ -2,20 +2,17 @@
 
 # pipeComp
 
-`pipeComp` is a simple framework to facilitate the comparison of pipelines involving various steps and parameters. Given a `PipelineDefinition`, a set of alternative parameters (which might include different subroutines) and benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly to avoid storing potentially large intermediate data.
-
-`pipeComp` was initially developed to benchmark single-cell RNA sequencing pipelines:
+`pipeComp` is a simple framework to facilitate the comparison of pipelines involving various steps and parameters. It was initially developed to benchmark single-cell RNA sequencing pipelines:
 
 _pipeComp, a general framework for the evaluation of computational pipelines, reveals performant single-cell RNA-seq preprocessing tools_<br/>
 Pierre-Luc Germain, Anthony Sonrel & Mark D Robinson, 
 bioRxiv [2020.02.02.930578](https://doi.org/10.1101/2020.02.02.930578)
 
-However the framework can be applied to any other context.
+However the framework can be applied to any other context (see the `pipeComp_dea` vignette for an example). This readme provides an overview of the framework and package. For more detail, please refer to the two vignettes.
 
-This readme provides an overview of the framework and package. For more detail, please refer to the two vignettes.
-
-* [Recent changes](#recent-changes)
-* [Installation](#installation)
+* [Introduction](#introduction)
+  * [Recent changes](#recent-changes)
+  * [Installation](#installation)
 * [Using _pipeComp_](#using-pipecomp)
   * [PipelineDefinition](#pipelinedefinition)
   * [Running pipelines](#running-pipelines)
@@ -24,12 +21,18 @@ This readme provides an overview of the framework and package. For more detail, 
 
 <br/><br/>
 
-## Recent changes
+## Introduction
 
-`pipeComp` >=0.99.3 made important changes to the format of the output, and greatly simplified the evaluation outputs for the scRNA pipeline. 
-As a result, results produced with older version of the package are not anymore compatible with the current version's aggregation and plotting functions.
+`pipeComp` is especially suited to the benchmarking of pipelines that include many steps/parameters, enabling the exploration of combinations of parameters and of the robustness of methods to various changes in other parts of a pipeline. It is also particularly suited to benchmarks across multiple datasets. It is entirely based on _R_/Bioconductor, meaning that methods outside of _R_ need to be called via _R_ wrappers. `pipeComp` handles multithreading in a way that minimizes re-computation and duplicated memory usage, and computes evaluation metrics on the fly to avoid saving many potentially large intermediate files, making it well-suited for benchmarks involving large datasets.
 
-<br/><br/>
+### Recent changes
+
+* In `pipeComp` 0.99.26 on, the plotting functions for the scRNAseq clustering pipeline (`scrna_evalPlot_DR` and `scrna_evalPlot_clust`) have been replaced by more flexible, pipeline-generic functions (`evalHeatmap`) and a silhouette-specific plotting function (`scrna_evalPlot_silh`). The general heatmap coloring scheme has also been changed to make meaningful changes clearer.
+
+* In `pipeComp` 0.99.24, multithreading capacities have been extended (now virtually no limit).
+
+* `pipeComp` >=0.99.3 made important changes to the format of the output, and greatly simplified the evaluation outputs for the scRNA pipeline.As a result, results produced with older version of the package are not anymore compatible with the current version's aggregation and plotting functions.
+
 
 ## Installation
 
@@ -46,11 +49,16 @@ To use the scRNA-seq pipeline and wrappers, however, requires further packages t
 
 ## Using _pipeComp_
 
-<img src="inst/docs/pipeComp_scheme.png"/>
+<div style="width: 600px; margin: 10px auto;">
+<figure class="image">
+  <img src="inst/docs/pipeComp_scheme.png" width="500" alt="Scheme of the pipeComp framework" style="margin: 15px;"/>
+  <figcaption style="text-align: justify;">**Scheme of the pipeComp framework. A:** The `PipelineDefinition` class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. **B:** Given a `PipelineDefinition`, a set of alternative parameters and benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly.</figcaption>
+</figure>
+</div>
 
 ### PipelineDefinition
 
-The `PipelineDefinition` S4 class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. As simple pipeline can be constructed as follows:
+As represented in the figure above, the `PipelineDefinition` S4 class represents pipelines as, minimally, a set of functions (accepting any number of parameters)  consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. As simple pipeline can be constructed as follows:
 
 ```{r}
 my_pip <- PipelineDefinition( list( step1=function(x, param1){
@@ -113,7 +121,11 @@ A number of generic methods are implemented on the object, including `show`, `na
 pd2 <- pipDef[-1]
 ```
 
-Steps can also be added (using the `addPipelineStep` function) and edited - see the `pipeComp` vignette for more detail.
+Steps can also be added (using the `addPipelineStep` function) and edited - see the `pipeComp` vignette for more detail:
+
+```{r}
+vignette("pipeComp", package="pipeComp")
+```
 
 <br/><br/>
 
@@ -140,18 +152,14 @@ source(system.file("extdata", "scrna_alternatives.R", package="pipeComp"))
 # we build the list of alternatives
 alternatives <- list(
   doubletmethod=c("none"),
-  filt=c("filt.lenient"),
-  norm=c("norm.seurat", "norm.seuratvst", "norm.scran"),
+  filt=c("filt.lenient", "filt.stringent"),
+  norm=c("norm.seurat", "norm.sctransform", "norm.scran"),
   sel=c("sel.vst"),
   selnb=2000,
   dr=c("seurat.pca"),
   clustmethod=c("clust.seurat"),
-  maxdim=30,
   dims=c(10, 15, 20, 30),
-  k=20,
-  steps=4,
-  resolution=c(0.01, 0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.2, 2),
-  min.size=50   
+  resolution=c(0.01, 0.1, 0.2, 0.3, 0.5, 0.8, 1, 1.2, 2)
 )
 ```
 
@@ -164,24 +172,30 @@ res <- runPipeline( datasets, alternatives, pipDef, nthreads=3,
 
 ### Exploring the metrics
 
-Data can be explored manually or plotted using wrapper functions designed for each step at which benchmark data is gathered. For example:
+Data can be explored manually or plotted using generic or pipeline-specific functions. For example:
 
 ```{r}
-scrna_evalPlot_DR(res, scale=FALSE)
+scrna_evalPlot_silh( res )
 ```
 
-<img src="inst/docs/dr_stats_example.png"/>
+<img src="inst/docs/silh.png"/>
 
 ```{r}
-scrna_evalPlot_clust(res, agg.by=c("norm","resolution"))
+evalHeatmap( res, step="dimreduction", what2="meanAbsCorr.covariate2", 
+             what=c("log10_total_features","log10_total_counts") )
 ```
 
-<img src="inst/docs/clust_stats_example.png"/>
+<img src="inst/docs/dr.png"/>
+
+The functions enable the choice of parameters at whose values to aggregate, 
+as well as custom filtering:
 
 ```{r}
-scrna_evalPlot_clust(res, what="ARI", atTrueK=TRUE, show_heatmap_legend = FALSE) + 
-  scrna_evalPlot_clust(res, atTrueK=TRUE, what="NMI")
+evalHeatmap(res, step = "clustering", what=c("MI","ARI"), agg.by=c("filt","norm")) +
+  evalHeatmap(res, step = "clustering", what="ARI", agg.by=c("filt", "norm"),
+              filter=n_clus==true.nbClusts, title="ARI at\ntrue k")
 ```
 
-<img src="inst/docs/clustK_stats_example.png"/>
+<img src="inst/docs/clust.png"/>
 
+See the vignettes and the function's help for more details.

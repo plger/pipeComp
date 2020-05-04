@@ -26,7 +26,7 @@ library(BiocStyle)
 
 # Introduction
 
-This vignette is centered around the application of `r Rpackage("pipeComp")` to scRNA-seq clustering pipelines, and assumes a general understanding of `r Rpackage("pipeComp")` (for an overview, see the `pipeComp` vignette).
+This vignette is centered around the application of `r Rpackage("pipeComp")` to scRNA-seq clustering pipelines, and assumes a general understanding of `r Rpackage("pipeComp")` (for an overview, see the [pipeComp vignette](pipeComp.html)).
 
 The scRNAseq `PipelineDefinition` comes in two variants determined by the object used as a backbone, either `r Biocpkg("SingleCellExperiment")` (SCE) or `r Githubpkg("satijalab.org/seurat")` (see `?scrna_pipeline`). Both use the same evaluation metrics, and most method wrappers included in the package have been made so that they are compatible with both. For simplicity, we will therefore stick to just one variant here, and will focus on few very basic comparisons to illustrate the main functionalities, metrics and evaluation plots. For more detailed benchmarks, refer to our preprint:
 
@@ -73,7 +73,7 @@ alternatives <- list(
 )
 ```
 
-We also assume three datasets in `SingleCellExperiment` (SCE) format (not included in the package - see the last section of this vignette) and run the pipeline:
+We also assume three datasets in \Rclass{SingleCellExperiment} (SCE) format (not included in the package - see the last section of this vignette) and run the pipeline:
 
 ```{r, eval=FALSE}
 # available on https://doi.org/10.6084/m9.figshare.11787210.v1
@@ -138,16 +138,16 @@ For each of them we have a data.frame including, for each subpopulation in each 
 head(res$evaluation$dimreduction$silhouette$top_10_dims)
 ```
 
-This information can be plotted using the function `scrna_evalPlot_DR`; the function outputs a `r CRANpkg("ComplexHeatmap")`, which means that most arguments of that package and options can be used. For instance:
+This information can be plotted using the function `scrna_evalPlot_silh`; the function outputs a `r CRANpkg("ComplexHeatmap")`, which means that many arguments of that package and options can be used, for instance:
 
 ```{r, fig.width=8.5, fig.height=3}
 library(ComplexHeatmap)
-h <- scrna_evalPlot_DR(res, what="meanSilWidth", value_format="", 
-                       show_heatmap_legend=TRUE, row_names_gp=gpar(fontsize=11))
-draw(h, annotation_legend_side = "bottom")
+scrna_evalPlot_silh( res )
+h <- scrna_evalPlot_silh( res, heatmap_legend_param=list(direction="horizontal") )
+draw(h, heatmap_legend_side="bottom", annotation_legend_side = "bottom", merge_legend=TRUE)
 ```
 
-See `?scrna_evalPlot_DR` for more options.
+See `?scrna_evalPlot_silh` for more options.
 
 ### Variance in the PCs explained by the subpopulations
 
@@ -164,22 +164,29 @@ The slots following slots track the correlation between principal components (PC
 * `meanAbsCorr.covariate2` circumvents this bias by computing the mean absolute correlation (among the first 5 components) for each subpopulation, and averaging them.
 * `PC1.covar.adjR2` gives the difference in adjusted _R^2_ between a model fit on PC1 containing the covariate along with subpopulations (PC1~subpopulation+covariate) and one without the covariate (PC1~subpopulation).
 
-We found the `PC1.covar.adjR2` to be the most informative, and therefore designed the plotting wrapper around it. It can be used simply by specifying the desired covariate:
+These metrics, as well as the following ones, can be plotted using generic `pipeComp` plotting functions, for example:
 
 ```{r, fig.width=8, fig.height=3}
-scrna_evalPlot_DR(res, what="log10_total_features")
+evalHeatmap(res, step="dimreduction", what="log10_total_features", 
+            what2="meanAbsCorr.covariate2")
 ```
 
 Since the output of these plotting functions are of class `r CRANpkg("ComplexHeatmap")`, they can be combined:
 
 ```{r, eval=FALSE}
-scrna_evalPlot_DR(res, what="log10_total_features") + scrna_evalPlot_DR(res, what="log10_total_counts")
+evalHeatmap(res, step="dimreduction", what="log10_total_features", 
+            what2="meanAbsCorr.covariate2") +
+  evalHeatmap(res, step="dimreduction", what="log10_total_counts", 
+            what2="meanAbsCorr.covariate2")
 ```
 
-However in that one should disable row ordering to avoid mismatching rows, or alternatively use this construction which handles row order (but requires parameters to be the same across the heatmaps):
+Alternatively, when the other arguments are shared, the following construction can
+also be used:
 
 ```{r, fig.width=8, fig.height=3}
-scrna_evalPlot_DR(res, what=c("log10_total_features","log10_total_counts"))
+evalHeatmap( res, step="dimreduction", what2="meanAbsCorr.covariate2", 
+             what=c("log10_total_features","log10_total_counts"), 
+             row_title="mean(abs(correlation))\nwith covariate" )
 ```
 
 We see here for instance that `r Githubpkg("ChristophH/sctransform")` successfully reduces the correlation with covariates, and that `r Biocpkg("scran")` is somewhat in the middle.
@@ -214,22 +221,25 @@ We also included, here, the deviation (`nbClust.diff`) and absolute deviation (`
 
 ### Plotting
 
-These results can easily be plotted in the following way:
+Plotting all combinations is undesirable with the parameters such as resolution, which can take very many values. We therefore need to aggregate by parameters of interest:
 
 ```{r, fig.height=3, fig.width=7}
-scrna_evalPlot_clust(res, what=c("MI","ARI"))
+evalHeatmap(res, step="clustering", what=c("MI","ARI"), agg.by=c("filt","norm"))
 ```
 
-or 
+Steps for which there was a single alternative (after aggregation) are not included in the labels. 
+We could investigate the joint impact of the normalization method and of the number of dimensions included using:
 
-```{r, fig.height=3, fig.width=8.5}
-scrna_evalPlot_clust(res, what="auto")
+```{r, fig.width=7, fig.height=4}
+evalHeatmap(res, step = "clustering", what=c("MI","ARI"), agg.by=c("norm", "dims"))
 ```
 
-Steps for which there was a single alternative are not included, and by default the functions aggregate the results of analysis using different number of dimensions, or different resolution parameters. This can however be tuned using the `agg.by` argument. For example, we could investigate the joint impact of the normalization method and of the number of dimensions included using:
+We can also filter the analyses before aggregation. For instance, if we wish to plot the ARI only at the true number of clusters, we can filter to those analyses where the detected number of clusters (`n_clus`) is equal to the true one (`true.nbClusts`):
 
 ```{r, fig.width=8.5, fig.height=4}
-scrna_evalPlot_clust(res, what="auto", agg.by=c("norm", "dims"))
+evalHeatmap(res, step = "clustering", what=c("MI","ARI"), agg.by=c("filt","norm")) +
+  evalHeatmap(res, step = "clustering", what="ARI", agg.by=c("filt", "norm"),
+              filter=n_clus==true.nbClusts, title="ARI at\ntrue k")
 ```
 
 ## Computing time
@@ -244,7 +254,7 @@ plotElapsed(res, agg.by="norm")
 
 # Extension and reuse
 
-The scRNAseq `PipelineDefinition` can be modified or extented with new steps or arguments like any other objects of that class (see the `pipeComp` vignette). In addition, the evaluation functions used at each step can be accessed from the package's namespace and use for other purposes. See in particular `?evaluateDimRed` and `?evaluateClustering`. If you feel like other metrics should be included, please contact us!
+The scRNAseq `PipelineDefinition` can be modified or extented with new steps or arguments like any other objects of that class (see the [pipeComp vignette](pipeComp.html)). In addition, the evaluation functions used at each step can be accessed from the package's namespace and use for other purposes. See in particular `?evaluateDimRed` and `?evaluateClustering`. If you feel like other metrics should be included, please contact us!
 
 <br/><br/>
 

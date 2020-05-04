@@ -15,7 +15,7 @@ dea_evalPlot_curve(
 )
 }
 \arguments{
-\item{res}{}
+\item{res}{Aggregated results of the DEA pipeline}
 
 \item{scales}{Passed to `facet_grid`}
 
