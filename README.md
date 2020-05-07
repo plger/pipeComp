@@ -49,12 +49,9 @@ To use the scRNA-seq pipeline and wrappers, however, requires further packages t
 
 ## Using _pipeComp_
 
-<div style="width: 600px; margin: 10px auto;">
-<figure class="image">
-  <img src="inst/docs/pipeComp_scheme.png" width="500" alt="Scheme of the pipeComp framework" style="margin: 15px;"/>
-  <figcaption style="text-align: justify;">**Scheme of the pipeComp framework. A:** The `PipelineDefinition` class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. **B:** Given a `PipelineDefinition`, a set of alternative parameters and benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly.</figcaption>
-</figure>
-</div>
+<img src="inst/docs/pipeComp_scheme.png" width="500" alt="Scheme of the pipeComp framework" style="margin: 15px; float:left;"/>
+<div style="text-align: justify;"><b>Scheme of the pipeComp framework. A:</b> The `PipelineDefinition` class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. <b>B:</b> Given a `PipelineDefinition`, a set of alternative parameters and benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly.</div>
+
 
 ### PipelineDefinition
 
