@@ -34,7 +34,10 @@
 #' aggregation) can be passed.
 #' @param show_heatmap_legend Passed to `Heatmap` (default FALSE)
 #' @param show_column_names Passed to `Heatmap` (default FALSE)
-#' @param col Colors for the heatmap
+#' @param col Colors for the heatmap. By default, will apply linear mapping (if
+#' the data is not scaled) or signed sqrt mapping (if scaled) on the 
+#' `viridisLite::inferno` palette. To disable the signed sqrt-transformation,
+#' simply pass `col=viridisLite::inferno(100)` or your own palette.
 #' @param font_factor A scaling factor applied to fontsizes (default 1)
 #' @param value_cols A vector of length 2 indicating the colors of the values
 #' (above and below the mean), if printed
@@ -133,7 +136,8 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
     }
   })
   if(is.null(name)) name <- what
-  if(is.null(col)) col <- viridisLite::inferno(100)
+  if(is.null(col))
+    col <- .defaultColorMapping(res2, center=!(is.logical(scale) && !scale))
   Heatmap( res2, name=name, cluster_rows=FALSE, cluster_columns=FALSE, 
            show_heatmap_legend=show_heatmap_legend, row_order=ro,
            bottom_annotation=.ds_anno(colnames(res),anno_legend,font_factor), 
@@ -185,6 +189,14 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   if(sd(x,na.rm=TRUE)>0) return(base::scale(x))
   if(sum(!is.na(x))==0) return(base::scale(as.numeric(!is.na(x))))
   rep(0,length(x))
+}
+
+.defaultColorMapping <- function(x, center=TRUE){
+  if(!center) return(viridisLite::inferno(101))
+  q <- max(abs(range(x, na.rm=TRUE)))
+  b <- c( -seq(from=sqrt(q), to=0, length.out=51)^2,
+          seq(from=0, to=sqrt(q), length.out=51)[-1]^2 )
+  colorRamp2(b, viridisLite::inferno(101))
 }
 
 #' colCenterScale

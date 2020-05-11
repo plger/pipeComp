@@ -65,7 +65,10 @@ names themselves can also be passed to specify an order, or a
 
 \item{show_column_names}{Passed to `Heatmap` (default FALSE)}
 
-\item{col}{Colors for the heatmap}
+\item{col}{Colors for the heatmap. By default, will apply linear mapping (if
+the data is not scaled) or signed sqrt mapping (if scaled) on the 
+`viridisLite::inferno` palette. To disable the signed sqrt-transformation,
+simply pass `col=viridisLite::inferno(100)` or your own palette.}
 
 \item{font_factor}{A scaling factor applied to fontsizes (default 1)}
 

@@ -9,6 +9,7 @@ scrna_evalPlot_filtering(
   steps = c("doublet", "filtering"),
   clustMetric = "mean_F1",
   filtExpr = TRUE,
+  atNearestK = FALSE,
   returnTable = FALSE
 )
 }
