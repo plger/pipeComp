@@ -231,11 +231,10 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
     if(length(unique(dims))==1){
       # single dimensionality
       if(length(dims)>1){
-        x <- lapply(x, FUN=function(x) names(x)[3] <- "selected")
+        x <- lapply(x, FUN=function(x){ colnames(x)[3] <- "selected"; x })
         dims <- table(unlist(lapply(x, FUN=function(x) colnames(x)[-1:-2])))
       }
     }
-    
     names(dims) <- dims <- intersect( unique(unlist(lapply(x, FUN=colnames))),
                                       names(dims)[dims==length(x)] )
     lapply(dims, FUN=function(dim){
@@ -263,7 +262,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
     x$dataset <- factor(x$dataset)
     x
   })
-  
+
   R2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
     # find common PCs
     x <- lapply(x, FUN=function(x) x$R2)
@@ -276,48 +275,50 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
   if(is.null(tmp <- dim(res[[1]][[1]]$covar.cor)) || any(tmp==0)){
     top5 <- covar.adjR2 <- covar <- NULL
   }else{
-  covar <- dplyr::bind_rows(lapply(res, FUN=function(x){
-    a <- pi[rep(seq_len(nrow(pi)),each=ncol(x[[1]]$covar.cor)),,drop=FALSE]
-    a <- cbind(a, dplyr::bind_rows(lapply(x, FUN=function(x){
-      y <- t(x$covar.cor)
-      colnames(y) <- paste0("PC",seq_len(ncol(y)))
-      data.frame(covariate=colnames(x$covar.cor), y, stringsAsFactors=FALSE)
-   })))
-    row.names(a) <- NULL
-    a
-  }), .id="dataset")
-  
-  top5 <- covar.cor2 <- covar.adjR2 <- NULL
-  if(!is.null(res[[1]][[1]]$covar.cor2)){
-    covar.cor2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
-      x <- lapply(x, FUN=function(x){
-        i <- seq_len(min(nrow(x),5))
-        reshape2::melt(vapply(x$covar.cor2, FUN.VALUE=numeric(length(i)), 
-                              FUN=function(x) rowMeans(x[i,,drop=FALSE])),
-                       value.name = "meanCor")
-      })
-      cbind( pi[rep(seq_len(nrow(pi)),vapply(x,nrow,integer(1))),,drop=FALSE], 
-             dplyr::bind_rows(x) )
+    covar <- dplyr::bind_rows(lapply(res, FUN=function(x){
+      a <- pi[rep(seq_len(nrow(pi)),each=ncol(x[[1]]$covar.cor)),,drop=FALSE]
+      a <- cbind(a, dplyr::bind_rows(lapply(x, FUN=function(x){
+        y <- t(x$covar.cor)
+        colnames(y) <- paste0("PC",seq_len(ncol(y)))
+        data.frame(covariate=colnames(x$covar.cor), y, stringsAsFactors=FALSE)
+     })))
+      row.names(a) <- NULL
+      a
     }), .id="dataset")
-    colnames(covar.cor2)[ncol(pi)+2:3] <- c("component","covariate")
-    w <- which(covar.cor2$component %in% paste0(c("PC","PC_"),rep(1:5,each=2)))
-    top5 <- aggregate( covar.cor2$meanCor[w],
-                       by=covar.cor2[,c("dataset","covariate", colnames(pi))],
-                       FUN=function(x) mean(abs(x)) )
-    ff <- paste( paste(setdiff(colnames(top5),c("x","covariate")),collapse="+")
-                 ,"~covariate")
-    top5 <- reshape2::dcast( top5, as.formula(ff), value.var="x", 
-                             fun.aggregate=mean)
-  }
-  if(!is.null(res[[1]][[1]]$covar.adjR2)){
-    covar.adjR2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
-      pi <- parsePipNames(names(x))
-      x <- do.call(rbind, 
-                   lapply(x, FUN=function(x) x$covar.adjR2[1,,drop=FALSE]))
-      row.names(x) <- NULL
-      cbind(pi, x)
-    }), .id="dataset")
-  }
+    
+    top5 <- covar.cor2 <- covar.adjR2 <- NULL
+    if(!is.null(res[[1]][[1]]$covar.cor2)){
+      covar.cor2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
+        x <- lapply(x, FUN=function(x){
+          i <- seq_len(min(nrow(x),5))
+          reshape2::melt(vapply(x$covar.cor2, FUN.VALUE=numeric(length(i)), 
+                                FUN=function(x) rowMeans(x[i,,drop=FALSE])),
+                         value.name = "meanCor")
+        })
+        cbind( pi[rep(seq_len(nrow(pi)),vapply(x,nrow,integer(1))),,drop=FALSE], 
+               dplyr::bind_rows(x) )
+      }), .id="dataset")
+      colnames(covar.cor2)[ncol(pi)+2:3] <- c("component","covariate")
+      w <- which( covar.cor2$component %in% 
+                    paste0(c("PC","PC_"), rep(1:5,each=2)) )
+      top5 <- aggregate( covar.cor2$meanCor[w],
+                         by=covar.cor2[,c("dataset","covariate", colnames(pi))],
+                         FUN=function(x) mean(abs(x)) )
+      ff <- paste( paste( setdiff(colnames(top5), c("x","covariate")),
+                          collapse="+"),
+                   "~covariate" )
+      top5 <- reshape2::dcast( top5, as.formula(ff), value.var="x", 
+                               fun.aggregate=mean)
+    }
+    if(!is.null(res[[1]][[1]]$covar.adjR2)){
+      covar.adjR2 <- dplyr::bind_rows(lapply(res, FUN=function(x){
+        pi <- parsePipNames(names(x))
+        x <- do.call(rbind, 
+                     lapply(x, FUN=function(x) x$covar.adjR2[1,,drop=FALSE]))
+        row.names(x) <- NULL
+        cbind(pi, x)
+      }), .id="dataset")
+    }
   }
   list( silhouette=allsi, varExpl.subpops=R2, corr.covariate=covar,
         meanAbsCorr.covariate2=top5, PC1.covar.adjR2=covar.adjR2 )
