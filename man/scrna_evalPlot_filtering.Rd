@@ -8,6 +8,7 @@ scrna_evalPlot_filtering(
   res,
   steps = c("doublet", "filtering"),
   clustMetric = "mean_F1",
+  filtExpr = TRUE,
   returnTable = FALSE
 )
 }
@@ -21,6 +22,10 @@ steps will be averaged.}
 \item{clustMetric}{Clustering accuracy metric to use (default `mean_F1``)}
 
 \item{returnTable}{Logical; whether to return the data rather than plot.}
+
+\item{filterExpr}{An optional filtering expression based on the columns of 
+the clustering evaluation (e.g. `filterExpr=param1=="value1"` or 
+`filtExpr=n_clus==true.nbClusts`).}
 }
 \value{
 A ggplot, or a data.frame if `returnTable=TRUE`

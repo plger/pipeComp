@@ -136,8 +136,7 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
   }
   mm$N <- mm[,grep("N\\.before",colnames(mm))[1]]
   mm$N.lost <- rowSums(mm[,grep("N\\.lost",colnames(mm))])
-  mm$pc.lost <- 100*rowSums(mm[,grep("N\\.lost",colnames(mm))])/
-    mm[,grep("N\\.before",colnames(mm))[1]]
+  mm$pc.lost <- 100*mm$N.lost/mm$N
   mm
 }
 
@@ -148,6 +147,9 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
 #' @param steps Steps to include (default 'doublet' and 'filtering'); other 
 #' steps will be averaged.
 #' @param clustMetric Clustering accuracy metric to use (default `mean_F1``)
+#' @param filterExpr An optional filtering expression based on the columns of 
+#' the clustering evaluation (e.g. `filterExpr=param1=="value1"` or 
+#' `filtExpr=n_clus==true.nbClusts`).
 #' @param returnTable Logical; whether to return the data rather than plot.
 #'
 #' @return A ggplot, or a data.frame if `returnTable=TRUE`
@@ -157,8 +159,11 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
 #' data("exampleResults", package="pipeComp")
 #' scrna_evalPlot_filtering(exampleResults)
 scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"), 
-                                     clustMetric="mean_F1", returnTable=FALSE){
-  param_fields <- unlist(arguments(metadata(res)$PipelineDefinition)[steps])
+                                     clustMetric="mean_F1", filtExpr=TRUE,
+                                     returnTable=FALSE){
+  param_fields <- tryCatch(
+    unlist(arguments(metadata(res)$PipelineDefinition)[steps]),
+    error=function(e) unlist(arguments(scrna_pipeline())[steps]) )
   res <- res$evaluation
   co <- .mergeFilterOut(res[steps])
   coI <- co[,c("dataset",param_fields)]
@@ -172,11 +177,12 @@ scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"),
                        FUN=function(x) 100*sum(co[x,"N.lost"])/sum(co[x,"N"]) )
   x <- cbind(coI[vapply(ci, FUN=function(x) x[1], integer(1)),], x)
   # get clustering data
-  cl <- aggregate( res$clustering[,clustMetric,drop=FALSE], 
-                   by=res$clustering[,c("dataset",param_fields)], FUN=mean )
+  cl <- res$clustering[eval(substitute(filtExpr), res$clustering),]
+  cl <- aggregate( cl[,clustMetric,drop=FALSE], 
+                   by=cl[,c("dataset",param_fields)], FUN=mean )
   m <- merge(cl, x, by=c("dataset",param_fields))
   m$method <- apply( m[,param_fields,drop=FALSE], 1, collapse="+", FUN=paste )
-  
+    
   if(returnTable) return(m)
   if( length(param_fields)==2 && 
       all(sort(param_fields)==c("doubletmethod","filt")) ){
