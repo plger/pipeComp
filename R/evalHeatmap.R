@@ -133,7 +133,7 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
     }
   })
   if(is.null(name)) name <- what
-  if(is.null(col)) col <- .silScale(res2, viridisLite::inferno(11))
+  if(is.null(col)) col <- viridisLite::inferno(100)
   Heatmap( res2, name=name, cluster_rows=FALSE, cluster_columns=FALSE, 
            show_heatmap_legend=show_heatmap_legend, row_order=ro,
            bottom_annotation=.ds_anno(colnames(res),anno_legend,font_factor), 
