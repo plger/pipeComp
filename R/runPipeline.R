@@ -212,8 +212,16 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
     # identify the first parameters that changes and the corresponding step
     chParam <- names(alt)[which(newPar!=oldPar)[1]]
     wStep <- which(vapply(args,FUN=function(x){ chParam %in% x },logical(1)))
-    # fetch the object from the previous step
-    x <- objects[[which(names(objects)==names(args)[wStep])-1]]
+    # fetch the object from the previous step)
+    while( is.null(x=objects[[which(names(objects)==names(args)[wStep])-1]]) &&
+           wStep > 2 ) wStep <- wStep-1 # to handle steps without parameter
+    if(is.null(x=objects[[which(names(objects)==names(args)[wStep])-1]])){
+      # going back to original dataset
+      x <- objects[[1]]
+      wStep <- 1
+    }else{
+      x <- objects[[which(names(objects)==names(args)[wStep])-1]]
+    }
     # proceed with the remaining steps of the pipeline
     for(step in names(args)[seq.int(from=wStep, to=length(args))]){
       if(debug) message(step)
@@ -303,7 +311,8 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
     if(is.numeric(x)) return(as.character(x))
     paste0("\"",x,"\"")
   }, character(1)), sep="="), collapse=", ")
-  parse(text=paste0(fn, "(x=x, ", args, ")"))
+  if(args!="") args <- paste(",",args)
+  parse(text=paste0(fn, "(x=x", args, ")"))
 }
 
 .checkPipArgs <- function(alternatives, pipDef=NULL){
