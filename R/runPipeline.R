@@ -78,18 +78,28 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   }else{
     eg <- .checkCombMatrix(comb, alt)
   }
-  
   names(dsnames) <- dsnames <- names(datasets)
-  if(!debug && nthreads>1)
+  
+  if(!debug){
+    if(any( class(nthreads) %in% 
+            c("SnowParam","MulticoreParam","SerialParam") )){
+      bpp <- nthreads
+      nthreads <- bpnworkers(bpp)
+    }else{
+      bpp <- MulticoreParam(nthreads, ...)
+    }
     message(paste("Running", nrow(eg), "pipeline settings on", length(datasets),
                   "datasets using", nthreads,"threads"))
-  
+  }else{
+    nthreads <- 1
+    bpp <- SerialParam()
+  }
+    
   if(!debug && nthreads>length(datasets)){
     # splitting downstream of datasets
     egs <- .splitEG(names(datasets), eg, nthreads)
     dsnames <- rep(names(datasets),each=length(egs))
-    resfiles <- bpmapply( dsi=dsnames, eg=egs,
-                          BPPARAM=MulticoreParam(nthreads, ...), 
+    resfiles <- bpmapply( dsi=dsnames, eg=egs, BPPARAM=bpp,
                           FUN=function(dsi, eg) tryCatch(
                             .runPipelineF( dsi, datasets[[dsi]], pipelineDef, 
                                            alt, eg, output.prefix, noWrite=TRUE,
@@ -120,8 +130,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
       return(ifile)
     })
   }else if(!debug && nthreads>1 && length(datasets)>1){
-    resfiles <- bplapply( dsnames, 
-                          BPPARAM=MulticoreParam(nthreads, ...), 
+    resfiles <- bplapply( dsnames, BPPARAM=bpp,
                           FUN=function(dsi){
                             tryCatch(
                     .runPipelineF(dsi, datasets[[dsi]], pipelineDef, alt, eg,
