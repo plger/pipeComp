@@ -7,8 +7,8 @@
 readPipelineResults(path = NULL, resfiles = NULL)
 }
 \arguments{
-\item{path}{The path (e.g. folder or prefix) to the results. Either `path` or
-`resfiles` should be given.}
+\item{path}{The path (e.g. folder or prefix) to the results. Either `path` 
+or `resfiles` should be given.}
 
 \item{resfiles}{A vector of paths to `*.evaluation.rds` files. Either `path` 
 or `resfiles` should be given.}
@@ -23,7 +23,7 @@ readPipelineResults
 # we produce mock pipeline results:
 pip <- mockPipeline()
 datasets <- list( ds1=1:3, ds2=c(5,10,15) )
-tmpdir1 <- paste0(tempdir(),"/")
+tmpdir1 <- paste0(tempdir(),'/')
 res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1,
                    alternatives=list() )
 # we read the evaluation files:
