@@ -157,7 +157,7 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
 #' @param clustMetric Clustering accuracy metric to use (default `mean_F1``)
 #' @param filterExpr An optional filtering expression based on the columns of 
 #' the clustering evaluation (e.g. `filterExpr=param1=="value1"` or 
-#' `filtExpr=n_clus==true.nbClusts`).
+#' `filterExpr=n_clus==true.nbClusts`).
 #' @param atNearestK Logical; whether to restrict analyses to those giving the 
 #' smallest deviation from the real number of clusters (default FALSE).
 #' @param returnTable Logical; whether to return the data rather than plot.
@@ -172,7 +172,7 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
 #' data("exampleResults", package="pipeComp")
 #' scrna_evalPlot_filtering(exampleResults)
 scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"), 
-                                     clustMetric="mean_F1", filtExpr=TRUE,
+                                     clustMetric="mean_F1", filterExpr=TRUE,
                                      atNearestK=FALSE, returnTable=FALSE,
                                      point.size=2.2, ...){
   param_fields <- tryCatch(
@@ -191,7 +191,7 @@ scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"),
                        FUN=function(x) 100*sum(co[x,"N.lost"])/sum(co[x,"N"]) )
   x <- cbind(coI[vapply(ci, FUN=function(x) x[1], integer(1)),], x)
   # get clustering data
-  cl <- res$clustering[eval(substitute(filtExpr), res$clustering),]
+  cl <- res$clustering[eval(substitute(filterExpr), res$clustering),]
   
   if(atNearestK){
     cl$absdiff <- abs(cl$n_clus-cl$true.nbClusts)
