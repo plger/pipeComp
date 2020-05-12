@@ -55,7 +55,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   if(!is(pipelineDef,"PipelineDefinition")) 
     pipelineDef <- PipelineDefinition(pipelineDef)
   alternatives <- .checkPipArgs(alternatives, pipelineDef)
-  pipDef <- pipelineDef@functions
+  pipDef <- stepFn(pipelineDef, type="functions")
   
   if(is.null(names(datasets)))
     names(datasets) <- paste0("dataset",seq_along(datasets))
@@ -158,12 +158,16 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
                    alts=lapply(alt, FUN=function(x){ 
                      if(is.numeric(x)) return(x)
                      lapply(x,FUN=function(x){
-                       if(is.function(x)) return(x)
-                       if(exists(x) && is.function(get(x))){
-                         return(get(x))
-                       }else{
-                         return(x)
-                       }
+                       tryCatch({
+                           if(is.function(x)) return(x)
+                           if(exists(x) && is.function(get(x))){
+                             return(get(x))
+                           }else{
+                             return(x)
+                           }
+                         },
+                         error=function(e) return(x)
+                       )
                      })
                    }),
                    sessionInfo=sessionInfo(),
@@ -185,10 +189,10 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   
   if(debug) message(dsi)
   
-  pipDef <- pipelineDef@functions
+  pipDef <- stepFn(pipelineDef, type="functions")
   args <- arguments(pipelineDef)
   
-  ds <- tryCatch( pipelineDef@initiation(ds),
+  ds <- tryCatch( stepFn(pipelineDef, type="initiation")(ds),
                   error=function(e){
                     stop("Error trying to initiate dataset ", dsi,"
 ",e)                      
@@ -261,11 +265,11 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
         intermediate_return_objects[[step]][[ename]] <- x$intermediate_return
         x <- x$x
       }else{
-        if(!is.null(pipelineDef@evaluation[[step]])){
+        if(!is.null(stepFn(pipelineDef, step, "evaluation"))){
           intermediate_return_objects[[step]][[ename]] <- tryCatch(
-            pipelineDef@evaluation[[step]](x),
+            stepFn(pipelineDef, step, "evaluation")(x),
             error=function(e){
-              fcall <- "pipelineDef@evaluation[[step]](x)"
+              fcall <- 'stepFn(pipelineDef, step, "evaluation")(x)'
               .pipError(x, e, step, pipDef, fcall, newPar, output.prefix, dsi,
                         aa, debug)
             })
@@ -332,7 +336,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
     stop("Some of the alternative argument values contain unaccepted ",
       "characters (e.g. ';' or '=').")
   if(!is.null(pipDef)){
-    def <- pipDef@defaultArguments
+    def <- defaultArguments(pipDef)
     for(f in names(alternatives)) def[[f]] <- alternatives[[f]]
     args <- arguments(pipDef)
     if(!all(unlist(args) %in% names(def))){

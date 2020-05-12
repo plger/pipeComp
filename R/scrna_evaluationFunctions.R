@@ -45,8 +45,15 @@ evaluateClustering <- function(x, tl){
     y$subpopulation <- rep(colnames(x[[1]]$table), length(x))
     y$N.before <- unlist(lapply(x, FUN=function(x) as.numeric(x$table[1,])))
     y$N.lost <- unlist(lapply(x, FUN=function(x){
-      as.numeric(x$table[1,]-x$table[2,])
+      nl <- as.numeric(x$table[1,]-x$table[2,])
+      if(any(is.na(nl))){
+        w <- which(is.na(nl))
+        nl[w] <- as.numeric(x$table[1,w])
+      }
+      nl
     }))
+    
+    if(is.na(y$N.lost))
     y$pc.lost <- round(100*y$N.lost/y$N.before,3)
     y
   })
@@ -132,7 +139,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
   if(is(x,"Seurat")){
     if(is.character(covars)) covars <- x[[]][,covars]
     if(is.null(clusters)) clusters <- x$phenoid
-    x <- x[["pca"]]@cell.embeddings
+    x <- Embeddings(x[["pca"]])
   }else if(is(x, "SingleCellExperiment")){
     if(is.character(covars)) covars <- as.data.frame(colData(x)[,covars])
     if(is.null(clusters)) clusters <- x$phenoid

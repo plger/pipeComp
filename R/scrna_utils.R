@@ -15,7 +15,7 @@ getDimensionality <- function(dat, method, maxDims=NULL){
   if(is.numeric(method) || grepl("^[0-9]+$", method))
     return(as.integer(round(as.numeric(method))))
   if(is(dat, "Seurat")){
-    x <- dat[["pca"]]@cell.embeddings
+    x <- Embeddings(dat[["pca"]])
     sdv <- Stdev(dat, "pca")
   } else {
     if(method=="jackstraw.elbow")
@@ -62,10 +62,10 @@ seWrap <- function(sce, min.cells=10, min.features=0){
                             min.features=min.features, 
                             meta.data=as.data.frame(colData(sce)), 
                             project = "scRNAseq" )
-  se@misc$rowData <- as.data.frame(rowData(sce))
+  Misc(se)$rowData <- as.data.frame(rowData(sce))
   if("logcounts" %in%  assayNames(sce)){
     se <- ScaleData(se, verbose = FALSE)
-    se@assays$RNA@data <- logcounts(sce)
+    se <- SetAssayData(se, slot="data", new.data=logcounts(sce))
   } 
   if(!is.null(metadata(sce)$VariableFeats)) 
     VariableFeatures(se) <- metadata(sce)$VariableFeats
@@ -89,12 +89,11 @@ sceWrap <- function(seu) {
     sce <- sce[row.names(norm),]
     logcounts(sce) <- norm
   }
-  rowData(sce) <- seu@misc$rowData[row.names(sce),]
+  rowData(sce) <- Misc(seu)$rowData[row.names(sce),]
   if(length(VariableFeatures(seu)))
     metadata(sce)$VariableFeats <- VariableFeatures(seu)
   if(length(Reductions(seu))>0){
-    reducedDims(sce) <- lapply( seu@reductions, 
-                                FUN=function(x) x@cell.embeddings )
+    reducedDims(sce) <- lapply( Reductions(seu), FUN=Embeddings )
   }
   sce
 }

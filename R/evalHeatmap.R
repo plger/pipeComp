@@ -72,7 +72,7 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
                          name=NULL, anno_legend=TRUE, ...){
   pd <- NULL
   if(is(res,"SimpleList")) pd <- metadata(res)$PipelineDefinition
-  if(is.null(pd)) stop("Could not find the PipelineDefinition.")
+  #if(is.null(pd)) stop("Could not find the PipelineDefinition.")
   if(is.null(step)){
     step <- rev(names(res$evaluation))[1]
     if(length(res$evaluation)>1) message("Using step '",step,"'.")
@@ -108,9 +108,11 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
     what2 <- match.arg(what2, names(res))
     res <- res[[what2]]
   }
-  what_options <- setdiff( colnames(res), 
+  if(!is.null(pd)){
+    what_options <- setdiff( colnames(res), 
                            c("dataset",unlist(arguments(pd))) )
-  what <- match.arg(what, choices=what_options)
+    what <- match.arg(what, choices=what_options)
+  }
   res <- .prepRes(res, what=what, agg.by=agg.by, pipDef=pd, 
                   filt=substitute(filterExpr), shortNames=shortNames, 
                   returnParams=TRUE)
@@ -159,9 +161,10 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   .safescale(res)
 }
 
+#' @import ComplexHeatmap
 .dosort <- function(res, reorder_rows){
   if(is(reorder_rows, "Heatmap")){
-    ro <- row.names(reorder_rows@matrix)
+    ro <- row_order(reorder_rows)
   }else{
     if(length(reorder_rows)>1){
       ro <- reorder_rows
@@ -317,32 +320,9 @@ colCenterScale <- function(x, centerFn=median,
   }
 }
 
-# legacy...
-.renameHrows <- function(h, f) renameHrows(h,f)
-
-
-#' renameHrows
-#'
-#' Applies a function to the row labels of a Heatmap or HeatmapList
-#'
-#' @param h A `Heatmap` or `HeatmapList`
-#' @param f The function to apply on row labels.
-#'
-#' @return the modified `h`
-#' @export
-#'
-#' @examples
-#' data("exampleResults", package="pipeComp")
-#' H <- evalHeatmap(exampleResults, what=c("ARI", "MI"), agg.by="norm")
-#' H
-#' H <- renameHrows(H, function(x) gsub("^norm\\.", "", x))
-#' H
-renameHrows <- function(h, f=identity){
-  if(is(h,"HeatmapList")){
-    h@ht_list <- lapply(h@ht_list, f=f, FUN=.renameHrows)
-    return(h)
-  }
-  h@row_names_param$anno@var_env$value <- 
-    f(h@row_names_param$anno@var_env$value)
-  h
+.scaledLegend <- function(){
+  ComplexHeatmap::Legend(
+    col_fun=circlize::colorRamp2(1:100, viridisLite::inferno(100)), 
+    at=c(1,50,100), title="MADs", labels=c("worst","median","best"), 
+    direction="horizontal" )
 }

@@ -85,7 +85,7 @@ aggregatePipelineResults <- function(res, pipDef=NULL){
   ))
   metadata(reso)$PipelineDefinition <- pipDef
   
-  isn <- vapply(pipDef@aggregation, is.null, logical(1))
+  isn <- vapply(stepFn(pipDef, type="aggregation"), is.null, logical(1))
   if(all(isn)){
     warning("No aggregation defined in the pipelineDefinition; 
 returning only running times.")
@@ -98,7 +98,7 @@ returning only running times.")
   fullnames <- parsePipNames(names(res[[1]][[length(res[[1]])]]))
   reso$evaluation <- lapply(isn, FUN=function(x){
     message("Aggregating evaluation results for: ", x)
-    pipDef@aggregation[[x]](lapply(res, FUN=function(y) y[[x]]))
+    stepFn(pipDef, type="aggregation")[[x]](lapply(res, FUN=function(y) y[[x]]))
   })
   reso
 }
@@ -133,7 +133,8 @@ returning only running times.")
       # we require that the evaluation functions be the same
       pd1 <- metadata(res1)$PipelineDefinition
       pd2 <- metadata(res2)$PipelineDefinition
-      if(!identical(pd1@evaluation,pd2@evaluation)){
+      if(!identical( stepFn(pd1,type="evaluation"),
+                     stepFn(pd2,type="evaluation") )){
         msg <- paste("The evaluation functions of the PipelineDefinitions are",
                     "not identical")
         if(requirePDidentity) stop(msg)

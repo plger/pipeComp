@@ -122,6 +122,14 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
 }
 
 .mergeFilterOut <- function(ll){
+  ll <- lapply(ll, FUN=function(x){
+    if(any(is.na(x$N.lost))){
+      w <- which(is.na(x$N.lost))
+      x$N.lost[w] <- x$N.before[w]
+      x$pc.lost[w] <- 100
+    }
+    x
+  })
   if(length(ll)==1){
     ll[[1]]$N <- ll[[1]]$N.before
     return(ll[[1]])
@@ -150,17 +158,23 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
 #' @param filterExpr An optional filtering expression based on the columns of 
 #' the clustering evaluation (e.g. `filterExpr=param1=="value1"` or 
 #' `filtExpr=n_clus==true.nbClusts`).
+#' @param atNearestK Logical; whether to restrict analyses to those giving the 
+#' smallest deviation from the real number of clusters (default FALSE).
 #' @param returnTable Logical; whether to return the data rather than plot.
+#' @param point.size Size of the points
+#' @param ... passed to `geom_point`
 #'
 #' @return A ggplot, or a data.frame if `returnTable=TRUE`
 #' @importFrom stats median
+#' @import ggplot2
 #' @export
 #' @examples
 #' data("exampleResults", package="pipeComp")
 #' scrna_evalPlot_filtering(exampleResults)
 scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"), 
                                      clustMetric="mean_F1", filtExpr=TRUE,
-                                     returnTable=FALSE){
+                                     atNearestK=FALSE, returnTable=FALSE,
+                                     point.size=2.2, ...){
   param_fields <- tryCatch(
     unlist(arguments(metadata(res)$PipelineDefinition)[steps]),
     error=function(e) unlist(arguments(scrna_pipeline())[steps]) )
@@ -178,6 +192,14 @@ scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"),
   x <- cbind(coI[vapply(ci, FUN=function(x) x[1], integer(1)),], x)
   # get clustering data
   cl <- res$clustering[eval(substitute(filtExpr), res$clustering),]
+  
+  if(atNearestK){
+    cl$absdiff <- abs(cl$n_clus-cl$true.nbClusts)
+    cl <- do.call(rbind, lapply(split(cl, cl$dataset), FUN=function(x){
+      cl[cl$absdiff==min(cl$absdiff),]
+    }))
+  }
+  
   cl <- aggregate( cl[,clustMetric,drop=FALSE], 
                    by=cl[,c("dataset",param_fields)], FUN=mean )
   m <- merge(cl, x, by=c("dataset",param_fields))
@@ -187,12 +209,12 @@ scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"),
   if( length(param_fields)==2 && 
       all(sort(param_fields)==c("doubletmethod","filt")) ){
     return(ggplot(m, aes(max.lost, mean_F1, colour=filt, shape=doubletmethod))+ 
-      geom_point(size=3) + facet_wrap(~dataset, scales="free") + 
+      geom_point(size=point.size, ...) + facet_wrap(~dataset, scales="free") + 
       xlab("Max proportion of subpopulation excluded") +
-      labs(colour="filterset", shape="doublet method"))
+      labs(colour="filter set", shape="doublet removal"))
   }
   ggplot(m, aes(max.lost, mean_F1, colour=method, shape=method)) + 
-    geom_point(size=3) + facet_wrap(~dataset, scales="free") + 
+    geom_point(size=point.size, ...) + facet_wrap(~dataset, scales="free") + 
     xlab("Max proportion of subpopulation excluded")
 }
 
