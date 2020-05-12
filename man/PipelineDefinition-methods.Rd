@@ -48,9 +48,9 @@ defaultArguments(object) <- value
 
 \S4method{defaultArguments}{PipelineDefinition}(object) <- value
 
-stepFn(object, step, type)
+stepFn(object, step = NULL, type)
 
-\S4method{stepFn}{PipelineDefinition}(object, step, type)
+\S4method{stepFn}{PipelineDefinition}(object, step = NULL, type)
 
 stepFn(object, step, type) <- value
 

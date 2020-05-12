@@ -74,7 +74,7 @@ aggregatePipelineResults <- function(res, pipDef=NULL){
   .checkRes(res, requirePDidentity=is.null(pipDef))
   if(is.null(pipDef)) pipDef <- metadata(res[[1]])$PipelineDefinition
   if(is.null(pipDef)) stop("No PipelineDefinition found!")
-    
+  
   # aggregating elapsed time
   names(steps) <- steps <- names(res[[1]]$elapsed$stepwise)
   reso <- SimpleList( evaluation=NULL, elapsed=list(
@@ -85,10 +85,10 @@ aggregatePipelineResults <- function(res, pipDef=NULL){
   ))
   metadata(reso)$PipelineDefinition <- pipDef
   
-  isn <- vapply(pipDef@aggregation, is.null, logical(1))
+  isn <- vapply(stepFn(pipDef, type="aggregation"), is.null, logical(1))
   if(all(isn)){
     warning("No aggregation defined in the pipelineDefinition; 
-returning only running times.")
+  returning only running times.")
     return(reso)
   }
   
@@ -98,7 +98,7 @@ returning only running times.")
   fullnames <- parsePipNames(names(res[[1]][[length(res[[1]])]]))
   reso$evaluation <- lapply(isn, FUN=function(x){
     message("Aggregating evaluation results for: ", x)
-    pipDef@aggregation[[x]](lapply(res, FUN=function(y) y[[x]]))
+    stepFn(pipDef, type="aggregation")[[x]](lapply(res, FUN=function(y) y[[x]]))
   })
   reso
 }
@@ -121,7 +121,7 @@ returning only running times.")
     tt <- table(unlist(lapply(res1, FUN=function(x) names(x[[step]]) )))
     if(!all(tt==length(res1))) 
       stop("The different datasets do not have the same",
-        " runs, i.e. they include different sets of alternative parameters.")
+           " runs, i.e. they include different sets of alternative parameters.")
   }
   if(!is.null(res2)){
     .checkRes(res2)
@@ -133,9 +133,10 @@ returning only running times.")
       # we require that the evaluation functions be the same
       pd1 <- metadata(res1)$PipelineDefinition
       pd2 <- metadata(res2)$PipelineDefinition
-      if(!identical(pd1@evaluation,pd2@evaluation)){
+      if(!identical( stepFn(pd1,type="evaluation"),
+                     stepFn(pd2,type="evaluation") )){
         msg <- paste("The evaluation functions of the PipelineDefinitions are",
-                    "not identical")
+                     "not identical")
         if(requirePDidentity) stop(msg)
         warning(msg)
       }
@@ -181,7 +182,7 @@ mergePipelineResults <- function(res1,res2){
   lapply(nn, FUN=function(ds){
     .dsMergeResults(res1[[ds]], res2[[ds]])
   })
-    
+  
 }
 
 .dsMergeResults <- function(res1, res2){
@@ -238,8 +239,8 @@ defaultStepAggregation <- function(x){
     return(res)
   }
   dplyr::bind_rows(lapply(x, FUN=function(x){
-      x <- cbind(parsePipNames(names(x)), do.call(rbind, x))
-      row.names(x) <- NULL
-      x
-    }), .id="dataset")
+    x <- cbind(parsePipNames(names(x)), do.call(rbind, x))
+    row.names(x) <- NULL
+    x
+  }), .id="dataset")
 }

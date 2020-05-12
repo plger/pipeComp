@@ -7,6 +7,8 @@
 #' `aggregateResults`)
 #' @param what What metric to plot, possible values are “minSilWidth”, 
 #' “meanSilWidth” (default), “medianSilWidth”, or “maxSilWidth”.
+#' @param step Name of the step for which to plot the evaluation results. 
+#' Defaults to "dimreduction".
 #' @param dims If multiple sets of dimensions are available, which one to use
 #' (defaults to the first).
 #' @param agg.by Aggregate results by these columns (default no aggregation)
@@ -19,7 +21,8 @@
 #' `ComplexHeatmap`.
 #' @param reorder_columns Whether to sort columns (default TRUE).
 #' @param row_split Optional column (included in `agg.by`) by which to split
-#' the rows.
+#' the rows. Alternatively, an expression using the columns (retained after
+#' aggregation) can be passed.
 #' @param show_heatmap_legend Passed to `Heatmap` (default FALSE)
 #' @param show_column_names Passed to `Heatmap` (default FALSE)
 #' @param col Colors for the heatmap
@@ -41,15 +44,15 @@
 #' scrna_evalPlot_silh( exampleResults, agg.by=c("filt","norm"), 
 #'                      row_split="norm" )
 scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"), 
-                                 dims=1, agg.by=NULL, agg.fn=mean, 
-                                 filterExpr=NULL, value_format="", 
+                                 step="dimreduction", dims=1, agg.by=NULL, 
+                                 agg.fn=mean, filterExpr=NULL, value_format="", 
                                  reorder_rows=FALSE, reorder_columns=TRUE,
                                  show_heatmap_legend=TRUE, 
                                  show_column_names=FALSE, 
                                  col=rev(RColorBrewer::brewer.pal(n=11,"RdBu")),
-                                 font_factor=1, row_split=NULL, shortNames=TRUE,
-                                 value_cols=c("white","black"), title=NULL, 
-                                 anno_legend=TRUE, ...){
+                                 font_factor=0.9, row_split=NULL, 
+                                 shortNames=TRUE, value_cols=c("white","black"),
+                                 title=NULL, anno_legend=TRUE, ...){
   pd <- NULL
   if(is(res,"SimpleList")) pd <- metadata(res)$PipelineDefinition
   if(is.null(pd)) stop("Could not find the PipelineDefinition.")
@@ -64,8 +67,8 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
   }
   if(is(res,"SimpleList") && "evaluation" %in% names(res)) 
     res <- res$evaluation
-  if(is(res,"list") && "dimreduction" %in% names(res))
-    res <- res[["dimreduction"]]
+  if(is(res,"list") && step %in% names(res))
+    res <- res[[step]]
   if(is(res,"list") && "silhouette" %in% names(res))
     res <- res[["silhouette"]]
   res <- res[[dims]]
@@ -81,14 +84,20 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
   
   cellfn <- .getCellFn(res, res, value_format, value_cols, font_factor)
   if(is.null(title)) title <- gsub("\\.","\n",what)
-  if(!is.null(row_split)){
-    if(row_split %in% colnames(pp)){
-      row_split <- pp[,row_split]
-    }else{
-      warning("`row_split` wasn't found and will be ignored.")
-      row_split <- NULL
+  suppressWarnings({
+    if(!tryCatch(is.null(row_split), error=function(e) FALSE)){
+      if(tryCatch(is.character(row_split), error=function(e) FALSE)){
+        if(row_split %in% colnames(pp)){
+          row_split <- pp[,row_split]
+        }else{
+          warning("`row_split` wasn't found and will be ignored.")
+          row_split <- NULL
+        }
+      }else{
+        row_split <- eval(substitute(row_split), envir=pp)
+      }
     }
-  }
+  })
   col <- .silScale(res, col)
   Heatmap( res, name=what, cluster_rows=FALSE, cluster_columns=FALSE, 
            show_heatmap_legend=show_heatmap_legend, row_order=ro,
@@ -113,6 +122,14 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
 }
 
 .mergeFilterOut <- function(ll){
+  ll <- lapply(ll, FUN=function(x){
+    if(any(is.na(x$N.lost))){
+      w <- which(is.na(x$N.lost))
+      x$N.lost[w] <- x$N.before[w]
+      x$pc.lost[w] <- 100
+    }
+    x
+  })
   if(length(ll)==1){
     ll[[1]]$N <- ll[[1]]$N.before
     return(ll[[1]])
@@ -127,8 +144,7 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
   }
   mm$N <- mm[,grep("N\\.before",colnames(mm))[1]]
   mm$N.lost <- rowSums(mm[,grep("N\\.lost",colnames(mm))])
-  mm$pc.lost <- 100*rowSums(mm[,grep("N\\.lost",colnames(mm))])/
-    mm[,grep("N\\.before",colnames(mm))[1]]
+  mm$pc.lost <- 100*mm$N.lost/mm$N
   mm
 }
 
@@ -139,17 +155,29 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
 #' @param steps Steps to include (default 'doublet' and 'filtering'); other 
 #' steps will be averaged.
 #' @param clustMetric Clustering accuracy metric to use (default `mean_F1``)
+#' @param filterExpr An optional filtering expression based on the columns of 
+#' the clustering evaluation (e.g. `filterExpr=param1=="value1"` or 
+#' `filtExpr=n_clus==true.nbClusts`).
+#' @param atNearestK Logical; whether to restrict analyses to those giving the 
+#' smallest deviation from the real number of clusters (default FALSE).
 #' @param returnTable Logical; whether to return the data rather than plot.
+#' @param point.size Size of the points
+#' @param ... passed to `geom_point`
 #'
 #' @return A ggplot, or a data.frame if `returnTable=TRUE`
 #' @importFrom stats median
+#' @import ggplot2
 #' @export
 #' @examples
 #' data("exampleResults", package="pipeComp")
 #' scrna_evalPlot_filtering(exampleResults)
 scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"), 
-                                     clustMetric="mean_F1", returnTable=FALSE){
-  param_fields <- unlist(arguments(metadata(res)$PipelineDefinition)[steps])
+                                     clustMetric="mean_F1", filtExpr=TRUE,
+                                     atNearestK=FALSE, returnTable=FALSE,
+                                     point.size=2.2, ...){
+  param_fields <- tryCatch(
+    unlist(arguments(metadata(res)$PipelineDefinition)[steps]),
+    error=function(e) unlist(arguments(scrna_pipeline())[steps]) )
   res <- res$evaluation
   co <- .mergeFilterOut(res[steps])
   coI <- co[,c("dataset",param_fields)]
@@ -163,21 +191,30 @@ scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"),
                        FUN=function(x) 100*sum(co[x,"N.lost"])/sum(co[x,"N"]) )
   x <- cbind(coI[vapply(ci, FUN=function(x) x[1], integer(1)),], x)
   # get clustering data
-  cl <- aggregate( res$clustering[,clustMetric,drop=FALSE], 
-                   by=res$clustering[,c("dataset",param_fields)], FUN=mean )
+  cl <- res$clustering[eval(substitute(filtExpr), res$clustering),]
+  
+  if(atNearestK){
+    cl$absdiff <- abs(cl$n_clus-cl$true.nbClusts)
+    cl <- do.call(rbind, lapply(split(cl, cl$dataset), FUN=function(x){
+      cl[cl$absdiff==min(cl$absdiff),]
+    }))
+  }
+  
+  cl <- aggregate( cl[,clustMetric,drop=FALSE], 
+                   by=cl[,c("dataset",param_fields)], FUN=mean )
   m <- merge(cl, x, by=c("dataset",param_fields))
   m$method <- apply( m[,param_fields,drop=FALSE], 1, collapse="+", FUN=paste )
-  
+    
   if(returnTable) return(m)
   if( length(param_fields)==2 && 
       all(sort(param_fields)==c("doubletmethod","filt")) ){
     return(ggplot(m, aes(max.lost, mean_F1, colour=filt, shape=doubletmethod))+ 
-      geom_point(size=3) + facet_wrap(~dataset, scales="free") + 
+      geom_point(size=point.size, ...) + facet_wrap(~dataset, scales="free") + 
       xlab("Max proportion of subpopulation excluded") +
-      labs(colour="filterset", shape="doublet method"))
+      labs(colour="filter set", shape="doublet removal"))
   }
   ggplot(m, aes(max.lost, mean_F1, colour=method, shape=method)) + 
-    geom_point(size=3) + facet_wrap(~dataset, scales="free") + 
+    geom_point(size=point.size, ...) + facet_wrap(~dataset, scales="free") + 
     xlab("Max proportion of subpopulation excluded")
 }
 
@@ -275,4 +312,5 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
            seq(from=0, to=sqrt(max(x, na.rm=TRUE)), length.out=6)[-1]^2 )
   colorRamp2(bb, cols)
 }
+
 

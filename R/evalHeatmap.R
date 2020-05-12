@@ -30,10 +30,14 @@
 #' names themselves can also be passed to specify an order, or a 
 #' `ComplexHeatmap`.
 #' @param row_split Optional column (included in `agg.by`) by which to split
-#' the rows.
+#' the rows. Alternatively, an expression using the columns (retained after
+#' aggregation) can be passed.
 #' @param show_heatmap_legend Passed to `Heatmap` (default FALSE)
 #' @param show_column_names Passed to `Heatmap` (default FALSE)
-#' @param col Colors for the heatmap
+#' @param col Colors for the heatmap. By default, will apply linear mapping (if
+#' the data is not scaled) or signed sqrt mapping (if scaled) on the 
+#' `viridisLite::inferno` palette. To disable the signed sqrt-transformation,
+#' simply pass `col=viridisLite::inferno(100)` or your own palette.
 #' @param font_factor A scaling factor applied to fontsizes (default 1)
 #' @param value_cols A vector of length 2 indicating the colors of the values
 #' (above and below the mean), if printed
@@ -41,31 +45,34 @@
 #' @param shortNames Logical; whether to use short row names (with only
 #' the parameter values instead of the parameter name and value pairs), default
 #' TRUE.
+#' @param name Heatmap name (e.g. used for the legend)
 #' @param anno_legend Logical; whether to plot the legend for the datasets
 #' @param ... Passed to `Heatmap`
 #' 
 #' @return A Heatmap
 #' @export
+#' @importFrom viridisLite inferno
 #' @importFrom grid gpar
 #' @import ComplexHeatmap
 #' @examples
 #' data("exampleResults", package="pipeComp")
-#' evalHeatmap( exampleResults, what=c("ARI", "MI", "min_pr"), 
+#' evalHeatmap( exampleResults, step="clustering", what=c("ARI","MI","min_pr"), 
 #'              agg.by=c("filt", "norm"), row_split = "norm" ) +
-#' evalHeatmap( exampleResults, what="ARI", agg.by=c("filt", "norm"), 
-#'              filterExpr=n_clue==true.nbClusts, title="ARI at
+#' evalHeatmap( exampleResults, step="clustering", what="ARI", 
+#'              agg.by=c("filt", "norm"), filterExpr=n_clus==true.nbClusts, 
+#'              name="ARI at true k", title="ARI at
 #' true K" )
 evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL, 
                          agg.fn=mean, filterExpr=NULL, scale="colCenterScale", 
                          value_format="%.2f", reorder_rows=FALSE, 
                          show_heatmap_legend=FALSE, show_column_names=FALSE, 
-                         col=viridisLite::inferno(100), font_factor=0.9, 
+                         col=NULL, font_factor=0.9, 
                          row_split=NULL, shortNames=TRUE,
                          value_cols=c("black","white"), title=NULL, 
-                         anno_legend=TRUE, ...){
+                         name=NULL, anno_legend=TRUE, ...){
   pd <- NULL
   if(is(res,"SimpleList")) pd <- metadata(res)$PipelineDefinition
-  if(is.null(pd)) stop("Could not find the PipelineDefinition.")
+  #if(is.null(pd)) stop("Could not find the PipelineDefinition.")
   if(is.null(step)){
     step <- rev(names(res$evaluation))[1]
     if(length(res$evaluation)>1) message("Using step '",step,"'.")
@@ -101,9 +108,11 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
     what2 <- match.arg(what2, names(res))
     res <- res[[what2]]
   }
-  what_options <- setdiff( colnames(res), 
+  if(!is.null(pd)){
+    what_options <- setdiff( colnames(res), 
                            c("dataset",unlist(arguments(pd))) )
-  what <- match.arg(what, choices=what_options)
+    what <- match.arg(what, choices=what_options)
+  }
   res <- .prepRes(res, what=what, agg.by=agg.by, pipDef=pd, 
                   filt=substitute(filterExpr), shortNames=shortNames, 
                   returnParams=TRUE)
@@ -114,15 +123,24 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   res2 <- as.matrix(res2)
   cellfn <- .getCellFn(res, res2, value_format, value_cols, font_factor)
   if(is.null(title)) title <- gsub("\\.","\n",what)
-  if(!is.null(row_split)){
-    if(row_split %in% colnames(pp)){
-      row_split <- pp[,row_split]
-    }else{
-      warning("`row_split` wasn't found and will be ignored.")
-      row_split <- NULL
+  suppressWarnings({
+    if(!tryCatch(is.null(row_split), error=function(e) FALSE)){
+      if(tryCatch(is.character(row_split), error=function(e) FALSE)){
+        if(row_split %in% colnames(pp)){
+          row_split <- pp[,row_split]
+        }else{
+          warning("`row_split` wasn't found and will be ignored.")
+          row_split <- NULL
+        }
+      }else{
+        row_split <- eval(substitute(row_split), envir=pp)
+      }
     }
-  }
-  Heatmap( res2, name=what, cluster_rows=FALSE, cluster_columns=FALSE, 
+  })
+  if(is.null(name)) name <- what
+  if(is.null(col))
+    col <- .defaultColorMapping(res2, center=!(is.logical(scale) && !scale))
+  Heatmap( res2, name=name, cluster_rows=FALSE, cluster_columns=FALSE, 
            show_heatmap_legend=show_heatmap_legend, row_order=ro,
            bottom_annotation=.ds_anno(colnames(res),anno_legend,font_factor), 
            show_column_names=show_column_names, cell_fun=cellfn, col=col,
@@ -143,9 +161,10 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   .safescale(res)
 }
 
+#' @import ComplexHeatmap
 .dosort <- function(res, reorder_rows){
   if(is(reorder_rows, "Heatmap")){
-    ro <- row.names(reorder_rows@matrix)
+    ro <- row_order(reorder_rows)
   }else{
     if(length(reorder_rows)>1){
       ro <- reorder_rows
@@ -173,6 +192,14 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   if(sd(x,na.rm=TRUE)>0) return(base::scale(x))
   if(sum(!is.na(x))==0) return(base::scale(as.numeric(!is.na(x))))
   rep(0,length(x))
+}
+
+.defaultColorMapping <- function(x, center=TRUE){
+  if(!center) return(viridisLite::inferno(101))
+  q <- max(abs(range(x, na.rm=TRUE)))
+  b <- c( -seq(from=sqrt(q), to=0, length.out=51)^2,
+          seq(from=0, to=sqrt(q), length.out=51)[-1]^2 )
+  colorRamp2(b, viridisLite::inferno(101))
 }
 
 #' colCenterScale
@@ -293,32 +320,9 @@ colCenterScale <- function(x, centerFn=median,
   }
 }
 
-# legacy...
-.renameHrows <- function(h, f) renameHrows(h,f)
-
-
-#' renameHrows
-#'
-#' Applies a function to the row labels of a Heatmap or HeatmapList
-#'
-#' @param h A `Heatmap` or `HeatmapList`
-#' @param f The function to apply on row labels.
-#'
-#' @return the modified `h`
-#' @export
-#'
-#' @examples
-#' data("exampleResults", package="pipeComp")
-#' H <- evalHeatmap(exampleResults, what=c("ARI", "MI"), agg.by="norm")
-#' H
-#' H <- renameHrows(H, function(x) gsub("^norm\\.", "", x))
-#' H
-renameHrows <- function(h, f=identity){
-  if(is(h,"HeatmapList")){
-    h@ht_list <- lapply(h@ht_list, f=f, FUN=.renameHrows)
-    return(h)
-  }
-  h@row_names_param$anno@var_env$value <- 
-    f(h@row_names_param$anno@var_env$value)
-  h
+.scaledLegend <- function(){
+  ComplexHeatmap::Legend(
+    col_fun=circlize::colorRamp2(seq(1,100), viridisLite::inferno(100)), 
+    at=c(1,50,100), title="MADs", labels=c("worst","median","best"), 
+    direction="horizontal" )
 }

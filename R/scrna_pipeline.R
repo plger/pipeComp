@@ -75,7 +75,7 @@ using the `dr` function.",
         x <- get(dr)(x, dims=maxdim)
         list( x=x, 
               intermediate_return=list(
-                cell.embeddings=x[["pca"]]@cell.embeddings,
+                cell.embeddings=Embeddings(x[["pca"]]),
                 evaluation=evaluateDimRed(x)
               )
             )

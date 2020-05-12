@@ -25,6 +25,8 @@ However the framework can be applied to any other context (see the `pipeComp_dea
 
 `pipeComp` is especially suited to the benchmarking of pipelines that include many steps/parameters, enabling the exploration of combinations of parameters and of the robustness of methods to various changes in other parts of a pipeline. It is also particularly suited to benchmarks across multiple datasets. It is entirely based on _R_/Bioconductor, meaning that methods outside of _R_ need to be called via _R_ wrappers. `pipeComp` handles multithreading in a way that minimizes re-computation and duplicated memory usage, and computes evaluation metrics on the fly to avoid saving many potentially large intermediate files, making it well-suited for benchmarks involving large datasets.
 
+This readme gives a very brief overview of the package. For more detailed information on the framework, refer to the [pipeComp vignette](vignettes/pipeComp.Rmd). For information specifically about the scRNAseq pipeline and evaluation metrics (as well as more complex examples usages of the plotting functions), see the [pipeComp_scRNA vignette](vignettes/pipeComp_scRNA.Rmd). For a completely different example, with walkthrough the creating of a new `PipelineDefinition`, see the [pipeComp_dea vignette](vignettes/pipeComp_dea.Rmd).
+
 ### Recent changes
 
 * In `pipeComp` 0.99.26 on, the plotting functions for the scRNAseq clustering pipeline (`scrna_evalPlot_DR` and `scrna_evalPlot_clust`) have been replaced by more flexible, pipeline-generic functions (`evalHeatmap`) and a silhouette-specific plotting function (`scrna_evalPlot_silh`). The general heatmap coloring scheme has also been changed to make meaningful changes clearer.
@@ -49,12 +51,9 @@ To use the scRNA-seq pipeline and wrappers, however, requires further packages t
 
 ## Using _pipeComp_
 
-<div style="width: 600px; margin: 10px auto;">
-<figure class="image">
-  <img src="inst/docs/pipeComp_scheme.png" width="500" alt="Scheme of the pipeComp framework" style="margin: 15px;"/>
-  <figcaption style="text-align: justify;">**Scheme of the pipeComp framework. A:** The `PipelineDefinition` class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. **B:** Given a `PipelineDefinition`, a set of alternative parameters and benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly.</figcaption>
-</figure>
-</div>
+<img src="inst/docs/pipeComp_scheme.png" width="500" alt="Scheme of the pipeComp framework" style="margin: 15px; float:left;"/>
+<div style="text-align: justify;"><b>Scheme of the pipeComp framework. A:</b> The `PipelineDefinition` class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. <b>B:</b> Given a `PipelineDefinition`, a set of alternative parameters and benchmark datasets, the `runPipeline` function proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly.</div>
+
 
 ### PipelineDefinition
 

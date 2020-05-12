@@ -55,7 +55,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   if(!is(pipelineDef,"PipelineDefinition")) 
     pipelineDef <- PipelineDefinition(pipelineDef)
   alternatives <- .checkPipArgs(alternatives, pipelineDef)
-  pipDef <- pipelineDef@functions
+  pipDef <- stepFn(pipelineDef, type="functions")
   
   if(is.null(names(datasets)))
     names(datasets) <- paste0("dataset",seq_along(datasets))
@@ -78,18 +78,28 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   }else{
     eg <- .checkCombMatrix(comb, alt)
   }
-  
   names(dsnames) <- dsnames <- names(datasets)
-  if(!debug && nthreads>1)
+  
+  if(!debug){
+    if(any( class(nthreads) %in% 
+            c("SnowParam","MulticoreParam","SerialParam") )){
+      bpp <- nthreads
+      nthreads <- bpnworkers(bpp)
+    }else{
+      bpp <- MulticoreParam(nthreads, ...)
+    }
     message(paste("Running", nrow(eg), "pipeline settings on", length(datasets),
                   "datasets using", nthreads,"threads"))
-  
+  }else{
+    nthreads <- 1
+    bpp <- SerialParam()
+  }
+    
   if(!debug && nthreads>length(datasets)){
     # splitting downstream of datasets
     egs <- .splitEG(names(datasets), eg, nthreads)
     dsnames <- rep(names(datasets),each=length(egs))
-    resfiles <- bpmapply( dsi=dsnames, eg=egs,
-                          BPPARAM=MulticoreParam(nthreads, ...), 
+    resfiles <- bpmapply( dsi=dsnames, eg=egs, BPPARAM=bpp,
                           FUN=function(dsi, eg) tryCatch(
                             .runPipelineF( dsi, datasets[[dsi]], pipelineDef, 
                                            alt, eg, output.prefix, noWrite=TRUE,
@@ -120,8 +130,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
       return(ifile)
     })
   }else if(!debug && nthreads>1 && length(datasets)>1){
-    resfiles <- bplapply( dsnames, 
-                          BPPARAM=MulticoreParam(nthreads, ...), 
+    resfiles <- bplapply( dsnames, BPPARAM=bpp,
                           FUN=function(dsi){
                             tryCatch(
                     .runPipelineF(dsi, datasets[[dsi]], pipelineDef, alt, eg,
@@ -149,12 +158,16 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
                    alts=lapply(alt, FUN=function(x){ 
                      if(is.numeric(x)) return(x)
                      lapply(x,FUN=function(x){
-                       if(is.function(x)) return(x)
-                       if(exists(x) && is.function(get(x))){
-                         return(get(x))
-                       }else{
-                         return(x)
-                       }
+                       tryCatch({
+                           if(is.function(x)) return(x)
+                           if(exists(x) && is.function(get(x))){
+                             return(get(x))
+                           }else{
+                             return(x)
+                           }
+                         },
+                         error=function(e) return(x)
+                       )
                      })
                    }),
                    sessionInfo=sessionInfo(),
@@ -176,10 +189,10 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   
   if(debug) message(dsi)
   
-  pipDef <- pipelineDef@functions
+  pipDef <- stepFn(pipelineDef, type="functions")
   args <- arguments(pipelineDef)
   
-  ds <- tryCatch( pipelineDef@initiation(ds),
+  ds <- tryCatch( stepFn(pipelineDef, type="initiation")(ds),
                   error=function(e){
                     stop("Error trying to initiate dataset ", dsi,"
 ",e)                      
@@ -212,8 +225,16 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
     # identify the first parameters that changes and the corresponding step
     chParam <- names(alt)[which(newPar!=oldPar)[1]]
     wStep <- which(vapply(args,FUN=function(x){ chParam %in% x },logical(1)))
-    # fetch the object from the previous step
-    x <- objects[[which(names(objects)==names(args)[wStep])-1]]
+    # fetch the object from the previous step)
+    while( is.null(x=objects[[which(names(objects)==names(args)[wStep])-1]]) &&
+           wStep > 2 ) wStep <- wStep-1 # to handle steps without parameter
+    if(is.null(x=objects[[which(names(objects)==names(args)[wStep])-1]])){
+      # going back to original dataset
+      x <- objects[[1]]
+      wStep <- 1
+    }else{
+      x <- objects[[which(names(objects)==names(args)[wStep])-1]]
+    }
     # proceed with the remaining steps of the pipeline
     for(step in names(args)[seq.int(from=wStep, to=length(args))]){
       if(debug) message(step)
@@ -244,11 +265,11 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
         intermediate_return_objects[[step]][[ename]] <- x$intermediate_return
         x <- x$x
       }else{
-        if(!is.null(pipelineDef@evaluation[[step]])){
+        if(!is.null(stepFn(pipelineDef, step, "evaluation"))){
           intermediate_return_objects[[step]][[ename]] <- tryCatch(
-            pipelineDef@evaluation[[step]](x),
+            stepFn(pipelineDef, step, "evaluation")(x),
             error=function(e){
-              fcall <- "pipelineDef@evaluation[[step]](x)"
+              fcall <- 'stepFn(pipelineDef, step, "evaluation")(x)'
               .pipError(x, e, step, pipDef, fcall, newPar, output.prefix, dsi,
                         aa, debug)
             })
@@ -303,7 +324,8 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
     if(is.numeric(x)) return(as.character(x))
     paste0("\"",x,"\"")
   }, character(1)), sep="="), collapse=", ")
-  parse(text=paste0(fn, "(x=x, ", args, ")"))
+  if(args!="") args <- paste(",",args)
+  parse(text=paste0(fn, "(x=x", args, ")"))
 }
 
 .checkPipArgs <- function(alternatives, pipDef=NULL){
@@ -314,7 +336,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
     stop("Some of the alternative argument values contain unaccepted ",
       "characters (e.g. ';' or '=').")
   if(!is.null(pipDef)){
-    def <- pipDef@defaultArguments
+    def <- defaultArguments(pipDef)
     for(f in names(alternatives)) def[[f]] <- alternatives[[f]]
     args <- arguments(pipDef)
     if(!all(unlist(args) %in% names(def))){
@@ -353,7 +375,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
 .splitEG <- function(datasets, eg, nthreads, tol=1){
   # we find at which step to split to maximize cluster use
   eg <- as.data.frame(eg)
-  for(i in 1:ncol(eg)){
+  for(i in seq_len(ncol(eg))){
     if(length(unique(eg[,i]))*length(datasets) >= (nthreads-tol)){
       return(split(eg, eg[,seq_len(i)]))
     }

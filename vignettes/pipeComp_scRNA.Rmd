@@ -231,8 +231,11 @@ Steps for which there was a single alternative (after aggregation) are not inclu
 We could investigate the joint impact of the normalization method and of the number of dimensions included using:
 
 ```{r, fig.width=7, fig.height=4}
-evalHeatmap(res, step = "clustering", what=c("MI","ARI"), agg.by=c("norm", "dims"))
+evalHeatmap(res, step = "clustering", what=c("MI","ARI"), 
+            agg.by=c("norm", "dims"), row_split=norm)
 ```
+
+Here, we've used the `row_split` argument to improve the clarity of the figure. The argument can accept either the name of a parameter, or any expression using them (e.g. `row_split=norm!="norm.scran"`).
 
 We can also filter the analyses before aggregation. For instance, if we wish to plot the ARI only at the true number of clusters, we can filter to those analyses where the detected number of clusters (`n_clus`) is equal to the true one (`true.nbClusts`):
 
@@ -254,7 +257,28 @@ plotElapsed(res, agg.by="norm")
 
 # Extension and reuse
 
-The scRNAseq `PipelineDefinition` can be modified or extented with new steps or arguments like any other objects of that class (see the [pipeComp vignette](pipeComp.html)). In addition, the evaluation functions used at each step can be accessed from the package's namespace and use for other purposes. See in particular `?evaluateDimRed` and `?evaluateClustering`. If you feel like other metrics should be included, please contact us!
+The scRNAseq `PipelineDefinition` can be modified or extented with new steps or arguments like any other objects of that class (see the [pipeComp vignette](pipeComp.html)). For instance, in the paper we included tests on an additional step that filtered out classes of genes, which we implemented in the following way:
+
+```{r}
+pipDef <- addPipelineStep(pipDef, "featureExcl", after="filtering")
+# once the step has been added, we can set its function:
+stepFn(pipDef, "featureExcl", type="function") <- function(x, classes){
+  if(classes!="all"){
+    classes <- strsplit(classes, ",")[[1]]
+    x <- x[subsetFeatureByType(row.names(x), classes=classes),]
+  }
+  x
+}
+pipDef
+```
+
+Then we can simply add alternatives for this new parameter:
+```{r}
+alternatives$classes <- c("all","Mt","ribo")
+# runPipeline...
+```
+
+In addition, the evaluation functions used at each step can be accessed from the package's namespace and use for other purposes. See in particular `?evaluateDimRed` and `?evaluateClustering`. If you feel like other metrics should be included, please contact us!
 
 <br/><br/>
 

@@ -17,12 +17,13 @@ evalHeatmap(
   reorder_rows = FALSE,
   show_heatmap_legend = FALSE,
   show_column_names = FALSE,
-  col = viridisLite::inferno(100),
+  col = NULL,
   font_factor = 0.9,
   row_split = NULL,
   shortNames = TRUE,
   value_cols = c("black", "white"),
   title = NULL,
+  name = NULL,
   anno_legend = TRUE,
   ...
 )
@@ -64,12 +65,16 @@ names themselves can also be passed to specify an order, or a
 
 \item{show_column_names}{Passed to `Heatmap` (default FALSE)}
 
-\item{col}{Colors for the heatmap}
+\item{col}{Colors for the heatmap. By default, will apply linear mapping (if
+the data is not scaled) or signed sqrt mapping (if scaled) on the 
+`viridisLite::inferno` palette. To disable the signed sqrt-transformation,
+simply pass `col=viridisLite::inferno(100)` or your own palette.}
 
 \item{font_factor}{A scaling factor applied to fontsizes (default 1)}
 
 \item{row_split}{Optional column (included in `agg.by`) by which to split
-the rows.}
+the rows. Alternatively, an expression using the columns (retained after
+aggregation) can be passed.}
 
 \item{shortNames}{Logical; whether to use short row names (with only
 the parameter values instead of the parameter name and value pairs), default
@@ -79,6 +84,8 @@ TRUE.}
 (above and below the mean), if printed}
 
 \item{title}{Plot title}
+
+\item{name}{Heatmap name (e.g. used for the legend)}
 
 \item{anno_legend}{Logical; whether to plot the legend for the datasets}
 
@@ -97,9 +104,10 @@ determined by \code{\link{colCenterScale}} (number of matrix-median absolute
 }
 \examples{
 data("exampleResults", package="pipeComp")
-evalHeatmap( exampleResults, what=c("ARI", "MI", "min_pr"), 
+evalHeatmap( exampleResults, step="clustering", what=c("ARI","MI","min_pr"), 
              agg.by=c("filt", "norm"), row_split = "norm" ) +
-evalHeatmap( exampleResults, what="ARI", agg.by=c("filt", "norm"), 
-             filterExpr=n_clue==true.nbClusts, title="ARI at
+evalHeatmap( exampleResults, step="clustering", what="ARI", 
+             agg.by=c("filt", "norm"), filterExpr=n_clus==true.nbClusts, 
+             name="ARI at true k", title="ARI at
 true K" )
 }

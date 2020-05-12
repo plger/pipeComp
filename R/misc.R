@@ -20,8 +20,10 @@ checkPipelinePackages <- function(alternatives, pipDef=NULL){
     ""
   })
   fns <- paste(unlist(fns),collapse="\n")
-  if(!is.null(pipDef)) fns <- paste(fns, paste(pipDef@functions, collapse="\n"), 
-                                    paste(pipDef@evaluation, collapse="\n"))
+  if(!is.null(pipDef)){
+    fns <- paste(fns, paste(stepFn(pipDef, type="functions"), collapse="\n"), 
+                 paste(stepFn(pipDef, type="evaluation"), collapse="\n"))
+  }
   pkg <- gregexpr("library\\(([[:alnum:]])+\\)", fns)
   pkg <- unique(regmatches(fns, pkg)[[1]])
   pkg <- gsub("\\)","",gsub("^library\\(","",pkg))

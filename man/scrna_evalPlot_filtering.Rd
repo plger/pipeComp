@@ -8,7 +8,11 @@ scrna_evalPlot_filtering(
   res,
   steps = c("doublet", "filtering"),
   clustMetric = "mean_F1",
-  returnTable = FALSE
+  filtExpr = TRUE,
+  atNearestK = FALSE,
+  returnTable = FALSE,
+  point.size = 2.2,
+  ...
 )
 }
 \arguments{
@@ -20,7 +24,18 @@ steps will be averaged.}
 
 \item{clustMetric}{Clustering accuracy metric to use (default `mean_F1``)}
 
+\item{atNearestK}{Logical; whether to restrict analyses to those giving the 
+smallest deviation from the real number of clusters (default FALSE).}
+
 \item{returnTable}{Logical; whether to return the data rather than plot.}
+
+\item{point.size}{Size of the points}
+
+\item{...}{passed to `geom_point`}
+
+\item{filterExpr}{An optional filtering expression based on the columns of 
+the clustering evaluation (e.g. `filterExpr=param1=="value1"` or 
+`filtExpr=n_clus==true.nbClusts`).}
 }
 \value{
 A ggplot, or a data.frame if `returnTable=TRUE`
