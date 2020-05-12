@@ -50,9 +50,9 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
                                  show_heatmap_legend=TRUE, 
                                  show_column_names=FALSE, 
                                  col=rev(RColorBrewer::brewer.pal(n=11,"RdBu")),
-                                 font_factor=0.9, row_split=NULL, shortNames=TRUE,
-                                 value_cols=c("white","black"), title=NULL, 
-                                 anno_legend=TRUE, ...){
+                                 font_factor=0.9, row_split=NULL, 
+                                 shortNames=TRUE, value_cols=c("white","black"),
+                                 title=NULL, anno_legend=TRUE, ...){
   pd <- NULL
   if(is(res,"SimpleList")) pd <- metadata(res)$PipelineDefinition
   if(is.null(pd)) stop("Could not find the PipelineDefinition.")
@@ -122,6 +122,14 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
 }
 
 .mergeFilterOut <- function(ll){
+  ll <- lapply(ll, FUN=function(x){
+    if(any(is.na(x$N.lost))){
+      w <- which(is.na(x$N.lost))
+      x$N.lost[w] <- x$N.before[w]
+      x$pc.lost[w] <- 100
+    }
+    x
+  })
   if(length(ll)==1){
     ll[[1]]$N <- ll[[1]]$N.before
     return(ll[[1]])
@@ -136,8 +144,7 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
   }
   mm$N <- mm[,grep("N\\.before",colnames(mm))[1]]
   mm$N.lost <- rowSums(mm[,grep("N\\.lost",colnames(mm))])
-  mm$pc.lost <- 100*rowSums(mm[,grep("N\\.lost",colnames(mm))])/
-    mm[,grep("N\\.before",colnames(mm))[1]]
+  mm$pc.lost <- 100*mm$N.lost/mm$N
   mm
 }
 
@@ -148,17 +155,29 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
 #' @param steps Steps to include (default 'doublet' and 'filtering'); other 
 #' steps will be averaged.
 #' @param clustMetric Clustering accuracy metric to use (default `mean_F1``)
+#' @param filterExpr An optional filtering expression based on the columns of 
+#' the clustering evaluation (e.g. `filterExpr=param1=="value1"` or 
+#' `filtExpr=n_clus==true.nbClusts`).
+#' @param atNearestK Logical; whether to restrict analyses to those giving the 
+#' smallest deviation from the real number of clusters (default FALSE).
 #' @param returnTable Logical; whether to return the data rather than plot.
+#' @param point.size Size of the points
+#' @param ... passed to `geom_point`
 #'
 #' @return A ggplot, or a data.frame if `returnTable=TRUE`
 #' @importFrom stats median
+#' @import ggplot2
 #' @export
 #' @examples
 #' data("exampleResults", package="pipeComp")
 #' scrna_evalPlot_filtering(exampleResults)
 scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"), 
-                                     clustMetric="mean_F1", returnTable=FALSE){
-  param_fields <- unlist(arguments(metadata(res)$PipelineDefinition)[steps])
+                                     clustMetric="mean_F1", filtExpr=TRUE,
+                                     atNearestK=FALSE, returnTable=FALSE,
+                                     point.size=2.2, ...){
+  param_fields <- tryCatch(
+    unlist(arguments(metadata(res)$PipelineDefinition)[steps]),
+    error=function(e) unlist(arguments(scrna_pipeline())[steps]) )
   res <- res$evaluation
   co <- .mergeFilterOut(res[steps])
   coI <- co[,c("dataset",param_fields)]
@@ -172,21 +191,30 @@ scrna_evalPlot_filtering <- function(res, steps=c("doublet","filtering"),
                        FUN=function(x) 100*sum(co[x,"N.lost"])/sum(co[x,"N"]) )
   x <- cbind(coI[vapply(ci, FUN=function(x) x[1], integer(1)),], x)
   # get clustering data
-  cl <- aggregate( res$clustering[,clustMetric,drop=FALSE], 
-                   by=res$clustering[,c("dataset",param_fields)], FUN=mean )
+  cl <- res$clustering[eval(substitute(filtExpr), res$clustering),]
+  
+  if(atNearestK){
+    cl$absdiff <- abs(cl$n_clus-cl$true.nbClusts)
+    cl <- do.call(rbind, lapply(split(cl, cl$dataset), FUN=function(x){
+      cl[cl$absdiff==min(cl$absdiff),]
+    }))
+  }
+  
+  cl <- aggregate( cl[,clustMetric,drop=FALSE], 
+                   by=cl[,c("dataset",param_fields)], FUN=mean )
   m <- merge(cl, x, by=c("dataset",param_fields))
   m$method <- apply( m[,param_fields,drop=FALSE], 1, collapse="+", FUN=paste )
-  
+    
   if(returnTable) return(m)
   if( length(param_fields)==2 && 
       all(sort(param_fields)==c("doubletmethod","filt")) ){
     return(ggplot(m, aes(max.lost, mean_F1, colour=filt, shape=doubletmethod))+ 
-      geom_point(size=3) + facet_wrap(~dataset, scales="free") + 
+      geom_point(size=point.size, ...) + facet_wrap(~dataset, scales="free") + 
       xlab("Max proportion of subpopulation excluded") +
-      labs(colour="filterset", shape="doublet method"))
+      labs(colour="filter set", shape="doublet removal"))
   }
   ggplot(m, aes(max.lost, mean_F1, colour=method, shape=method)) + 
-    geom_point(size=3) + facet_wrap(~dataset, scales="free") + 
+    geom_point(size=point.size, ...) + facet_wrap(~dataset, scales="free") + 
     xlab("Max proportion of subpopulation excluded")
 }
 

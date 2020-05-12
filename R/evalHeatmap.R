@@ -34,7 +34,10 @@
 #' aggregation) can be passed.
 #' @param show_heatmap_legend Passed to `Heatmap` (default FALSE)
 #' @param show_column_names Passed to `Heatmap` (default FALSE)
-#' @param col Colors for the heatmap
+#' @param col Colors for the heatmap. By default, will apply linear mapping (if
+#' the data is not scaled) or signed sqrt mapping (if scaled) on the 
+#' `viridisLite::inferno` palette. To disable the signed sqrt-transformation,
+#' simply pass `col=viridisLite::inferno(100)` or your own palette.
 #' @param font_factor A scaling factor applied to fontsizes (default 1)
 #' @param value_cols A vector of length 2 indicating the colors of the values
 #' (above and below the mean), if printed
@@ -69,7 +72,7 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
                          name=NULL, anno_legend=TRUE, ...){
   pd <- NULL
   if(is(res,"SimpleList")) pd <- metadata(res)$PipelineDefinition
-  if(is.null(pd)) stop("Could not find the PipelineDefinition.")
+  #if(is.null(pd)) stop("Could not find the PipelineDefinition.")
   if(is.null(step)){
     step <- rev(names(res$evaluation))[1]
     if(length(res$evaluation)>1) message("Using step '",step,"'.")
@@ -105,9 +108,11 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
     what2 <- match.arg(what2, names(res))
     res <- res[[what2]]
   }
-  what_options <- setdiff( colnames(res), 
+  if(!is.null(pd)){
+    what_options <- setdiff( colnames(res), 
                            c("dataset",unlist(arguments(pd))) )
-  what <- match.arg(what, choices=what_options)
+    what <- match.arg(what, choices=what_options)
+  }
   res <- .prepRes(res, what=what, agg.by=agg.by, pipDef=pd, 
                   filt=substitute(filterExpr), shortNames=shortNames, 
                   returnParams=TRUE)
@@ -133,7 +138,8 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
     }
   })
   if(is.null(name)) name <- what
-  if(is.null(col)) col <- .silScale(res2, viridisLite::inferno(11))
+  if(is.null(col))
+    col <- .defaultColorMapping(res2, center=!(is.logical(scale) && !scale))
   Heatmap( res2, name=name, cluster_rows=FALSE, cluster_columns=FALSE, 
            show_heatmap_legend=show_heatmap_legend, row_order=ro,
            bottom_annotation=.ds_anno(colnames(res),anno_legend,font_factor), 
@@ -155,9 +161,10 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   .safescale(res)
 }
 
+#' @import ComplexHeatmap
 .dosort <- function(res, reorder_rows){
   if(is(reorder_rows, "Heatmap")){
-    ro <- row.names(reorder_rows@matrix)
+    ro <- row_order(reorder_rows)
   }else{
     if(length(reorder_rows)>1){
       ro <- reorder_rows
@@ -185,6 +192,14 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   if(sd(x,na.rm=TRUE)>0) return(base::scale(x))
   if(sum(!is.na(x))==0) return(base::scale(as.numeric(!is.na(x))))
   rep(0,length(x))
+}
+
+.defaultColorMapping <- function(x, center=TRUE){
+  if(!center) return(viridisLite::inferno(101))
+  q <- max(abs(range(x, na.rm=TRUE)))
+  b <- c( -seq(from=sqrt(q), to=0, length.out=51)^2,
+          seq(from=0, to=sqrt(q), length.out=51)[-1]^2 )
+  colorRamp2(b, viridisLite::inferno(101))
 }
 
 #' colCenterScale
@@ -305,32 +320,9 @@ colCenterScale <- function(x, centerFn=median,
   }
 }
 
-# legacy...
-.renameHrows <- function(h, f) renameHrows(h,f)
-
-
-#' renameHrows
-#'
-#' Applies a function to the row labels of a Heatmap or HeatmapList
-#'
-#' @param h A `Heatmap` or `HeatmapList`
-#' @param f The function to apply on row labels.
-#'
-#' @return the modified `h`
-#' @export
-#'
-#' @examples
-#' data("exampleResults", package="pipeComp")
-#' H <- evalHeatmap(exampleResults, what=c("ARI", "MI"), agg.by="norm")
-#' H
-#' H <- renameHrows(H, function(x) gsub("^norm\\.", "", x))
-#' H
-renameHrows <- function(h, f=identity){
-  if(is(h,"HeatmapList")){
-    h@ht_list <- lapply(h@ht_list, f=f, FUN=.renameHrows)
-    return(h)
-  }
-  h@row_names_param$anno@var_env$value <- 
-    f(h@row_names_param$anno@var_env$value)
-  h
+.scaledLegend <- function(){
+  ComplexHeatmap::Legend(
+    col_fun=circlize::colorRamp2(seq(1,100), viridisLite::inferno(100)), 
+    at=c(1,50,100), title="MADs", labels=c("worst","median","best"), 
+    direction="horizontal" )
 }

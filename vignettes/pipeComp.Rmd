@@ -153,18 +153,7 @@ res <- runPipeline(datasets, alternatives, my_pip, output.prefix=tmpdir1)
 res$evaluation$step2
 ```
 
-Computing times can be accessed through `res$elapsed`; they can either be accessed as the pipeline total for each combination, or in a step-wise fashion. They can also be plotted using:
-
-```{r, fig.width=5, fig.height=2}
-plotElapsed(res, agg.by=FALSE)
-```
-
-Evaluation results can be accessed through `res$evaluation`, or can be plotted using the `evalHeatmap` function:
-
-```{r, fig.width=3.5, fig.height=2.5}
-evalHeatmap(res, what=c("mean", "max"))
-```
-
+Computing times can be accessed through `res$elapsed`; they can either be accessed as the pipeline total for each combination, or in a step-wise fashion. They can also be plotted using `plotElapsed` (see below). Evaluation results can be accessed through `res$evaluation` and plotted with `evalHeatmap` (see below).
 
 ### Manipulating a PipelineDefinition
 
@@ -235,8 +224,30 @@ res <- aggregatePipelineResults(res)
 res$evaluation$step2
 ```
 
-
 <br/><br/>
 
+## Plotting results
+
+`r Rpackage("pipeComp")` has two general plotting functions which can be used with any PipelineDefinition: `evalHeatmap` and `plotElapsed`. In addition, the package includes pipeline-specific plotting functions (see the [pipeComp_scRNA](pipeComp_scRNA.html) and [pipeComp_dea](pipeComp_dea.html) vignettes).
+
+### Running times
+
+Running times can be plotted with the `plotElapsed` function:
+
+```{r, fig.width=5, fig.height=2}
+plotElapsed(res, agg.by=FALSE)
+```
+
+In this case we show all tested combinations, but in most cases the `agg.by` argument will be used to aggregate the results by parameters of interest.
+
+Evaluation results can be plotted through the `evalHeatmap` function:
+
+```{r, fig.width=3.5, fig.height=2.5}
+evalHeatmap(res, what=c("mean", "max"))
+```
+
+By default, the heatmap prints the actual metric values, while the colors is mapped to scaled data. Specifically, `pipeComp` map colors to the signed square-root of the number of (matrix-wise) Median Absolute Deviations from the (column-wise) median. We found this mapping to be particularly useful because differences in color have comparable meaning across datasets, and the color-scale is not primarily capturing outliers or baseline differences between datasets. This behavior can be changed with the `scale` parameter of the function. For more complex examples of using `evalHeatmap`, see its usage in the [pipeComp_scRNA](pipeComp_scRNA.html) vignette, or refer to the function's help.
+
+<br/><br/>
 
 For a more complex, 'real-life' example of the creation of a `PipelineDefinition`, see the [pipeComp_dea](pipeComp_dea.html) vignette. For a complex example of evaluation outputs, see the [pipeComp_scRNA](pipeComp_scRNA.html) vignette.

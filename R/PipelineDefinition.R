@@ -256,16 +256,17 @@ setMethod( "defaultArguments<-",signature("PipelineDefinition"),
 
 #' @exportMethod stepFn
 #' @rdname PipelineDefinition-methods
-setGeneric("stepFn", function(object, step, type) standardGeneric("stepFn"))
+setGeneric("stepFn", function(object, step=NULL, type) standardGeneric("stepFn"))
 #' @param step The name of the step for which to set or get the function
 #' @param type The type of function to set/get, either `functions`, 
 #' `evaluation`, `aggregation`, `descriptions`, or `initiation` (will parse 
 #' partial matches)
 #' @rdname PipelineDefinition-methods
 setMethod("stepFn", signature("PipelineDefinition"), 
-          function(object, step, type){
+          function(object, step=NULL, type){
   ft <- c("functions","evaluation","aggregation","descriptions","initiation")
   type <- match.arg( type, ft )
+  if(is.null(step)) return(slot(object, type))
   step <- match.arg(step, names(object))
   slot(object, type)[[step]]
 })
