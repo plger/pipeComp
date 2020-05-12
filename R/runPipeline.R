@@ -375,7 +375,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
 .splitEG <- function(datasets, eg, nthreads, tol=1){
   # we find at which step to split to maximize cluster use
   eg <- as.data.frame(eg)
-  for(i in 1:ncol(eg)){
+  for(i in seq_len(ncol(eg))){
     if(length(unique(eg[,i]))*length(datasets) >= (nthreads-tol)){
       return(split(eg, eg[,seq_len(i)]))
     }

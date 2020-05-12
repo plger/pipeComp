@@ -158,10 +158,10 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
   }, FUN.VALUE=character(1))
   # summarize silhouette information
   if(length(n)==1){
-    silhouettes <- si[[1]][,1:3]
+    silhouettes <- si[[1]][,seq(1,3)]
   }else{
     silhouettes <- lapply(si,FUN=function(x) as.numeric(x[,3]))
-    silhouettes <- cbind(si[[1]][,1:2], do.call(cbind, silhouettes))
+    silhouettes <- cbind(si[[1]][,seq(1,2)], do.call(cbind, silhouettes))
   }
   
   # cluster average silhouette width
@@ -229,7 +229,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
   allsi <- lapply(res, FUN=function(x){
     subpops <- colnames(x[[1]]$clust.avg.silwidth)
     x <- lapply(x,FUN=function(y) y$silhouettes)
-    dims <- table(unlist(lapply(x, FUN=function(x) colnames(x)[-1:-2])))
+    dims <- table(unlist(lapply(x, FUN=function(x) colnames(x)[c(-1,-2)])))
     if(!any(dims==length(x))){
       warning("Silhouettes computed over incompatible dimensionalities.",
               "Will use the first available one.")
@@ -239,7 +239,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
       # single dimensionality
       if(length(dims)>1){
         x <- lapply(x, FUN=function(x){ colnames(x)[3] <- "selected"; x })
-        dims <- table(unlist(lapply(x, FUN=function(x) colnames(x)[-1:-2])))
+        dims <- table(unlist(lapply(x, FUN=function(x) colnames(x)[c(-1,-2)])))
       }
     }
     names(dims) <- dims <- intersect( unique(unlist(lapply(x, FUN=colnames))),
@@ -307,7 +307,7 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
       }), .id="dataset")
       colnames(covar.cor2)[ncol(pi)+2:3] <- c("component","covariate")
       w <- which( covar.cor2$component %in% 
-                    paste0(c("PC","PC_"), rep(1:5,each=2)) )
+                    paste0(c("PC","PC_"), rep(seq(1,5),each=2)) )
       top5 <- aggregate( covar.cor2$meanCor[w],
                          by=covar.cor2[,c("dataset","covariate", colnames(pi))],
                          FUN=function(x) mean(abs(x)) )

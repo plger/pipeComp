@@ -50,9 +50,9 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
                                  show_heatmap_legend=TRUE, 
                                  show_column_names=FALSE, 
                                  col=rev(RColorBrewer::brewer.pal(n=11,"RdBu")),
-                                 font_factor=0.9, row_split=NULL, shortNames=TRUE,
-                                 value_cols=c("white","black"), title=NULL, 
-                                 anno_legend=TRUE, ...){
+                                 font_factor=0.9, row_split=NULL, 
+                                 shortNames=TRUE, value_cols=c("white","black"),
+                                 title=NULL, anno_legend=TRUE, ...){
   pd <- NULL
   if(is(res,"SimpleList")) pd <- metadata(res)$PipelineDefinition
   if(is.null(pd)) stop("Could not find the PipelineDefinition.")

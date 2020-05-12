@@ -322,7 +322,7 @@ colCenterScale <- function(x, centerFn=median,
 
 .scaledLegend <- function(){
   ComplexHeatmap::Legend(
-    col_fun=circlize::colorRamp2(1:100, viridisLite::inferno(100)), 
+    col_fun=circlize::colorRamp2(seq(1,100), viridisLite::inferno(100)), 
     at=c(1,50,100), title="MADs", labels=c("worst","median","best"), 
     direction="horizontal" )
 }
