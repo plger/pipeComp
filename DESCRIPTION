@@ -2,6 +2,7 @@ Package: pipeComp
 Type: Package
 Title: pipeComp pipeline benchmarking framework
 Version: 0.99.32
+Depends: R (>= 4.0)
 Authors@R: c(
 	person("Pierre-Luc", "Germain", email="pierre-luc.germain@hest.ethz.ch", role=c("cre","aut"), comment = c(ORCID = "0000-0003-3418-4218")), 
 	person("Anthony", "Sonrel", email="anthony.sonrel@uzh.ch", role="aut", comment = c(ORCID = "0000-0002-2414-715X")), 
