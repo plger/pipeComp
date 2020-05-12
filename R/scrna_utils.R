@@ -37,6 +37,7 @@ getDimensionality <- function(dat, method, maxDims=NULL){
               pcaLocal.fan=pcaLocalDimEst(x, ver="fan"),
               pcaLocal.maxgap=pcaLocalDimEst(x, ver="maxgap"),
               maxLikGlobal=maxLikGlobalDimEst(x, k=20, unbiased=TRUE),
+	      maxLikGlobal10=maxLikGlobalDimEst(x, k=10, unbiased=TRUE),
               pcaOtpmPointwise.max=pcaOtpmPointwiseDimEst(x,N=10),
               elbow=farthestPoint(sdv)-1,
               ifelse( !is.function(method) && 
@@ -65,7 +66,9 @@ seWrap <- function(sce, min.cells=10, min.features=0){
   Misc(se)$rowData <- as.data.frame(rowData(sce))
   if("logcounts" %in%  assayNames(sce)){
     se <- ScaleData(se, verbose = FALSE)
+    sce <- sce[row.names(se),]
     se <- SetAssayData(se, slot="data", new.data=logcounts(sce))
+    se <- SetAssayData(se, slot="scale.data", new.data=logcounts(sce))
   } 
   if(!is.null(metadata(sce)$VariableFeats)) 
     VariableFeatures(se) <- metadata(sce)$VariableFeats

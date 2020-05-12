@@ -340,6 +340,7 @@ norm.seurat <- function(dat, vars=NULL, noscale=FALSE){
   if (is(dat, "Seurat")){
     return(x)
   } else {
+    dat <- dat[row.names(x),]
     logcounts(dat) <- GetAssayData(x, assay = "RNA", slot = "scale.data")
     return(dat) 
   }
@@ -414,7 +415,10 @@ norm.none.scaled <- function(x){
 norm.seuratvst <- function(x, vars=NULL, noscale=FALSE, variable.features.n=5000){
   if(!is(x,"Seurat")){
     a <- seWrap(x)
-  } else a <- x
+  }else{
+    a <- x
+  }
+  a <- SetAssayData(a, slot="counts", new.data=round(GetAssayData(a,slot="counts")))
   suppressPackageStartupMessages(library(sctransform))
   a <- SCTransform(a, vars.to.regress=vars, verbose=FALSE, 
                    variable.features.n=variable.features.n, 
