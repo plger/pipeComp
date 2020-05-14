@@ -104,13 +104,12 @@ parsePipNames <- function(x, setRowNames=FALSE, addcolumns=NULL){
 #' @return a matrix or data.frame
 #' @export
 #'
-#' @importFrom data.table data.table setorder
 #' @examples
 #' buildCombMatrix(list(param1=LETTERS[1:3], param2=1:2))
 buildCombMatrix <- function(alt, returnIndexMatrix=FALSE){
-  eg <- data.table(expand.grid(lapply(alt, FUN=seq_along)))
-  eg <- setorder(eg)
-  if(returnIndexMatrix) return(as.matrix(eg))
+  eg <- as.matrix(expand.grid(lapply(rev(alt), FUN=seq_along)))
+  eg <- eg[,seq(ncol(eg),1)]
+  if(returnIndexMatrix) return(eg)
   eg <- as.data.frame(eg)
   for(f in names(alt)){
     eg[,f] <- factor(alt[[f]][eg[,f]], levels=alt[[f]])
@@ -118,7 +117,6 @@ buildCombMatrix <- function(alt, returnIndexMatrix=FALSE){
   eg
 }
 
-#' @importFrom data.table data.table setorder
 .checkCombMatrix <- function(eg, alt){
   if(is.null(dim(eg))) 
     stop("`eg` should be a matrix or data.frame of indices or factors")
@@ -136,11 +134,15 @@ buildCombMatrix <- function(alt, returnIndexMatrix=FALSE){
       }
     }
   }
-  eg <- as.matrix(as.data.frame(setorder(data.table(eg))))
   if(any(is.na(eg))) stop("Final `eg` contains missing values!")
-  eg
+  .sortcols(eg)
 }
 
+.sortcols <- function(x){
+  xi <- x[,ncol(x)]
+  for(i in seq(ncol(x)-1,1)) xi <- xi+max(xi)*x[,i]
+  x[order(xi),]
+}
 
 #' getQualitativePalette
 #'
@@ -231,3 +233,4 @@ farthestPoint <- function(y, x=NULL){
               })
   order(d,decreasing=TRUE)[1]
 }
+

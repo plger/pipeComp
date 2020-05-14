@@ -34,10 +34,11 @@
 #' aggregation) can be passed.
 #' @param show_heatmap_legend Passed to `Heatmap` (default FALSE)
 #' @param show_column_names Passed to `Heatmap` (default FALSE)
-#' @param col Colors for the heatmap. By default, will apply linear mapping (if
+#' @param col Colors for the heatmap, or a color-mapping function as produced by
+#' `colorRamp2`. If passing a vector of colors and the data is scaled, there 
+#' should be an odd number of colors. By default, will apply linear mapping (if
 #' the data is not scaled) or signed sqrt mapping (if scaled) on the 
-#' `viridisLite::inferno` palette. To disable the signed sqrt-transformation,
-#' simply pass `col=viridisLite::inferno(100)` or your own palette.
+#' `viridisLite::inferno` palette.
 #' @param font_factor A scaling factor applied to fontsizes (default 1)
 #' @param value_cols A vector of length 2 indicating the colors of the values
 #' (above and below the mean), if printed
@@ -121,7 +122,8 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   res2 <- .doscale(res, param=scale)
   ro <- .dosort(res2, reorder_rows)
   res2 <- as.matrix(res2)
-  cellfn <- .getCellFn(res, res2, value_format, value_cols, font_factor)
+  cellfn <- .getCellFn(res, res2, value_format, value_cols, font_factor, 
+                       scaled=!(is.logical(scale) && !scale) )
   if(is.null(title)) title <- gsub("\\.","\n",what)
   suppressWarnings({
     if(!tryCatch(is.null(row_split), error=function(e) FALSE)){
@@ -138,8 +140,9 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
     }
   })
   if(is.null(name)) name <- what
-  if(is.null(col))
-    col <- .defaultColorMapping(res2, center=!(is.logical(scale) && !scale))
+  if(is.null(col) || !is.function(col))
+    col <- .defaultColorMapping(res2, center=!(is.logical(scale) && !scale),
+                                cols=col)
   Heatmap( res2, name=name, cluster_rows=FALSE, cluster_columns=FALSE, 
            show_heatmap_legend=show_heatmap_legend, row_order=ro,
            bottom_annotation=.ds_anno(colnames(res),anno_legend,font_factor), 
@@ -148,7 +151,7 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
            row_title_gp = gpar(fontsize = (14*font_factor)),
            column_title_gp = gpar(fontsize = (14*font_factor)),
            row_names_gp = gpar(fontsize = (12*font_factor)),
-           column_names_gp = gpar(fontsize = (12*font_factor)), ...)
+           column_names_gp = gpar(fontsize = (12*font_factor)), ... )
 }
 
 .doscale <- function(res, param){
@@ -194,12 +197,13 @@ evalHeatmap <- function( res, step=NULL, what, what2=NULL, agg.by=NULL,
   rep(0,length(x))
 }
 
-.defaultColorMapping <- function(x, center=TRUE){
-  if(!center) return(viridisLite::inferno(101))
+.defaultColorMapping <- function(x, center=TRUE, cols=NULL){
+  if(is.null(cols)) cols <- viridisLite::inferno(101)
+  if(!center) return(cols)
   q <- max(abs(range(x, na.rm=TRUE)))
-  b <- c( -seq(from=sqrt(q), to=0, length.out=51)^2,
-          seq(from=0, to=sqrt(q), length.out=51)[-1]^2 )
-  colorRamp2(b, viridisLite::inferno(101))
+  b <- c( -seq(from=sqrt(q), to=0, length.out=floor(length(cols)/2)+1)^2,
+          seq(from=0, to=sqrt(q), length.out=floor(length(cols)/2)+1)[-1]^2 )
+  colorRamp2(b, cols)
 }
 
 #' colCenterScale
@@ -302,9 +306,14 @@ colCenterScale <- function(x, centerFn=median,
 
 #' @importFrom grid grid.text
 .getCellFn  <- function( res, res2, value_format, cols=c("black","white"), 
-                         font_factor=1 ){
-  resmid <- range(res2, na.rm=TRUE)
-  resmid <- resmid[1]+(resmid[2]-resmid[1])/2
+                         font_factor=1, scaled=TRUE ){
+  if(scaled){
+    resmid <- median(res2, na.rm=TRUE)
+  }else{
+    resmid <- range(res2, na.rm=TRUE)
+    resmid <- resmid[1]+(resmid[2]-resmid[1])/2
+  }
+  if(is.na(resmid)) resmid <- Inf
   function(j, i, x, y, width, height, fill){
     if(value_format=="" || is.null(value_format) || is.na(value_format))
       return(NULL)
@@ -315,7 +324,7 @@ colCenterScale <- function(x, centerFn=median,
     } 
     lab <- gsub("^1.00$","1",lab)
     lab <- gsub("^.00$","0",lab)
-    cols <- ifelse(res2[i,j]>resmid,cols[1],cols[2])
+    cols <- ifelse(res2[i,j]>=resmid,cols[1],cols[2])
     grid.text(lab, x, y, gp = gpar(fontsize = 10*font_factor, col=cols))
   }
 }
