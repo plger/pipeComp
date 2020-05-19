@@ -37,7 +37,7 @@ getDimensionality <- function(dat, method, maxDims=NULL){
               pcaLocal.fan=pcaLocalDimEst(x, ver="fan"),
               pcaLocal.maxgap=pcaLocalDimEst(x, ver="maxgap"),
               maxLikGlobal=maxLikGlobalDimEst(x, k=20, unbiased=TRUE),
-	      maxLikGlobal10=maxLikGlobalDimEst(x, k=10, unbiased=TRUE),
+              maxLikGlobal10=maxLikGlobalDimEst(x, k=10, unbiased=TRUE),
               pcaOtpmPointwise.max=pcaOtpmPointwiseDimEst(x,N=10),
               elbow=farthestPoint(sdv)-1,
               ifelse( !is.function(method) && 
