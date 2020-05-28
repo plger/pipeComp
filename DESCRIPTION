@@ -21,6 +21,6 @@ License: GPL
 Encoding: UTF-8
 RoxygenNote: 7.1.0
 VignetteBuilder: knitr
-URL: https://www.biorxiv.org/content/10.1101/2020.02.02.930578v2
+URL: https://doi.org/10.1101/2020.02.02.930578
 BugReports: https://github.com/plger/pipeComp
 biocViews: GeneExpression, Transcriptomics, Clustering, DataRepresentation
