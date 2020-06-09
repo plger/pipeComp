@@ -360,7 +360,11 @@ norm.scran <- function(x, vars=NULL, noscale=TRUE, min.mean=1){
   a <- SingleCellExperiment(assays=list(counts=a))
   clusters <- quickCluster(a, min.mean=min.mean, min.size=50)
   a <- computeSumFactors(a, min.mean=min.mean, clusters=clusters)
-  a <- scater::normalize(a)
+  if(is.null(logNormCounts)){
+    a <- scater::normalize(a)
+  }else{
+    a <- logNormCounts(a)
+  }
   if(is(x,"Seurat")){ 
     x <- SetAssayData(x, slot="data", new.data=logcounts(a))
     if(noscale){
