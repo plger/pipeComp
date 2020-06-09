@@ -53,7 +53,7 @@ evaluateClustering <- function(x, tl){
       nl
     }))
     
-    if(is.na(y$N.lost))
+    if(length(w <- which(is.na(y$N.lost)))>0) y$N.lost[w] <- y$N.before[w]
     y$pc.lost <- round(100*y$N.lost/y$N.before,3)
     y
   })
@@ -66,22 +66,28 @@ evaluateClustering <- function(x, tl){
 #' @importFrom matrixStats rowMins
 #' @importFrom dplyr bind_cols bind_rows
 .aggregateClusterEvaluation <- function(res){
+  pi <- row.names(res[[1]])
+  if(is.null(pi)) pi <- names(res[[1]])
+  pi <- parsePipNames(pi)
   res <- lapply(res, FUN=function(a){
     a <- lapply(a, cn=unique(unlist(lapply(a, names))), FUN=function(x,cn){
       for(f in setdiff(cn,names(x))) x[[f]] <- NA_real_
       x[cn]
     })
-    x <- as.data.frame(t(dplyr::bind_rows(a)))
+    ## accomodate old and new dplyr behaviors:
+    x <- dplyr::bind_rows(a)
+    if(ncol(x)!=length(a[[1]])) x <- t(x)
+    ##
+    x <- as.data.frame(x)
     colnames(x) <- names(a[[1]])
     for(f in c("pr","re","F1")){
       w <- grep(paste0("^",f,"\\."),colnames(x))
       x[[paste0("min_",f)]]<- matrixStats::rowMins(as.matrix(x[,w,drop=FALSE]))
     }
-    y <- as.data.frame(x[,grep("\\.",colnames(x),invert=TRUE)])
+    y <- as.data.frame(x[,grep("pr\\.|re\\.|F1\\.",colnames(x),invert=TRUE)])
     y$true.nbClusts <- length(grep("^pr\\.", colnames(x)))
     y
   })
-  pi <- parsePipNames(row.names(res[[1]]))
   pi <- pi[rep(seq_len(nrow(pi)), length(res)),,drop=FALSE]
   res <- cbind(pi, dplyr::bind_rows(res, .id="dataset"))
   res$dataset <- factor(res$dataset)
