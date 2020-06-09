@@ -29,13 +29,17 @@ add_meta <- function(ds){
   }
   fc <- lapply(cg,g=g, FUN=function(x,g) g %in% x)
   names(fc) <- c("Mt","coding","ribosomal")
-  ds <- addQCPerCell(ds, subsets=fc, percent_top=c(20,50,100,200))
+  if(exists("addQCPerCell")){
+    ds <- addQCPerCell(ds, subsets=fc, percent_top=c(20,50,100,200))
+  }else{
+    ds <- addPerCellQC(ds, subsets=fc, percent_top=c(20,50,100,200))
+  }
   ds$total_features <- ds$detected
   ds$log10_total_features <- log10(ds$detected)
   ds$total_counts <- ds$sum
   ds$log10_total_counts <- log10(ds$sum+1)
   ds$featcount_ratio <- ds$log10_total_counts/ds$log10_total_features
-  ds$featcount_dist <- .getFeatCountDist(ds)
+  ds$featcount_dist <- getFeatCountDist(ds)
   ds$pct_counts_top_50_features <- ds$percent_top_50
   for(f in names(fc)) 
     ds[[paste0("pct_",f)]] <- ds[[paste0("subsets_",f,"_percent")]]
@@ -360,7 +364,11 @@ norm.scran <- function(x, vars=NULL, noscale=TRUE, min.mean=1){
   a <- SingleCellExperiment(assays=list(counts=a))
   clusters <- quickCluster(a, min.mean=min.mean, min.size=50)
   a <- computeSumFactors(a, min.mean=min.mean, clusters=clusters)
-  a <- scater::normalize(a)
+  if(is.null(logNormCounts)){
+    a <- scater::normalize(a)
+  }else{
+    a <- logNormCounts(a)
+  }
   if(is(x,"Seurat")){ 
     x <- SetAssayData(x, slot="data", new.data=logcounts(a))
     if(noscale){

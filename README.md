@@ -41,7 +41,7 @@ This readme gives a very brief overview of the package. For more detailed inform
 Install using:
 
 ```{r}
-BiocManager::install("plger/pipeComp")
+BiocManager::install("plger/pipeComp", build_vignettes=TRUE)
 ```
 
 Because `pipeComp` was meant as a general pipeline benchmarking framework, we have tried to restrict the package's dependencies to a minimum. 
