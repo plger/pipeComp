@@ -600,9 +600,11 @@ sel.fromField <- function( dat, f, n=2000, excl=c() ){
   } else {
     if(is.null(rowData(dat)[[f]])) return(NULL)
     a <- seWrap(dat)
-    a@misc$rowData <- rowData(dat)
+    a@misc$rowData <- as.data.frame(rowData(dat))
   }
-  e <- a@misc$rowData[row.names(a),f]
+  e <- a@misc$rowData
+  if(is(e,"list")) e <- as.data.frame(e)
+  e <- e[row.names(a),f]
   VariableFeatures(a) <- row.names(a)[order(e, decreasing=TRUE)[1:min(n,length(e))]]
   VariableFeatures(a) <- subsetFeatureByType(VariableFeatures(a), excl)
   if(is(dat, "Seurat")) return(a)

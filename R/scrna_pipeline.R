@@ -123,7 +123,7 @@ using the `dr` function.",
     },
     filtering=filtfun,
     normalization=function(x, norm){ 
-      get(norm)(x)
+      x <- get(norm)(x)
     },
     selection=selfun,
     dimreduction=DRfun,
