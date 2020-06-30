@@ -343,6 +343,7 @@ wrapp.drimpute <- function(sce,
 }
 
 
+
 #' imp.scVI
 #'
 #' A function calling a python wrapper (`scVI.py`) around `scVI` imputation, adapted from the the 'Basic usage' Jupyter notebook (https://nbviewer.jupyter.org/github/YosefLab/scVI/blob/master/tests/notebooks/basic_tutorial.ipynb). Note that the function will create a temporary csv file for the intermediate storage of the input count matrix, needed by `scVI`.  
@@ -354,6 +355,7 @@ wrapp.drimpute <- function(sce,
 #' @param train_size Size of training set. Default to 0.8 but tutorial however recommends to use 1. 
 #' @param n_cores N. cores
 #' 
+#' 
 #' @return An object of the same class as `x` with updated slots.
 
 imp.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="pipeComp"), py_path = NULL, n_cores = 1L, train_size = 1) {
@@ -361,14 +363,17 @@ imp.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="p
   suppressPackageStartupMessages(library(reticulate))
   if (length(py_path)>0) use_python(py_path ,required=TRUE)
   trysource <- try(source_python(py_script))
-  if (is(trysource, "try-error")) stop("Cannot source the python wrapper.") 
+  if (class(trysource) == "try-error") stop("Cannot source the python wrapper.") 
   tfile <- tempfile(fileext=".csv", tmpdir = ".")
   write.csv(counts(x), tfile)
-  val <- t(scVI_imput(csv_file = tfile, csv_path = ".", n_cores = n_cores, train_size = train_size))
+  out <- scVI_imput(csv_file = tfile, csv_path = ".", n_cores = n_cores,
+                    train_size = train_size)
+  val <- t(out[[1]])
+  gnames <- as.character(out[[2]])
   file.remove(tfile)
-  dimnames(val) <- list(rownames(counts(x)), colnames(counts(x)))
+  dimnames(val) <- list(gnames, colnames(counts(x)))
+  x <- x[gnames, ]
   counts(x) <- as.matrix(val)
-  x
 }
 
 
