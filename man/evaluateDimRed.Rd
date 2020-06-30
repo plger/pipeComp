@@ -4,7 +4,7 @@
 \alias{evaluateDimRed}
 \title{evaluateDimRed}
 \usage{
-evaluateDimRed(x, clusters = NULL, n = c(10, 20, 50), covars = NULL)
+evaluateDimRed(x, clusters = NULL, n = c(10, 20, 50), covars)
 }
 \arguments{
 \item{x}{The matrix of the reduced space, with cells as rows and components 
@@ -13,17 +13,34 @@ as columns}
 \item{clusters}{The vector indicating each cell's cluster.}
 
 \item{n}{A numeric vector indiciating the number of top dimensions at which 
-to gather statistics (default `c(10,20,50)`). Will use all available dimensions
-if a higher number is given.}
+to gather statistics (default `c(10,20,50)`). Will use all available 
+dimensions if a higher number is given.}
+
+\item{covars}{A character vectors containing any additional covariates 
+(column names of `colData`) to track during evalutation.}
 }
 \value{
 A list with the following components:
 * silhouettes: a matrix of the silhouette for each cell-cluster pair at each 
 value of `n`
-* clust.avg.silwidth: a matrix of the cluster average width at each value of `n`
+* clust.avg.silwidth: a matrix of the cluster average width at each value of 
+`n`
 * R2: the proportion of variance in each component (up to `max(n)`) that is 
 explained by the clusters (i.e. R-squared of a linear model).
 }
 \description{
 Gathers evaluation statistics on a reduced space using known cell labels.
+}
+\examples{
+# random data
+library(scater)
+sce <- runPCA(logNormCounts(mockSCE(ngenes = 500)))
+sce <- addPerCellQC(sce)
+# random population labels
+sce$cluster <- sample(LETTERS[1:3], ncol(sce), replace=TRUE)
+res <- evaluateDimRed(sce, sce$cluster, covars=c("sum","detected"))
+# average silhouette widths:
+res$clust.avg.silwidth
+# adjusted R2 of covariates:
+res$covar.adjR2
 }

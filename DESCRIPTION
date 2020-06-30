@@ -1,10 +1,26 @@
 Package: pipeComp
 Type: Package
 Title: pipeComp pipeline benchmarking framework
-Version: 0.99.2
-Authors@R: as.person("Pierre-Luc Germain <germain@hifo.uzh.ch> [aut, cre]")
-Description: A simple framework to facilitate the comparison of pipelines involving various steps and parameters. The `pipelineDefinition` class represents pipelines as, minimally, a set of functions consecutively executed on the output of the previous one, and optionally accompanied by evaluation and aggregation functions. Given such an object, a set of alternative parameters (which might include different subroutines) and benchmark datasets, the `runPipeline` function then proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations on the fly to avoid storing potentially large intermediate data.
+Version: 0.99.42
+Depends: R (>= 4.0)
+Authors@R: c(
+	person("Pierre-Luc", "Germain", email="pierre-luc.germain@hest.ethz.ch", role=c("cre","aut"), comment = c(ORCID = "0000-0003-3418-4218")), 
+	person("Anthony", "Sonrel", email="anthony.sonrel@uzh.ch", role="aut", comment = c(ORCID = "0000-0002-2414-715X")), 
+	person("Mark D.", "Robinson", email="mark.robinson@imls.uzh.ch", role=c("aut","fnd"), comment = c(ORCID = "0000-0002-3048-5518")) )
+Description: A simple framework to facilitate the comparison of pipelines involving various steps and parameters. 
+	The `pipelineDefinition` class represents pipelines as, minimally, a set of functions consecutively executed on 
+	the output of the previous one, and optionally accompanied by step-wise evaluation and aggregation functions. 
+	Given such an object, a set of alternative parameters/methods, and benchmark datasets, the `runPipeline` function 
+	then proceeds through all combinations arguments, avoiding recomputing the same step twice and compiling evaluations 
+	on the fly to avoid storing potentially large intermediate data.
+Imports: BiocParallel, S4Vectors, ComplexHeatmap, SingleCellExperiment, SummarizedExperiment, Seurat, matrixStats, 
+	Matrix, cluster, aricode, methods, utils, dplyr, grid, scales, scran, viridisLite, clue, randomcoloR, 
+	ggplot2, cowplot, intrinsicDimension, scater, knitr, reshape2, stats, Rtsne, uwot, circlize, RColorBrewer
+Suggests: BiocStyle
 License: GPL
-Imports: data.table, matrixStats, cluster, aricode, methods, BiocParallel, utils
 Encoding: UTF-8
-RoxygenNote: 6.1.1
+RoxygenNote: 7.1.0
+VignetteBuilder: knitr
+URL: https://doi.org/10.1101/2020.02.02.930578
+BugReports: https://github.com/plger/pipeComp
+biocViews: GeneExpression, Transcriptomics, Clustering, DataRepresentation

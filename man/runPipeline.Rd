@@ -4,39 +4,72 @@
 \alias{runPipeline}
 \title{runPipeline}
 \usage{
-runPipeline(datasets, alternatives, pipelineDef, eg = NULL,
-  output.prefix = "", nthreads = length(datasets),
-  saveEndResults = TRUE, debug = FALSE, ...)
+runPipeline(
+  datasets,
+  alternatives,
+  pipelineDef,
+  comb = NULL,
+  output.prefix = "",
+  nthreads = 1,
+  saveEndResults = TRUE,
+  debug = FALSE,
+  ...
+)
 }
 \arguments{
 \item{datasets}{A named vector of initial objects or paths to rds files.}
 
-\item{alternatives}{The (named) list of alternative values for each parameters.}
+\item{alternatives}{The (named) list of alternative values for each 
+parameter.}
 
 \item{pipelineDef}{An object of class `PipelineDefinition`.}
 
-\item{eg}{An optional matrix of indexes indicating the combination to run. 
+\item{comb}{An optional matrix of indexes indicating the combination to run. 
 Each column should correspond to an element of `alternatives`, and contain 
 indexes relative to this element. If omitted, all combinations will be 
 performed.}
 
 \item{output.prefix}{An optional prefix for the output files.}
 
-\item{nthreads}{Number of threads, defaults to the number of datasets.}
+\item{nthreads}{Number of threads, default 1. If the memory requirements are
+very high or the first steps very long to compute, consider setting this as
+the number of datasets or below.}
 
 \item{saveEndResults}{Logical; whether to save the output of the last step.}
 
 \item{debug}{Logical (default FALSE). When enabled, disables multithreading 
 and prints extra information.}
 
-\item{...}{passed to MulticoreParam. Can for instance be used to set `makeCluster` 
-arguments, or set `threshold="TRACE"` when debugging in a multithreaded context.}
+\item{...}{passed to MulticoreParam. Can for instance be used to set 
+`makeCluster` arguments, or set `threshold="TRACE"` when debugging in a 
+multithreaded context.}
 }
 \value{
+A SimpleList with elapsed time and the results of the evaluation 
+functions defined by the given `pipelineDef`.
 
+The results are also stored in the output folder with: 
+\itemize{
+\item The clustering results for each dataset (`endOutputs.rds` files),
+\item A SimpletList of elapsed time and evaluations for each dataset 
+ (`evaluation.rds` files),
+\item A list of the `pipelineDef`, `alternatives`, `sessionInfo()` and
+ function call used to produce the results (`runPipelineInfo.rds` file),
+\item A copy of the SimpleList returned by the function 
+ (`aggregated.rds`file). 
+}
 }
 \description{
-This function runs a pipeline with combinations of parameter variations on nested steps.
-The pipeline has to be defined as a list of functions applied consecutively on their 
-respective outputs. See `defaultPipelineDef()` for indications about how to build one.
+This function runs a pipeline with combinations of parameter variations on 
+nested steps. The pipeline has to be defined as a list of functions applied 
+consecutively on their respective outputs. See 'examples' for more details.
+}
+\examples{
+pip <- mockPipeline()
+datasets <- list( ds1=1:3, ds2=c(5,10,15) )
+tmpdir1 <- paste0(tempdir(),"/")
+res <- runPipeline(datasets, pipelineDef=pip, output.prefix=tmpdir1,
+                   alternatives=list() )
+# See the `pipeComp_scRNA` vignette for a more complex example
+
 }

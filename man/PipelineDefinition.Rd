@@ -5,9 +5,16 @@
 \alias{PipelineDefinition-class}
 \title{PipelineDefinition}
 \usage{
-PipelineDefinition(functions, descriptions = NULL, evaluation = NULL,
-  aggregation = NULL, defaultArguments = list(), misc = list(),
-  verbose = TRUE)
+PipelineDefinition(
+  functions,
+  descriptions = NULL,
+  evaluation = NULL,
+  aggregation = NULL,
+  initiation = identity,
+  defaultArguments = list(),
+  misc = list(),
+  verbose = TRUE
+)
 }
 \arguments{
 \item{functions}{A list of functions for each step}
@@ -17,6 +24,8 @@ PipelineDefinition(functions, descriptions = NULL, evaluation = NULL,
 \item{evaluation}{A list of optional evaluation functions for each step}
 
 \item{aggregation}{A list of optional aggregation functions for each step}
+
+\item{initiation}{A function ran when initiating a dataset}
 
 \item{defaultArguments}{A lsit of optional default arguments}
 
@@ -32,7 +41,14 @@ descriptions, evaluation, aggregation, defaultArguments, and misc.
 Creates on object of class `PipelineDefinition` containing step functions,
 as well as optionally step evaluation and aggregation functions.
 }
+\examples{
+PipelineDefinition(
+  list( step1=function(x, meth1){ get(meth1)(x) },
+        step2=function(x, meth2){ get(meth2)(x) } )
+)
+}
 \seealso{
-\code{\link{PipelineDefinition-methods}}, \code{\link{addPipelineStep}}.
-For an example pipeline, see \code{\link{scrna_seurat_pipeline}}.
+\code{\link{PipelineDefinition-methods}}, 
+\code{\link{addPipelineStep}}. For an example pipeline, see 
+\code{\link{scrna_pipeline}}.
 }

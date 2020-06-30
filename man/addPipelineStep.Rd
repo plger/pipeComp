@@ -11,11 +11,11 @@ addPipelineStep(object, name, after = NULL, slots = list())
 
 \item{name}{The name of the step to add}
 
-\item{after}{The name of the step after which to add the new step. If NULL, will
-add the step at the beginning of the pipeline.}
+\item{after}{The name of the step after which to add the new step. If NULL,
+will add the step at the beginning of the pipeline.}
 
-\item{slots}{A optional named list with slots to fill for that step (i.e. `functions`,
-`evaluation`, `aggregation`, `descriptions` - will be parsed)}
+\item{slots}{A optional named list with slots to fill for that step (i.e. 
+`functions`, `evaluation`, `aggregation`, `descriptions` - will be parsed)}
 }
 \value{
 A \code{\link{PipelineDefinition}}
@@ -24,12 +24,13 @@ A \code{\link{PipelineDefinition}}
 Add a step to an existing \code{\link{PipelineDefinition}}
 }
 \examples{
-pd <- scrna_seurat_pipeline()
+pd <- mockPipeline()
 pd
-pd <- addPipelineStep(pd, name="newstep", after="filtering", 
+pd <- addPipelineStep(pd, name="newstep", after="step1", 
                       slots=list(description="Step that does nothing..."))
 pd
 }
 \seealso{
-\code{\link{PipelineDefinition}}, \code{\link{PipelineDefinition-methods}}
+\code{\link{PipelineDefinition}}, 
+\code{\link{PipelineDefinition-methods}}
 }

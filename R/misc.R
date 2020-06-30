@@ -1,3 +1,41 @@
+#' checkPipelinePackages
+#' 
+#' Checks whether the packages required by a pipeline and its alternative 
+#' methods are available.
+#'
+#' @param alternatives A named list of alternative parameter values
+#' @param pipDef An object of class `PipelineDefinition`.
+#'
+#' @return Logical.
+#' @export
+#' 
+#' @importFrom utils installed.packages
+#' @examples
+#' checkPipelinePackages(list(argument1="mean"), scrna_pipeline())
+checkPipelinePackages <- function(alternatives, pipDef=NULL){
+  fns <- unlist(alternatives[ vapply( alternatives, FUN=is.character, 
+                                      FUN.VALUE=logical(1) ) ])
+  fns <- lapply(fns, FUN=function(x){
+    if(exists(x) && is.function(get(x))) return(get(x))
+    ""
+  })
+  fns <- paste(unlist(fns),collapse="\n")
+  if(!is.null(pipDef)){
+    fns <- paste(fns, paste(stepFn(pipDef, type="functions"), collapse="\n"), 
+                 paste(stepFn(pipDef, type="evaluation"), collapse="\n"))
+  }
+  pkg <- gregexpr("library\\(([[:alnum:]])+\\)", fns)
+  pkg <- unique(regmatches(fns, pkg)[[1]])
+  pkg <- gsub("\\)","",gsub("^library\\(","",pkg))
+  pkg <- gsub('"',"",pkg)
+  misspkg <- setdiff(pkg, row.names(installed.packages()))
+  if(length(misspkg)>0) message("The following packages appear to be missing:",
+       paste(misspkg, collapse=", "))
+  return(length(misspkg)==0)
+}
+
+
+
 #' parsePipNames
 #' 
 #' Parses the names of analyses performed through `runPipeline` to extract a 
@@ -28,13 +66,13 @@ parsePipNames <- function(x, setRowNames=FALSE, addcolumns=NULL){
     x <- row.names(x)
   }
   x2 <- lapply(strsplit(x,";"),FUN=function(x) x)
-  if(length(unique(sapply(x2,length)))>1) 
+  if(length(unique(vapply(x2, length, numeric(1))))>1) 
     stop("The different names do not have the same number of components.")
-  n <- sapply(strsplit(x2[[1]],"="),FUN=function(x) x[1])
-  y <- sapply(strsplit(unlist(x2),"="),FUN=function(x) x[2])
+  n <- vapply(strsplit(x2[[1]],"="),FUN=function(x) x[1], character(1))
+  y <- vapply(strsplit(unlist(x2),"="),FUN=function(x) x[2], character(1))
   y <- as.data.frame(matrix(y, ncol=length(n), byrow=TRUE))
   colnames(y) <- n
-  for(i in 1:ncol(y)) y[[i]] <- type.convert(y[[i]])
+  for(i in seq_len(ncol(y))) y[[i]] <- type.convert(y[[i]])
   if(setRowNames) row.names(y) <- x
   if(!is.null(addcolumns)){
     row.names(addcolumns) <- NULL
@@ -43,7 +81,8 @@ parsePipNames <- function(x, setRowNames=FALSE, addcolumns=NULL){
   y
 }
 
-# run function `x` on object `o`; if there is no function `x`, run `alt` passing `x` as second argument
+# run function `x` on object `o`; if there is no function `x`, run `alt` passing
+# `x` as second argument
 .runf <- function(x, o, alt=NULL, ...){
   if(exists(x) && is.function(get(x))){
     return(get(x)(o, ...))
@@ -68,10 +107,10 @@ parsePipNames <- function(x, setRowNames=FALSE, addcolumns=NULL){
 #' @examples
 #' buildCombMatrix(list(param1=LETTERS[1:3], param2=1:2))
 buildCombMatrix <- function(alt, returnIndexMatrix=FALSE){
-  eg <- data.table(expand.grid(lapply(alt, FUN=function(x){ 1:length(x) })))
-  eg <- setorder(eg)
-  if(returnIndexMatrix) return(as.matrix(eg))
-  eg <- as.data.frame(setorder(eg))
+  eg <- as.matrix(expand.grid(lapply(rev(alt), FUN=seq_along)))
+  eg <- eg[,seq(ncol(eg),1)]
+  if(returnIndexMatrix) return(eg)
+  eg <- as.data.frame(eg)
   for(f in names(alt)){
     eg[,f] <- factor(alt[[f]][eg[,f]], levels=alt[[f]])
   }
@@ -79,8 +118,10 @@ buildCombMatrix <- function(alt, returnIndexMatrix=FALSE){
 }
 
 .checkCombMatrix <- function(eg, alt){
-  if(is.null(dim(eg))) stop("`eg` should be a matrix or data.frame of indices or factors")
-  if(!all(names(alt) %in% colnames(eg))) stop("The columns of `eg` do not correspond to the arguments.")
+  if(is.null(dim(eg))) 
+    stop("`eg` should be a matrix or data.frame of indices or factors")
+  if(!all(names(alt) %in% colnames(eg))) 
+    stop("The columns of `eg` do not correspond to the arguments.")
   eg <- eg[,names(alt)]
   if(!is.matrix(eg) || !is.numeric(eg)){
     for(f in colnames(eg)){
@@ -93,11 +134,15 @@ buildCombMatrix <- function(alt, returnIndexMatrix=FALSE){
       }
     }
   }
-  eg <- as.matrix(as.data.frame(setorder(data.table(eg))))
   if(any(is.na(eg))) stop("Final `eg` contains missing values!")
-  eg
+  .sortcols(eg)
 }
 
+.sortcols <- function(x){
+  xi <- x[,ncol(x)]
+  for(i in seq(ncol(x)-1,1)) xi <- xi+max(xi)*x[,i]
+  x[order(xi),]
+}
 
 #' getQualitativePalette
 #'
@@ -111,11 +156,10 @@ buildCombMatrix <- function(alt, returnIndexMatrix=FALSE){
 #'
 #' @export
 #' @importFrom randomcoloR distinctColorPalette
+#' @examples
+#' getQualitativePalette(5)
 getQualitativePalette <- function(nbcolors){
   nbcolors <- round(nbcolors)
-  if(nbcolors>22){
-    distinctColorPalette(nbcolors)
-  }
   switch(as.character(nbcolors),
          "1"=c("#4477AA"),
          "2"=c("#4477AA", "#CC6677"),
@@ -123,22 +167,70 @@ getQualitativePalette <- function(nbcolors){
          "4"=c("#4477AA", "#117733", "#DDCC77", "#CC6677"),
          "5"=c("#332288", "#88CCEE", "#117733", "#DDCC77", "#CC6677"),
          "6"=c("#332288", "#88CCEE", "#117733", "#DDCC77", "#CC6677","#AA4499"),
-         "7"=c("#332288", "#88CCEE", "#44AA99", "#117733", "#DDCC77", "#CC6677","#AA4499"),
-         "8"=c("#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77", "#CC6677","#AA4499"),
-         "9"=c("#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77", "#CC6677", "#882255", "#AA4499"),
-         "10"=c("#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77", "#661100", "#CC6677", "#882255", "#AA4499"),
-         "11"=c("#332288", "#6699CC", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77", "#661100", "#CC6677", "#882255", "#AA4499"),
-         "12"=c("#332288", "#6699CC", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77", "#661100", "#CC6677", "#AA4466", "#882255", "#AA4499"),
-         "13"=c("#882E72", "#B178A6", "#1965B0", "#5289C7", "#7BAFDE", "#4EB265", "#90C987", "#CAE0AB", "#F7EE55", "#F6C141", "#F1932D", "#E8601C", "#DC050C"),
-         "14"=c("#882E72", "#B178A6", "#D6C1DE", "#1965B0", "#5289C7", "#7BAFDE", "#4EB265", "#90C987", "#CAE0AB", "#F7EE55", "#F6C141", "#F1932D", "#E8601C", "#DC050C"),
-         "15"=c("#114477", "#4477AA", "#77AADD", "#117755", "#44AA88", "#99CCBB", "#777711", "#AAAA44", "#DDDD77", "#771111", "#AA4444", "#DD7777", "#771144", "#AA4477", "#DD77AA"),
-         "16"=c("#114477", "#4477AA", "#77AADD", "#117755", "#44AA88", "#99CCBB", "#777711", "#AAAA44", "#DDDD77", "#771111", "#AA4444", "#DD7777", "#771144", "#AA4477", "#DD77AA", "black"),
-         "17"=c("#771155", "#AA4488", "#CC99BB", "#114477", "#4477AA", "#77AADD", "#117777", "#44AAAA", "#777711", "#AAAA44", "#DDDD77", "#774411", "#AA7744", "#DDAA77", "#771122", "#AA4455", "#DD7788"),
-         "18"=c("#771155", "#AA4488", "#CC99BB", "#114477", "#4477AA", "#77AADD", "#117777", "#44AAAA", "#77CCCC", "#777711", "#AAAA44", "#DDDD77", "#774411", "#AA7744", "#DDAA77", "#771122", "#AA4455", "#DD7788"),
-         "19"=c("#771155", "#AA4488", "#CC99BB", "#114477", "#4477AA", "#77AADD", "#117777", "#44AAAA", "#77CCCC", "#777711", "#AAAA44", "#DDDD77", "#774411", "#AA7744", "#DDAA77", "#771122", "#AA4455", "#DD7788", "black"),
-         "20"= c("#771155", "#AA4488", "#CC99BB", "#114477", "#4477AA", "#77AADD", "#117777", "#44AAAA", "#117744", "#44AA77", "#88CCAA", "#777711", "#AAAA44", "#DDDD77", "#774411", "#AA7744", "#DDAA77", "#771122", "#AA4455", "#DD7788"),
-         "21"= c("#771155", "#AA4488", "#CC99BB", "#114477", "#4477AA", "#77AADD", "#117777", "#44AAAA", "#77CCCC", "#117744", "#44AA77", "#88CCAA", "#777711", "#AAAA44", "#DDDD77", "#774411", "#AA7744", "#DDAA77", "#771122", "#AA4455", "#DD7788"),
-         "22"= c("#771155", "#AA4488", "#CC99BB", "#114477", "#4477AA", "#77AADD", "#117777", "#44AAAA", "#77CCCC", "#117744", "#44AA77", "#88CCAA", "#777711", "#AAAA44", "#DDDD77", "#774411", "#AA7744", "#DDAA77", "#771122", "#AA4455", "#DD7788", "black"),
-         stop("Unknown nbcolors")
+         "7"=c("#332288", "#88CCEE", "#44AA99", "#117733", "#DDCC77", "#CC6677",
+               "#AA4499"),
+         "8"=c("#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77",
+               "#CC6677","#AA4499"),
+         "9"=c("#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77",
+               "#CC6677", "#882255", "#AA4499"),
+         "10"=c("#332288", "#88CCEE", "#44AA99", "#117733", "#999933", 
+                "#DDCC77", "#661100", "#CC6677", "#882255", "#AA4499"),
+         "11"=c("#332288", "#6699CC", "#88CCEE", "#44AA99", "#117733", 
+                "#999933", "#DDCC77", "#661100", "#CC6677", "#882255", 
+                "#AA4499"),
+         "12"=c("#332288", "#6699CC", "#88CCEE", "#44AA99", "#117733", 
+                "#999933", "#DDCC77", "#661100", "#CC6677", "#AA4466", 
+                "#882255", "#AA4499"),
+         "13"=c("#882E72", "#B178A6", "#1965B0", "#5289C7", "#7BAFDE", 
+                "#4EB265", "#90C987", "#CAE0AB", "#F7EE55", "#F6C141", 
+                "#F1932D", "#E8601C", "#DC050C"),
+         "14"=c("#882E72", "#B178A6", "#D6C1DE", "#1965B0", "#5289C7", 
+                "#7BAFDE", "#4EB265", "#90C987", "#CAE0AB", "#F7EE55", 
+                "#F6C141", "#F1932D", "#E8601C", "#DC050C"),
+         "15"=c("#114477", "#4477AA", "#77AADD", "#117755", "#44AA88", 
+                "#99CCBB", "#777711", "#AAAA44", "#DDDD77", "#771111", 
+                "#AA4444", "#DD7777", "#771144", "#AA4477", "#DD77AA"),
+         "16"=c("#114477", "#4477AA", "#77AADD", "#117755", "#44AA88", 
+                "#99CCBB", "#777711", "#AAAA44", "#DDDD77", "#771111", 
+                "#AA4444", "#DD7777", "#771144", "#AA4477", "#DD77AA", "black"),
+         distinctColorPalette(nbcolors)
   )
 }
+
+
+.getTrueLabelsFromNames <- function(x){
+  if(is.null(names(x))) return(NULL)
+  tl <- vapply(strsplit(names(x),".",fixed=TRUE), FUN.VALUE=character(1),
+               FUN=function(x) x[[1]])
+  names(tl) <- names(x)
+  tl
+}
+
+#' farthestPoint
+#'
+#' Identifies the point farthest from a line passing through by the first and 
+#' last points. Used for automatization of the elbow method.
+#'
+#' @param y Monotonically inscreasing or decreasing values
+#' @param x Optional x coordinates corresponding to `y` (defaults to seq)
+#'
+#' @return The value of `x` farthest from the diagonal.
+#' @export
+#'
+#' @examples
+#' y <- 2^(10:1)
+#' plot(y)
+#' x <- farthestPoint(y)
+#' points(x,y[x],pch=16)
+farthestPoint <- function(y, x=NULL){
+  if(is.null(x)) x <- seq_len(length(y))
+  d <- apply( cbind(x,y), 1, 
+              a=c(1,y[1]), b=c(length(y),rev(y)[1]), 
+              FUN=function(y, a, b){
+                v1 <- a-b
+                v2 <- y-a
+                abs(det(cbind(v1,v2)))/sqrt(sum(v1*v1))
+              })
+  order(d,decreasing=TRUE)[1]
+}
+

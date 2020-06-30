@@ -1,0 +1,12 @@
+bibentry(bibtype = "article",
+	title = "{pipeComp}, a General Framework for the Evaluation of Computational Pipelines, Reveals Performant Single-Cell {RNA}-Seq Preprocessing Tools",
+	author = c(person("Pierre-Luc", "Germain"),
+	    person("Anthony", "Sonrel"),
+	    person("Mark D.", "Robinson")),
+	year = 2020,
+	note = paste("package version", meta$Version),
+	url = "https://github.com/plger/pipeComp",
+	doi = "10.1101/2020.02.02.930578",
+	journal = "bioRxiv"
+)
+

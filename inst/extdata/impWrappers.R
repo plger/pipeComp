@@ -60,7 +60,7 @@ wrapp.saverx <- function(sce,
   .out_check(sce, denois)
   denois <- .prep(sce, denois, out = "output")
   counts(sce) <- denois
-  # unlink(gsub("\\/.*", "", res), recursive = T)
+  # unlink(gsub("\\/.*", "", res), recursive = TRUE)
   cat("If you want to run SAVERX a second time, please restart the R session (open issue of the package).\n")
   
   return(sce)
@@ -209,7 +209,7 @@ wrapp.dca <- function(sce,
   
   system(command = command)
   denois <- read.csv(paste0(temp_fold, "/mean.tsv"),sep = "\t", row.names = 1 )
-  unlink(temp_fold, recursive = T)
+  unlink(temp_fold, recursive = TRUE)
   file.remove(temp_file)
   
   sce <- .prep(sce, denois, out = "input")
@@ -294,7 +294,7 @@ wrapp.enhance <- function(sce,
   data <- as.matrix(counts(sce))
  
   denois <- try(enhance(data))
-  if (class(denois) == "try-error")  denois <- enhance(data, k_nn = 2)
+  if (is(denois, "try-error"))  denois <- enhance(data, k_nn = 2)
   
   .out_check(sce, denois)
   denois <- .prep(sce, denois, out = "output")
@@ -342,7 +342,37 @@ wrapp.drimpute <- function(sce,
   
 }
 
-  
+
+#' imp.scVI
+#'
+#' A function calling a python wrapper (`scVI.py`) around `scVI` imputation, adapted from the the 'Basic usage' Jupyter notebook (https://nbviewer.jupyter.org/github/YosefLab/scVI/blob/master/tests/notebooks/basic_tutorial.ipynb). Note that the function will create a temporary csv file for the intermediate storage of the input count matrix, needed by `scVI`.  
+#' 
+#' 
+#' @param x A SCE object.
+#' @param py_script Location of the python script
+#' @param py_path Optional. If scVI was installed in a specific python bin, pass here the path to it. 
+#' @param train_size Size of training set. Default to 0.8 but tutorial however recommends to use 1. 
+#' @param n_cores N. cores
+#' 
+#' @return An object of the same class as `x` with updated slots.
+
+imp.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="pipeComp"), py_path = NULL, n_cores = 1L, train_size = 1) {
+  n_cores <- as.integer(n_cores)
+  suppressPackageStartupMessages(library(reticulate))
+  if (length(py_path)>0) use_python(py_path ,required=TRUE)
+  trysource <- try(source_python(py_script))
+  if (is(trysource, "try-error")) stop("Cannot source the python wrapper.") 
+  tfile <- tempfile(fileext=".csv", tmpdir = ".")
+  write.csv(counts(x), tfile)
+  val <- t(scVI_imput(csv_file = tfile, csv_path = ".", n_cores = n_cores, train_size = train_size))
+  file.remove(tfile)
+  dimnames(val) <- list(rownames(counts(x)), colnames(counts(x)))
+  counts(x) <- as.matrix(val)
+  x
+}
+
+
+
 # MISC. ========================================================================
 
 .out_check <- function(input, output) {
@@ -374,9 +404,9 @@ wrapp.drimpute <- function(sce,
                               max.expressed.ratio = 1, 
                               normalize.by.size.effect = FALSE){
   # preprocessign function from DrImpute 
-  if (class(x) == 'SummarizedExperiment')
+  if (is(x, 'SummarizedExperiment'))
     X <- assays(x)$count
-  else if (class(x) == 'matrix')
+  else if (is(x, 'matrix'))
     X <- x
   else if (is(x, 'sparseMatrix'))
     X <- x
@@ -393,10 +423,10 @@ wrapp.drimpute <- function(sce,
   }else
     X <- X[n, m]
   
-  if (class(x) == 'SummarizedExperiment'){
+  if (is(x, 'SummarizedExperiment')){
     x <- x[n, m]
     assays(x)$count <- X
-  }else if (class(x) == 'matrix'){
+  }else if (is(x, 'matrix')){
     x <- as.matrix(X)
   }else if (is(x, 'sparseMatrix')){
     x <- X
@@ -404,4 +434,6 @@ wrapp.drimpute <- function(sce,
   
   x
 }
+
+
 

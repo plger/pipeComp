@@ -12,8 +12,21 @@ evaluateClustering(x, tl)
 \item{tl}{The true labels}
 }
 \value{
-A numeric vector.
+A numeric vector of metrics (see the `pipeComp_scRNA` vignette for 
+details)
 }
 \description{
 Evaluates a clustering using 'true' labels
+}
+\examples{
+# random data
+dat <- data.frame( 
+ cluster=rep(LETTERS[1:3], each=10),
+ x=c(rnorm(20, 0), rnorm(10, 1)),
+ y=c(rnorm(10, 1), rnorm(20, 0))
+)
+# clustering
+dat$predicted <- kmeans(dist(dat[,-1]),3)$cluster
+# evaluation
+evaluateClustering(dat$predicted, dat$cluster)
 }

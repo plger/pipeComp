@@ -4,8 +4,16 @@
 \alias{scrna_evalPlot_filtering}
 \title{scrna_evalPlot_filtering}
 \usage{
-scrna_evalPlot_filtering(res, steps = c("doublet", "filtering"),
-  returnTable = FALSE)
+scrna_evalPlot_filtering(
+  res,
+  steps = c("doublet", "filtering"),
+  clustMetric = "mean_F1",
+  filterExpr = TRUE,
+  atNearestK = FALSE,
+  returnTable = FALSE,
+  point.size = 2.2,
+  ...
+)
 }
 \arguments{
 \item{res}{Aggregated pipeline results (i.e. the output of `runPipeline` or
@@ -14,11 +22,28 @@ scrna_evalPlot_filtering(res, steps = c("doublet", "filtering"),
 \item{steps}{Steps to include (default 'doublet' and 'filtering'); other 
 steps will be averaged.}
 
-\item{returnTable}{Logical; whether to return the data.frame rather than plot.}
+\item{clustMetric}{Clustering accuracy metric to use (default `mean_F1``)}
+
+\item{filterExpr}{An optional filtering expression based on the columns of 
+the clustering evaluation (e.g. `filterExpr=param1=="value1"` or 
+`filterExpr=n_clus==true.nbClusts`).}
+
+\item{atNearestK}{Logical; whether to restrict analyses to those giving the 
+smallest deviation from the real number of clusters (default FALSE).}
+
+\item{returnTable}{Logical; whether to return the data rather than plot.}
+
+\item{point.size}{Size of the points}
+
+\item{...}{passed to `geom_point`}
 }
 \value{
 A ggplot, or a data.frame if `returnTable=TRUE`
 }
 \description{
 scrna_evalPlot_filtering
+}
+\examples{
+data("exampleResults", package="pipeComp")
+scrna_evalPlot_filtering(exampleResults)
 }

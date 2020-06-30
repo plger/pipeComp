@@ -13,15 +13,13 @@
 #   For scImpute and DCA, the wrapper will create temporary folders for 
 #   intermediate results. 
 #
-# ------------------------------------------------------------------------------
-# TODO: 
 #
 # ==============================================================================
 
 
 DoDataImputation <- function(count, 
                              method = c("SAVERX", "scImpute", "enhance", 
-                                        "dca", "EmpiricalBose",  "DrImpute", 
+                                        "dca",  "DrImpute", 
                                         "alra"),
                              organism = c("auto", "Human", "Mouse"), 
                              out_dir = getwd(), 
@@ -30,7 +28,7 @@ DoDataImputation <- function(count,
                              alra_path = NULL, 
                              alra_norm = FALSE,
                              DrImpute_prepross = TRUE, 
-                             dca_path = "/home/asonrel/miniconda3/bin/dca", 
+                             dca_path = NULL, 
                              eb_out = "dirichlet",  
                              scImpute_kcluster = NULL, 
                              kcluster_modif = 0, 
@@ -40,17 +38,15 @@ DoDataImputation <- function(count,
   # method: imputation package to use. 
   # organism: can keep 'auto' for the datasets we use in the pipeComp project. Else, please specify if "Human" or "Mouse".
   # out_dir: deprecated, not used for the moment
-  # n_cores: number of cores to use for SAVERX, scImpute, DCA, EmpiricalBose. 
+  # n_cores: number of cores to use for SAVERX, scImpute, DCA. 
   # enhance_path: path to the enhance R script tool, to dl from https://github.com/yanailab/enhance.
   # alra_path: path to the 'alra.R' script, to dl from https://github.com/KlugerLab/ALRA.
   # alra_norm: logical, whether to normalize the data with log counts before imputing with alra (advised in the vignettes but not stated as required).
   # DrImpute_prepross: logical, filter the lowly expressed genes/ cells before running DrImpute (advised in the vignette but not stated as required) ?
-  # dca_path: path to the installation of dca. Alternatively, can be set to "dca" if the appropriate virtual environment has been set with 'reticulate'. 
+  # dca_path: path to the DCA bin. Alternatively, can be simply set to "dca" if the appropriate virtual environment has been set with 'reticulate'. 
   # python_path: to specify if you installed 'sctransfer' on a particular python path
-  # eb_out: EmpiricalBose method, which output to return: 1) "dirichlet" (default) similar to raw counts, 2) "log_p" similar to log(tmp). 
   # kcluster_modif : add or substract the estimated number of cluster by this parameter when using scimpute.
-  # restr_to_hvgs : EmpiricalBose, logical, restrict the imputation to HVGs only ? 
-  # python_path: path to python bin, passed to reticulate for SAVERX, EmpiricalBose
+  # python_path: path to python bin, passed to reticulate for SAVERX
   # scImpute_kcluster: integer, number of kcluster expected in the data. Can be set. But by default, is is automatically inferred if a 'sce' if given with a 'phenoid' column in the colData or in the colnames of csv files (warning, suffix numbers are removed as it often use for cell id). 
   
   suppressPackageStartupMessages({
@@ -73,7 +69,7 @@ DoDataImputation <- function(count,
     suppressPackageStartupMessages({
       library(SAVERX)
       library(reticulate)
-      reticulate::use_python(python = python_path, required = T)
+      reticulate::use_python(python = python_path, required = TRUE)
       library(tensorflow)
       library(keras)
       config <- tf$ConfigProto(intra_op_parallelism_threads = n_cores,
@@ -101,8 +97,8 @@ DoDataImputation <- function(count,
     }
     
     denois <- readRDS(res) %>% .$estimate
-    # file.remove(res, recursive = T)
-    # unlink(gsub("\\/.*", "", res), recursive = T)
+    # file.remove(res, recursive = TRUE)
+    # unlink(gsub("\\/.*", "", res), recursive = TRUE)
     cat("If you want to run SAVERX a second time, please restart the R session (open issue of the package).\n")
     
   }
@@ -155,7 +151,7 @@ DoDataImputation <- function(count,
              out_dir =  paste0(getwd(), "/", rand_dir), infile = infile, outfile = "rds")
     denois <- readRDS(paste0(rand_dir, "scimpute_count.rds"))
     
-    # unlink(rand_dir, recursive = T)
+    # unlink(rand_dir, recursive = TRUE)
     
   }
   
@@ -193,7 +189,7 @@ DoDataImputation <- function(count,
 
   if (method == "dca") {
     
-    if (!class(count) == "character") stop("'dca' needs raw count data in TSV/CSV format as input.")
+    if (!is(count, "character")) stop("'dca' needs raw count data in TSV/CSV format as input.")
     
     rand_suffix <- sample(1:1000000, 1)
     temp_file <- paste0("temp_DCA", rand_suffix, ".csv")
@@ -222,52 +218,11 @@ DoDataImputation <- function(count,
     
     system(command = command)
     denois <- read.csv(paste0(temp_fold, "/mean.tsv"),sep = "\t", row.names = 1 )
-    # unlink(temp_fold, recursive = T)
+    # unlink(temp_fold, recursive = TRUE)
     # file.remove(temp_file)
     
   }
   
-  # EMPIRICALBOSE ==============================================================
-  
-  if (method == "EmpiricalBose") {
-    
-    suppressPackageStartupMessages({
-      library(reticulate)
-      library(scran)
-      use_python(python_path, required = TRUE)
-      library('EmpiricalBose')
-      library('future')
-      plan("multicore", workers = n_cores)
-    })
-    
-    if (length(grep("\\.rds", count)) == 1) {
-        
-      data <- readRDS(count)
-      logcounts(data) <- log2(counts(data) + 1)
-      
-    } 
-    if (length(grep("\\.csv", count)) == 1) {
-      
-      data <- read.csv(count, row.names = 1)
-      data <- SingleCellExperiment(list(counts = as.matrix(data), 
-                                        logcounts = log1p(data)))
-
-    } 
-    
-    # restrict to highly variable genes
-    if (restr_to_hvgs) data <- restrict_to_hvgs(data)
-
-    data_denois = cancel_noise(sce = data)
-    
-    denois <- assay(data_denois, eb_out)
-    
-    # reorder 
-    if (all(dim(denois) == dim(counts(data)))) {
-      denois <- denois[, match(colnames(data), colnames(denois))]
-      denois <- denois[match(rownames(data), rownames(denois)), ]
-    }
-
-  }
   # ENHANCE ====================================================================
   
   if (method == "enhance") {
@@ -286,7 +241,7 @@ DoDataImputation <- function(count,
     }
     
     denois <- try(enhance(data))
-    if(class(denois) == "try-error")  denois <- enhance(data, k_nn = 2)
+    if(is(denois, "try-error"))  denois <- enhance(data, k_nn = 2)
 
   }
   
@@ -301,9 +256,9 @@ DoDataImputation <- function(count,
     # preprocessign function from DrImpute 
     preprocess <- function(x, min.expressed.gene = 0, min.expressed.cell = 2, max.expressed.ratio = 1, normalize.by.size.effect = FALSE){
       
-      if (class(x) == 'SummarizedExperiment')
+      if (is(x, 'SummarizedExperiment'))
         X <- assays(x)$count
-      else if (class(x) == 'matrix')
+      else if (is(x,'matrix'))
         X <- x
       else if (is(x, 'sparseMatrix'))
         X <- x
@@ -320,10 +275,10 @@ DoDataImputation <- function(count,
       }else
         X <- X[n, m]
       
-      if (class(x) == 'SummarizedExperiment'){
+      if (is(x, 'SummarizedExperiment')){
         x <- x[n, m]
         assays(x)$count <- X
-      }else if (class(x) == 'matrix'){
+      }else if (is(x, 'matrix')){
         x <- as.matrix(X)
       }else if (is(x, 'sparseMatrix')){
         x <- X
