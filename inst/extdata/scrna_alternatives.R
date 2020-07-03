@@ -484,7 +484,6 @@ norm.scnorm.scaled <- function(x, ...){
 #' @param py_script Location of the python script
 #' @param py_path Optional. If scVI was installed in a specific python bin, pass here the path to it. 
 #' @param train_size Size of training set. Default to 0.8 but tutorial however recommends to use 1. 
-#' @param noscale Logical; whether to disable scaling (default FALSE)
 #' @param n_cores N. cores
 #' 
 #' @return An object of the same class as `x` with updated slots.
@@ -494,13 +493,17 @@ norm.scVI <- function(x, py_script = system.file("extdata", "scVI.py", package="
   suppressPackageStartupMessages(library(reticulate))
   if (length(py_path)>0) use_python(py_path ,required=TRUE)
   trysource <- try(source_python(py_script))
-  if (is(trysource, "try-error")) stop("Cannot source the python wrapper.") 
+  if (class(trysource) == "try-error") stop("Cannot source the python wrapper.") 
   tfile <- tempfile(fileext=".csv", tmpdir = ".")
   if (is(x, "Seurat")) dat <- GetAssayData(x, assay = "RNA", slot = "counts") else dat <- counts(x)
   write.csv(dat, tfile)
-  val <- t(scVI_norm(csv_file = tfile, csv_path = ".", n_cores = n_cores, train_size = train_size))
+  out <- scVI_norm(csv_file = tfile, csv_path = ".", n_cores = n_cores, 
+                   train_size = train_size)
+  val <- t(out[[1]])
+  gnames <- as.character(out[[2]])
   file.remove(tfile)
-  dimnames(val) <- list(rownames(dat), colnames(dat))
+  dimnames(val) <- list(gnames, colnames(dat))
+  x <- x[gnames, ]
   if(is(x,"Seurat")){ 
     x <- SetAssayData(x, slot="data", new.data=as.matrix(val))
     x <- SetAssayData(x, slot="scale.data", as.matrix(val))
@@ -729,6 +732,60 @@ scran.runPCA <- function(x, dims=50){
   if(is(x, "Seurat")) return(sceDR2seurat(reducedDim(dat, "PCA"), x, "pca")) else return(dat)
 }
 
+#' scVI.latent
+#'
+#' A function calling a python wrapper (`scVI.py`) around `scVI` low-dimensional latent space, adapted from the official tutorial (https://scvi.readthedocs.io/en/stable/tutorials/basic_tutorial.html). Note that the function will create a temporary csv file for the intermediate storage of the input count matrix, needed by `scVI`.  
+#' 
+#' 
+#' @param x A SCE or Seurat object.
+#' @param py_script Location of the python script
+#' @param py_path Optional. If scVI was installed in a specific python bin, pass here the path to it. 
+#' @param dims Number of dimensions to return. 
+#' @param learning_rate Learning rate of the model. If the model is not training properly due to too high learning rate, it will be reduced consecutively a few times before early stop. 
+#' @param n_cores N. cores
+#' 
+#' @return An object of the same class as `x` with updated slots. Note that scVI-LD initially returns unordered components. For convenience with the package, they are ordered by sdev and renamed 'PC'. 
+
+scVI.latent <- function(x, dims = 50L, learning_rate = 1e-3, py_script = system.file("extdata", "scVI.py", package="pipeComp"), py_path = NULL, n_cores = 1L) {
+  dims <- as.integer(dims)
+  n_cores <- as.integer(n_cores)
+  suppressPackageStartupMessages(library(reticulate))
+  if (length(py_path)>0) use_python(py_path ,required=TRUE)
+  trysource <- try(source_python(py_script))
+  if (class(trysource) == "try-error") stop("Cannot source the python wrapper.") 
+  tfile <- tempfile(fileext=".csv", tmpdir = ".")
+  if (is(x, "Seurat")) {
+    dat <- GetAssayData(x, assay = "RNA", slot = "counts")
+    dat <- dat[VariableFeatures(x), ]
+  } else {
+    
+    dat <- counts(x)
+    dat <- dat[metadata(x)$VariableFeat, ]
+  } 
+  write.csv(dat, tfile)
+  val <- try(scVI_latent(csv_file = tfile, csv_path = ".", n_cores = n_cores, lr = learning_rate))
+  # Error with some dataset; "Loss was NaN 10 consecutive times: the model is not training properly. Consider using a lower learning rate" --> reduce lr
+  if (class(val) == "try-error") {
+    ntry <- 0
+    while(ntry < 6 & class(val) == "try-error") {
+      ntry <- ntry + 1
+      learning_rate <- learning_rate/10
+      message("Downgrading learning rate to ", learning_rate)
+      val <- try(scVI_latent(csv_file = tfile, csv_path = ".", n_cores = n_cores, lr = learning_rate))
+    }
+  }
+  file.remove(tfile)
+  rownames(val) <- colnames(dat)
+  # rename
+  colnames(val) <- paste0("PC_", 1:ncol(val))
+  if(is(x, "Seurat")){
+    x[["pca"]] <- CreateDimReducObject(embeddings=as.matrix(val), 
+                                       key="PC_", assay="RNA")
+  } else {
+    reducedDim(x, "PCA") <- as.matrix(val)
+  }
+  x
+}
 
 
 #' scVI.LD
@@ -741,7 +798,6 @@ scran.runPCA <- function(x, dims=50){
 #' @param py_path Optional. If scVI was installed in a specific python bin, pass here the path to it. 
 #' @param dims Number of dimensions to return. 
 #' @param learning_rate Learning rate of the model. If the model is not training properly due to too high learning rate, it will be reduced consecutively a few times before early stop. 
-#' @param noscale Logical; whether to disable scaling (default FALSE)
 #' @param n_cores N. cores
 #' 
 #' @return An object of the same class as `x` with updated slots. Note that scVI-LD initially returns unordered components. For convenience with the package, they are ordered by sdev and renamed 'PC'. 
@@ -752,15 +808,22 @@ scVI.LD <- function(x, dims = 50L, learning_rate = 1e-3, py_script = system.file
   suppressPackageStartupMessages(library(reticulate))
   if (length(py_path)>0) use_python(py_path ,required=TRUE)
   trysource <- try(source_python(py_script))
-  if (is(trysource, "try-error")) stop("Cannot source the python wrapper.") 
+  if (class(trysource) == "try-error") stop("Cannot source the python wrapper.") 
   tfile <- tempfile(fileext=".csv", tmpdir = ".")
-  if (is(x, "Seurat")) dat <- GetAssayData(x, assay = "RNA", slot = "counts") else dat <- counts(x)
+  if (is(x, "Seurat")) {
+    dat <- GetAssayData(x, assay = "RNA", slot = "counts")
+    dat <- dat[VariableFeatures(x), ]
+  } else {
+    
+    dat <- counts(x)
+    dat <- dat[metadata(x)$VariableFeat, ]
+  } 
   write.csv(dat, tfile)
   val <- try(scVI_ld(csv_file = tfile, ndims = dims, csv_path = ".", n_cores = n_cores, lr = learning_rate))
   # Error with some dataset; "Loss was NaN 10 consecutive times: the model is not training properly. Consider using a lower learning rate" --> reduce lr
-  if (is(val, "try-error")) {
+  if (class(val) == "try-error") {
     ntry <- 0
-    while(ntry < 6 & is(val, "try-error")) {
+    while(ntry < 6 & class(val) == "try-error") {
       ntry <- ntry + 1
       learning_rate <- learning_rate/10
       message("Downgrading learning rate to ", learning_rate)
