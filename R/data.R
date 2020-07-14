@@ -55,3 +55,17 @@ NULL
 #'
 #' @return a list.
 NULL
+
+#' @rdname stableG
+#' @name stableG
+#' @aliases stableG
+#'
+#' @title Lists of stable genes
+#'
+#' @description
+#' Genes were simply obtained by querying the respective GO terms
+#'
+#' @return a list.
+NULL
+
+
