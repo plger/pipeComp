@@ -13,6 +13,7 @@ runPipeline(
   nthreads = 1,
   saveEndResults = TRUE,
   debug = FALSE,
+  skipErrors = FALSE,
   ...
 )
 }
@@ -39,6 +40,10 @@ the number of datasets or below.}
 
 \item{debug}{Logical (default FALSE). When enabled, disables multithreading 
 and prints extra information.}
+
+\item{skipErrors}{Logical (default FALSE). When enabled, `runPipeline` will
+continue even when an error has been encountered, and report the list of 
+steps/datasets in which errors were encountered.}
 
 \item{...}{passed to MulticoreParam. Can for instance be used to set 
 `makeCluster` arguments, or set `threshold="TRACE"` when debugging in a 
