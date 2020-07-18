@@ -245,6 +245,13 @@ evalHeatmap(res, step = "clustering", what=c("MI","ARI"), agg.by=c("filt","norm"
               filter=n_clus==true.nbClusts, title="ARI at\ntrue k")
 ```
 
+Finally, a pipeline-specific plotting function enables overview heatmaps across steps:
+
+```{r, fig.width=8, fig.height=5}
+h <- scrna_evalPlot_overall(res)
+draw(h, heatmap_legend_side="bottom")
+```
+
 ## Computing time
 
 There is nothing specific to the scRNAseq pipeline about computing times, but the default `pipeComp` functionalities are available: the timings are accessible in `res$elapsed`, and can be plotted either manually or using:
