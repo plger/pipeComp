@@ -21,7 +21,9 @@
 #' dat$predicted <- kmeans(dist(dat[,-1]),3)$cluster
 #' # evaluation
 #' evaluateClustering(dat$predicted, dat$cluster)
-evaluateClustering <- function(x, tl){
+evaluateClustering <- function(x, tl=NULL){
+  if(is.null(tl)) tl <- attr(x,"true.labels")
+  if(is.null(tl)) stop("True labels not found!")
   e <- match_evaluate_multiple(x, tl)
   x <- as.character(x)
   unmatched <- length(x)-sum(e$n_cells_matched)
