@@ -325,6 +325,10 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
 #' @param datasets_as_columnNames Logical; whether dataset names should be 
 #' printed below the columns (except for silhouette) rather than using a
 #' legend.
+#' @param rowAnnoColors Optional list of colors for the row annotation variables
+#' (passed to `HeatmapAnnotation(col=...)`)
+#' @param column_names_gp Passed to each calls to `Heatmap`
+#' @param column_title_gp Passed to each calls to `Heatmap`
 #' @param heatmap_legend_param Passed to each calls to `Heatmap`
 #' @param ... Passed to each calls to `Heatmap`
 #'
@@ -336,9 +340,12 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
 #' h <- scrna_evalPlot_overall(exampleResults)
 #' draw(h, heatmap_legend_side="bottom")
 scrna_evalPlot_overall <- function(res, agg.by=NULL, width=NULL, 
-                              datasets_as_columnNames=TRUE,
-                              heatmap_legend_param=list(direction="horizontal",nrow=1,
-                                                        by_row=TRUE), 
+                              datasets_as_columnNames=TRUE, 
+                              rowAnnoColors=NULL,
+                              column_names_gp=gpar(fontsize=10),
+                              column_title_gp=gpar(fontsize=12),
+                              heatmap_legend_param=list( by_row=TRUE,
+                                                direction="horizontal", nrow=1), 
                               ... ){
   a <- arguments(metadata(res)$PipelineDefinition)
   if(is.null(agg.by)){
@@ -346,7 +353,6 @@ scrna_evalPlot_overall <- function(res, agg.by=NULL, width=NULL,
     agg.by <- agg.by[sapply(agg.by, FUN=function(x) 
                               length(unique(res$evaluation$clustering[[x]]))>1)]
   }
-  print(agg.by)
   agg.by <- as.character(agg.by)
   if(!all(agg.by %in% unlist(a)))
     stop("`agg.by` should be a vector of pipeline parameters.")
@@ -412,15 +418,15 @@ scrna_evalPlot_overall <- function(res, agg.by=NULL, width=NULL,
   }
   pclost <- apply(pclost,1,FUN=max)
   
-  ll2 <- list( list(mat=ll[[1]], title="min silhouette\nwidth", 
+  ll2 <- list( list(mat=ll[[1]], title="min silh.\nwidth", 
                     cluster_columns=TRUE, name="silhouette width"),
-               list(mat=ll[[2]], title="mean silhouette\nwidth", 
+               list(mat=ll[[2]], title="mean silh.\nwidth", 
                     cluster_columns=TRUE, show_heatmap_legend=FALSE),
                list(mat=ll[[3]], title="mean ARI", name="ARI (MADs)", 
                     cluster_columns=FALSE),
                list(mat=ll[[4]], title="mean MI", name="MI (MADs)", 
                     cluster_columns=FALSE),
-               list(mat=ll[[5]], title="mean ARI at\ntrue k", 
+               list(mat=ll[[5]], title="mean ARI\nat true k", 
                     name="ARI at true k (MADs)", cluster_columns=FALSE)
                )
 
@@ -432,9 +438,11 @@ scrna_evalPlot_overall <- function(res, agg.by=NULL, width=NULL,
     if(f %in% colnames(pp)) pp[[f]] <- gsub(paste0("^",f,"\\."),"",pp[[f]])
   }
 
-  ha <- HeatmapAnnotation(which="row", "max\n% lost"=anno_barplot(
-    pclost, bar_width=1, border=FALSE, gp=gpar(fill="#282828", col="#282828"),
-    width=unit(1.5,"cm")), df=pp, annotation_legend_param=list("side"="right"))
+  ha <- HeatmapAnnotation( which="row", col=rowAnnoColors,
+          "max\n% lost"=anno_barplot( pclost, bar_width=0.85, border=FALSE, 
+                                      width=unit(1.5,"cm"),
+                                      gp=gpar(fill="#282828", col="#282828") ),
+          df=pp, annotation_legend_param=list("side"="right") )
   
   h <- hclust(dist(do.call(cbind, ll)))
   silhscale <- .silScale(cbind(ll2[[1]]$mat, ll2[[2]]$mat))
@@ -445,7 +453,7 @@ scrna_evalPlot_overall <- function(res, agg.by=NULL, width=NULL,
     }else{
       hi <- FALSE
     }
-    if(grepl("silhouette", ll2[[i]]$title)){
+    if(grepl("silh", ll2[[i]]$title)){
       col <- silhscale
       scn <- FALSE
     }else{
@@ -465,7 +473,8 @@ scrna_evalPlot_overall <- function(res, agg.by=NULL, width=NULL,
                       cluster_columns=ll2[[i]]$cluster_columns, 
                       show_column_dend=FALSE, bottom_annotation=ba, 
                       left_annotation=la, right_annotation=ra, 
-                      column_names_gp = gpar(fontsize=10),
+                      column_names_gp=column_names_gp,
+                      column_title_gp=column_title_gp,
                       show_heatmap_legend=ifelse(
                         is.null(ll2[[i]]$show_heatmap_legend),TRUE,
                         ll2[[i]]$show_heatmap_legend), ... )
