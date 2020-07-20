@@ -4,18 +4,25 @@
 \alias{mergePipelineResults}
 \title{mergePipelineResults}
 \usage{
-mergePipelineResults(res1, res2)
+mergePipelineResults(..., rr = NULL, verbose = TRUE)
 }
 \arguments{
-\item{res1}{A list of pipeline results, as produced by `readPipelineResults`}
+\item{...}{Any number of lists of pipeline results, each as produced by 
+\code{\link{readPipelineResults}}}
 
-\item{res2}{A list of pipeline results, as produced by `readPipelineResults`}
+\item{rr}{Alternatively, the pipeline results can be passed as a list (in 
+which case `...` is ignored)}
+
+\item{verbose}{Whether to print processing information}
 }
 \value{
-A list of pipeline results.
+A list of merged pipeline results.
 }
 \description{
-mergePipelineResults
+Merges the (non-aggregated) results of any number of runs of `runPipeline`
+using the same \code{\link{PipelineDefinition}} (but on different datasets 
+and/or using different parameters). First read the different sets of results 
+using \code{\link{readPipelineResults}}, and pass them to this function.
 }
 \examples{
 # we produce 2 mock pipeline results:

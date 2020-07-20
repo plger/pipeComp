@@ -1,3 +1,20 @@
+#' pipeComp - a framework for pipeline benchmarking
+#'
+#' \pkg{pipeComp} is a simple framework to facilitate the comparison of 
+#' pipelines involving various steps and parameters. It was initially developed 
+#' to benchmark single-cell RNA sequencing pipelines, and contains pre-defined
+#' \code{\link{PipelineDefinition}}s and functions to that effect, but could be
+#' applied to any context. See `vignette("pipeComp")` for an introduction.
+#'
+#' @author Pierre-Luc Germain \email{pierre-luc.germain@hest.ethz.ch}
+#' @author Anthony Sonrel \email{anthony.sonrel@uzh.ch}
+#' @author Mark D. Robinson \email{mark.robinson@@imls.uzh.ch}
+#' @name pipeComp-package
+#' @aliases pipeComp
+#' @docType package
+NULL
+
+
 #' runPipeline
 #' 
 #' This function runs a pipeline with combinations of parameter variations on 
@@ -7,7 +24,7 @@
 #' @param datasets A named vector of initial objects or paths to rds files.
 #' @param alternatives The (named) list of alternative values for each 
 #' parameter.
-#' @param pipelineDef An object of class `PipelineDefinition`.
+#' @param pipelineDef An object of class \code{\link{PipelineDefinition}}.
 #' @param comb An optional matrix of indexes indicating the combination to run. 
 #' Each column should correspond to an element of `alternatives`, and contain 
 #' indexes relative to this element. If omitted, all combinations will be 
@@ -19,7 +36,7 @@
 #' @param saveEndResults Logical; whether to save the output of the last step.
 #' @param debug Logical (default FALSE). When enabled, disables multithreading 
 #' and prints extra information.
-#' @param skipErrors Logical (default FALSE). When enabled, `runPipeline` will
+#' @param skipErrors Logical. When enabled, `runPipeline` will
 #' continue even when an error has been encountered, and report the list of 
 #' steps/datasets in which errors were encountered.
 #' @param ... passed to MulticoreParam. Can for instance be used to set 
@@ -53,7 +70,7 @@
 #' @export
 runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL, 
                          output.prefix="", nthreads=1, saveEndResults=TRUE, 
-                         debug=FALSE, skipErrors=FALSE, ...){
+                         debug=FALSE, skipErrors=TRUE, ...){
   mcall <- match.call()
   if(!is(pipelineDef,"PipelineDefinition")) 
     pipelineDef <- PipelineDefinition(pipelineDef)
