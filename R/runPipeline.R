@@ -203,9 +203,9 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   res <- lapply(resfiles, readRDS)
   errs <- lapply(res, FUN=function(x) x$errors)
   if(length(unlist(errs))>0){
-    errs <- errs[!sapply(errs,is.null)]
+    errs <- errs[!vapply(errs, FUN.VALUE=logical(1L), FUN=is.null)]
     errs <- lapply(errs, .removeRedundantErrors)
-    errs <- data.frame(dataset=rep(names(errs), sapply(errs,length)),
+    errs <- data.frame(dataset=rep(names(errs), lengths(errs)),
                        step=unlist(errs))
     row.names(errs) <- NULL
     message("

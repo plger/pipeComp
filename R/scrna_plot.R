@@ -333,6 +333,7 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
 #' @param ... Passed to each calls to `Heatmap`
 #'
 #' @return A HeatmapList
+#' @importFrom stats hclust
 #' @export
 #'
 #' @examples
