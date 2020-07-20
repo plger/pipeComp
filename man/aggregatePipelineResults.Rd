@@ -8,10 +8,10 @@ aggregatePipelineResults(res, pipDef = NULL)
 }
 \arguments{
 \item{res}{A (named) list of results (per dataset), as produced by 
-`readPipelineResults` (or `mergePipelineResults`).}
+\code{\link{readPipelineResults}} (or `mergePipelineResults`).}
 
-\item{pipDef}{An optional `pipelineDefinition` containing the aggregation 
-methods. If omitted, that from the results will be used.}
+\item{pipDef}{An optional \code{\link{PipelineDefinition}} containing the 
+aggregation methods. If omitted, that from the results will be used.}
 }
 \value{
 A list with a slot for each step for which there is an aggregation 

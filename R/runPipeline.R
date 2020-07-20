@@ -1,3 +1,20 @@
+#' pipeComp - a framework for pipeline benchmarking
+#'
+#' \pkg{pipeComp} is a simple framework to facilitate the comparison of 
+#' pipelines involving various steps and parameters. It was initially developed 
+#' to benchmark single-cell RNA sequencing pipelines, and contains pre-defined
+#' \code{\link{PipelineDefinition}}s and functions to that effect, but could be
+#' applied to any context. See `vignette("pipeComp")` for an introduction.
+#'
+#' @author Pierre-Luc Germain \email{pierre-luc.germain@hest.ethz.ch}
+#' @author Anthony Sonrel \email{anthony.sonrel@uzh.ch}
+#' @author Mark D. Robinson \email{mark.robinson@@imls.uzh.ch}
+#' @name pipeComp-package
+#' @aliases pipeComp
+#' @docType package
+NULL
+
+
 #' runPipeline
 #' 
 #' This function runs a pipeline with combinations of parameter variations on 
@@ -7,7 +24,7 @@
 #' @param datasets A named vector of initial objects or paths to rds files.
 #' @param alternatives The (named) list of alternative values for each 
 #' parameter.
-#' @param pipelineDef An object of class `PipelineDefinition`.
+#' @param pipelineDef An object of class \code{\link{PipelineDefinition}}.
 #' @param comb An optional matrix of indexes indicating the combination to run. 
 #' Each column should correspond to an element of `alternatives`, and contain 
 #' indexes relative to this element. If omitted, all combinations will be 
@@ -19,6 +36,9 @@
 #' @param saveEndResults Logical; whether to save the output of the last step.
 #' @param debug Logical (default FALSE). When enabled, disables multithreading 
 #' and prints extra information.
+#' @param skipErrors Logical. When enabled, `runPipeline` will
+#' continue even when an error has been encountered, and report the list of 
+#' steps/datasets in which errors were encountered.
 #' @param ... passed to MulticoreParam. Can for instance be used to set 
 #' `makeCluster` arguments, or set `threshold="TRACE"` when debugging in a 
 #' multithreaded context.
@@ -49,8 +69,8 @@
 #' @import methods BiocParallel S4Vectors
 #' @export
 runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL, 
-                         output.prefix="", nthreads=1, 
-                         saveEndResults=TRUE, debug=FALSE, ...){
+                         output.prefix="", nthreads=1, saveEndResults=TRUE, 
+                         debug=FALSE, skipErrors=TRUE, ...){
   mcall <- match.call()
   if(!is(pipelineDef,"PipelineDefinition")) 
     pipelineDef <- PipelineDefinition(pipelineDef)
@@ -103,10 +123,12 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
                           FUN=function(dsi, eg) tryCatch(
                             .runPipelineF( dsi, datasets[[dsi]], pipelineDef, 
                                            alt, eg, output.prefix, noWrite=TRUE,
-                                           saveEndResults=saveEndResults ),
+                                           saveEndResults=saveEndResults,
+                                           skipErrors=skipErrors ),
                               error=function(e){
-                                print(e)
-                                stop(e)
+                                if(!skipErrors) stop(e)
+                                cat(e)
+                                NULL
                               })
                           )
     resfiles <- split(resfiles, dsnames)
@@ -130,28 +152,30 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
       return(ifile)
     })
   }else if(!debug && nthreads>1 && length(datasets)>1){
-    resfiles <- bplapply( dsnames, BPPARAM=bpp,
+    resfiles <- bptry(bplapply( dsnames, BPPARAM=bpp,
                           FUN=function(dsi){
                             tryCatch(
                     .runPipelineF(dsi, datasets[[dsi]], pipelineDef, alt, eg,
-                                  output.prefix, saveEndResults=saveEndResults),
+                                  output.prefix, saveEndResults=saveEndResults,
+                                  skipErrors=skipErrors),
                                      error=function(e){
                                        print(e)
-                                       print(traceback())
-                                       stop(e)
+                                       if(debug) print(traceback())
+                                       if(!skipErrors) stop(e)
+                                       NULL
                                      })
-                          })
+                          }))
   }else{
     nthreads <- 1
     if(debug) message("Running in debug mode (single thread)")
     resfiles <- lapply( dsnames, FUN=function(dsi){
       .runPipelineF(dsi, datasets[[dsi]], pipelineDef, alt, eg, output.prefix, 
-                    debug, saveEndResults=saveEndResults)
+                    debug, saveEndResults=saveEndResults, skipErrors=skipErrors)
     })
   }
 
   message("
-                Finished running on all datasets, now aggregating results...")
+                Finished running on all datasets")
   
   # save pipeline and resolved functions
   pipinfo <- list( pipDef=pipelineDef,
@@ -174,18 +198,46 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
                    call=mcall
   )
   saveRDS(pipinfo, file=paste0(output.prefix,"runPipelineInfo.rds"))
-  
+
   names(resfiles) <- names(datasets)
   res <- lapply(resfiles, readRDS)
+  errs <- lapply(res, FUN=function(x) x$errors)
+  if(length(unlist(errs))>0){
+    errs <- errs[!sapply(errs,is.null)]
+    errs <- lapply(errs, .removeRedundantErrors)
+    errs <- data.frame(dataset=rep(names(errs), sapply(errs,length)),
+                       step=unlist(errs))
+    row.names(errs) <- NULL
+    message("
+Some errors were encountered during the run:")
+    print(errs)
+    patt <- paste(paste0("^",gsub("([.()\\^{}+$*?]|\\[|\\])", "\\\\\\1", 
+                                  unique(errs$step))), collapse="|")
+    message("All results were saved, but only those of analyses successful ",
+            "across all datasets will be retained for aggregation.")
+    removeErrorSteps <- function(x){
+      w <- grep(patt,names(x),invert=TRUE)
+      if(is.data.frame(x)) return(x[w,,drop=FALSE])
+      x[w]
+    }
+    res <- lapply(res, FUN=function(x){
+      x$elapsed$stepwise <- lapply(x$elapsed$stepwise, removeErrorSteps)
+      x$elapsed$total <- removeErrorSteps(x$elapsed$total)
+      x$evaluation <- lapply(x$evaluation, removeErrorSteps)
+      x
+    })
+  }
+  message("
+                Aggregating results...")
   res <- aggregatePipelineResults(res, pipelineDef)
   saveRDS(res, file=paste0(output.prefix,"aggregated.rds"))
-  
   res
 }
 
 
 .runPipelineF <- function( dsi, ds, pipelineDef, alt, eg, output.prefix,
-                           debug=FALSE, saveEndResults=FALSE, noWrite=FALSE ){
+                           debug=FALSE, saveEndResults=FALSE, noWrite=FALSE,
+                           skipErrors=FALSE ){
   
   if(debug) message(dsi)
   
@@ -195,7 +247,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   ds <- tryCatch( stepFn(pipelineDef, type="initiation")(ds),
                   error=function(e){
                     stop("Error trying to initiate dataset ", dsi,"
-",e)                      
+",e)
                   })
   
   elapsed <- lapply(pipDef, FUN=function(x) list())
@@ -203,6 +255,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   
   objects <- c(list(BASE=ds),lapply(args[-length(args)],FUN=function(x)NULL))
   intermediate_return_objects <- lapply(args, FUN=function(x) list() )
+  run.errors <- c()
   rm(ds)
   
   res <- vector(mode="list", length=nrow(eg))
@@ -226,14 +279,14 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
     chParam <- names(alt)[which(newPar!=oldPar)[1]]
     wStep <- which(vapply(args,FUN=function(x){ chParam %in% x },logical(1)))
     # fetch the object from the previous step)
-    while( is.null(x=objects[[which(names(objects)==names(args)[wStep])-1]]) &&
-           wStep > 2 ) wStep <- wStep-1 # to handle steps without parameter
-    if(is.null(x=objects[[which(names(objects)==names(args)[wStep])-1]])){
+    while( (w <- which(names(objects)==names(args)[wStep])) && 
+           !is.na(objects[[w-1]]) && is.null(objects[[w-1]]) && wStep > 2 ) 
+      wStep <- wStep-1 # to handle steps without parameter
+    x <- objects[[w-1]]
+    if(is.null(x)){
       # going back to original dataset
       x <- objects[[1]]
       wStep <- 1
-    }else{
-      x <- objects[[which(names(objects)==names(args)[wStep])-1]]
     }
     # proceed with the remaining steps of the pipeline
     for(step in names(args)[seq.int(from=wStep, to=length(args))]){
@@ -248,31 +301,38 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
       fcall <- .mycall(pipDef[[step]], a)
       if(debug) message(fcall)
       st <- Sys.time()
-      x <- tryCatch( eval(fcall),
-                     error=function(e){
-                       .pipError(x, e, step, pipDef, fcall, newPar, 
-                                 output.prefix, dsi, aa, debug)
-                     })
-      
+      if(!is.null(x) && !is.na(x))
+        x <- tryCatch( eval(fcall),
+                       error=function(e){
+                         .pipError(x, e, step, pipDef, fcall, newPar, 
+                                   output.prefix, dsi, aa, debug,
+                                   continue=skipErrors)
+                       })
+        
       # name the current results on the basis of the previous steps:
       ws <- seq_len(sum( vapply(args[seq_len(which(names(args)==step))], 
                                 length, integer(1)) ))
       ename <- .args2name(newPar[ws], alt[ws])
       # save elapsed time for this step
       elapsed[[step]][[ename]] <- as.numeric(Sys.time()-st)
-      # save eventual intermediate objects (e.g. step evaluation)
-      if(is.list(x) && all(c("x","intermediate_return") %in% names(x))){
-        intermediate_return_objects[[step]][[ename]] <- x$intermediate_return
-        x <- x$x
+      if(is.null(x) || is.na(x)){
+        run.errors <- c(run.errors, ename)
+        x <- NA
       }else{
-        if(!is.null(stepFn(pipelineDef, step, "evaluation"))){
-          intermediate_return_objects[[step]][[ename]] <- tryCatch(
-            stepFn(pipelineDef, step, "evaluation")(x),
-            error=function(e){
-              fcall <- 'stepFn(pipelineDef, step, "evaluation")(x)'
-              .pipError(x, e, step, pipDef, fcall, newPar, output.prefix, dsi,
-                        aa, debug)
-            })
+        # save eventual intermediate objects (e.g. step evaluation)
+        if(is.list(x) && all(c("x","intermediate_return") %in% names(x))){
+          intermediate_return_objects[[step]][[ename]] <- x$intermediate_return
+          x <- x$x
+        }else{
+          if(!is.null(stepFn(pipelineDef, step, "evaluation"))){
+            intermediate_return_objects[[step]][[ename]] <- tryCatch(
+              stepFn(pipelineDef, step, "evaluation")(x),
+              error=function(e){
+                fcall <- 'stepFn(pipelineDef, step, "evaluation")(x)'
+                .pipError(x, e, step, pipDef, fcall, newPar, output.prefix, dsi,
+                          aa, debug, continue=skipErrors)
+              })
+          }
         }
       }
       objects[[step]] <- x
@@ -308,6 +368,7 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   
   res <- SimpleList( evaluation=intermediate_return_objects,
                      elapsed=list( stepwise=elapsed, total=elapsed.total ) )
+  if(length(run.errors)>0) res$errors <- run.errors
   metadata(res)$PipelineDefinition <- pipelineDef
   
   ifile <- paste0(output.prefix,"res.",dsi,".evaluation.rds")
@@ -359,17 +420,22 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
 }
 
 .pipError <- function(x, e, step, pipDef, fcall, newPar, output.prefix, dsi, aa, 
-                      debug=TRUE){
+                      debug=TRUE, continue=FALSE){
   if(debug) save(x, step, pipDef, fcall, newPar, 
                  file=paste0(output.prefix,"runPipeline_error_TMPdump.RData"))
   msg <- paste0("Error in dataset `", dsi, "` with parameters:\n", aa, 
-                "\nin step `", step, "`, evaluating command:\n`", fcall, "`
+                "\nin step `", step, "`, evaluating command:\n`", 
+                gsub("[[step]]",paste0('[["',step,'"]]'), fcall, fixed=TRUE), "`
                 Error:\n", e, "\n", 
                 ifelse(debug, paste0("Current variables dumped in ", 
                                      output.prefix,
                                      "runPipeline_error_TMPdump.RData"), ""))
-  if(!debug) print(msg)
-  stop( msg )  
+  if(continue){
+    cat( msg )
+  }else{
+    stop( msg )
+  }
+  NULL
 }
 
 .splitEG <- function(datasets, eg, nthreads, tol=1){
@@ -383,3 +449,12 @@ runPipeline <- function( datasets, alternatives, pipelineDef, comb=NULL,
   split(eg, seq_len(nrow(eg)))
 }
 
+.removeRedundantErrors <- function(e){
+  i <- 1
+  while(i < length(e)){
+    w <- i+grep(paste0("^",e[i]), e[-seq_len(i)])
+    if(length(w)>0) e <- e[-w]
+    i <- i + 1
+  }
+  e
+}
