@@ -4,7 +4,7 @@
 \alias{evaluateClustering}
 \title{evaluateClustering}
 \usage{
-evaluateClustering(x, tl)
+evaluateClustering(x, tl = NULL)
 }
 \arguments{
 \item{x}{The clustering labels}

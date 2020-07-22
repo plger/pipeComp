@@ -9,4 +9,7 @@ Changes in version 0.99.23 (2020-04-21)
 + Standardized results heatmaps for any PipelineDefinition
 
 Changes in version 0.99.27 (2020-04-29)
-* the plotting functions for the scRNAseq clustering pipeline (`scrna_evalPlot_DR` and `scrna_evalPlot_clust`) have been replaced by more flexible, pipeline-generic functions (`evalHeatmap`) and a silhouette-specific plotting function (`scrna_evalPlot_silh`). The general heatmap coloring scheme has also been changed to make meaningful changes clearer.
++ the plotting functions for the scRNAseq clustering pipeline (`scrna_evalPlot_DR` and `scrna_evalPlot_clust`) have been replaced by more flexible, pipeline-generic functions (`evalHeatmap`) and a silhouette-specific plotting function (`scrna_evalPlot_silh`). The general heatmap coloring scheme has also been changed to make meaningful changes clearer.
+
+Changes in version 0.99.43 (2020-07-20)
++ there is no the possibility to continue runs despite errors, and enlarged merging capacities
