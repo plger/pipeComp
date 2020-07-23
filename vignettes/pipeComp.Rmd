@@ -226,7 +226,7 @@ res$evaluation$step2
 
 ### Debugging
 
-Errors typically come from the method wrappers, and debugging them from within `runPipeline` can complicated by multithreading. For this reason `runPipeline` wraps additional information around error messages. This would be an example of the error report:
+Errors typically come from the method wrappers, and debugging them from within `runPipeline` can be complicated by multithreading. For this reason `runPipeline` wraps additional information around error messages. This would be an example of the error report:
 
 ```
 Error in dataset `mydataset` with parameters:
@@ -250,6 +250,7 @@ fragile.fun <- function(x){
 }
 alternatives$meth1 <- c(alternatives$meth1, "fragile.fun")
 res <- runPipeline(datasets, alternatives, my_pip, output.prefix=tmpdir1, skipErrors=TRUE)
+
 ```
 
 As indicated in the error message, only the analyses successful across all datasets were aggregated:
