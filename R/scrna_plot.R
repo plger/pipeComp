@@ -438,12 +438,23 @@ scrna_evalPlot_overall <- function(res, agg.by=NULL, width=NULL,
   for(f in c("filt","sel","norm")){
     if(f %in% colnames(pp)) pp[[f]] <- gsub(paste0("^",f,"\\."),"",pp[[f]])
   }
-
-  ha <- HeatmapAnnotation( which="row", col=rowAnnoColors,
-          "max\n% lost"=anno_barplot( pclost, bar_width=0.85, border=FALSE, 
-                                      width=unit(1.5,"cm"),
-                                      gp=gpar(fill="#282828", col="#282828") ),
-          df=pp, annotation_legend_param=list("side"="right") )
+  if(is.null(rowAnnoColors)){
+    ha <- HeatmapAnnotation( which="row",
+                             "max\n% lost"=anno_barplot( pclost, bar_width=0.85, 
+                                                         border=FALSE,
+                                                         width=unit(1.5,"cm"),
+                                                         gp=gpar(fill="#282828",
+                                                                 col="#282828") ),
+                             df=pp, annotation_legend_param=list("side"="right") )
+  } else {
+    ha <- HeatmapAnnotation( which="row", col=rowAnnoColors,
+                             "max\n% lost"=anno_barplot( pclost, bar_width=0.85, 
+                                                         border=FALSE,
+                                                         width=unit(1.5,"cm"),
+                                                         gp=gpar(fill="#282828",
+                                                                 col="#282828") ),
+                             df=pp, annotation_legend_param=list("side"="right") )
+  }
   
   h <- hclust(dist(do.call(cbind, ll)))
   silhscale <- .silScale(cbind(ll2[[1]]$mat, ll2[[2]]$mat))
