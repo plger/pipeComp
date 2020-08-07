@@ -29,7 +29,7 @@ This readme gives a very brief overview of the package. For more detailed inform
 
 ### Recent changes
 
-* In `pipeComp` 0.99.43, there is no the possibility to continue runs despite errors (see the `skipErrors` argument of `runPipeline`).
+* In `pipeComp` 0.99.43, there is now the possibility to continue runs despite errors (see the `skipErrors` argument of `runPipeline`, and the 'Handling errors' section of the [pipeComp vignette](vignettes/pipeComp.Rmd).).
 
 * In `pipeComp` 0.99.26 on, the plotting functions for the scRNAseq clustering pipeline (`scrna_evalPlot_DR` and `scrna_evalPlot_clust`) have been replaced by more flexible, pipeline-generic functions (`evalHeatmap`) and a silhouette-specific plotting function (`scrna_evalPlot_silh`). The general heatmap coloring scheme has also been changed to make meaningful changes clearer.
 
