@@ -260,6 +260,30 @@ mergePipelineResults <- function(..., rr=NULL, verbose=TRUE){
   FALSE
 }
 
+.dsMergeResults <- function(res1, res2) {
+  names(steps) <- steps <- names(res1$evaluation)
+  esteps <- vapply(res1$evaluation, FUN = function(x) {
+    !is.null(x) && length(x) > 0
+  }, logical(1))
+  edif <- setdiff(names(res2$elapsed$total), names(res1$elapsed$total))
+  res <- SimpleList(evaluation = lapply(steps[esteps], FUN = function(step) {
+    r1 <- res1$evaluation[[step]]
+    r2 <- res2$evaluation[[step]]
+    dif <- setdiff(names(r2), names(r1))
+    c(r1, r2[dif])
+  }), elapsed = list(stepwise = lapply(steps, FUN = function(step) {
+    r1 <- res1$elapsed$stepwise[[step]]
+    r2 <- res2$elapsed$stepwise[[step]]
+    dif <- setdiff(names(r2), names(r1))
+    c(r1, r2[dif])
+  }), total = c(res1$elapsed$total, res2$elapsed$total[edif])))
+  if (!is.null(metadata(res1)$PipelineDefinition)) {
+    metadata(res)$PipelineDefinition <- metadata(res1)$PipelineDefinition
+  } else if (!is.null(metadata(res2)$PipelineDefinition)) {
+    metadata(res)$PipelineDefinition < metadata(res2)$PipelineDefinition
+  }
+  res
+}
 
 #' defaultStepAggregation
 #'
