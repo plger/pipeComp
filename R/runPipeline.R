@@ -280,7 +280,7 @@ Some errors were encountered during the run:")
     wStep <- which(vapply(args,FUN=function(x){ chParam %in% x },logical(1)))
     # fetch the object from the previous step)
     while( (w <- which(names(objects)==names(args)[wStep])) && 
-           !is.na(objects[[w-1]]) && is.null(objects[[w-1]]) && wStep > 2 ) 
+           (all(is.na(objects[[w-1]])) || is.null(objects[[w-1]])) && wStep > 2)
       wStep <- wStep-1 # to handle steps without parameter
     x <- objects[[w-1]]
     if(is.null(x)){
