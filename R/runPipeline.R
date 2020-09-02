@@ -301,7 +301,7 @@ Some errors were encountered during the run:")
       fcall <- .mycall(pipDef[[step]], a)
       if(debug) message(fcall)
       st <- Sys.time()
-      if(!is.null(x) && !is.na(x))
+      if(length(x)>1 || !is.na(x))
         x <- tryCatch( eval(fcall),
                        error=function(e){
                          .pipError(x, e, step, pipDef, fcall, newPar, 
