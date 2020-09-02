@@ -24,6 +24,20 @@
 evaluateClustering <- function(x, tl=NULL){
   if(is.null(tl)) tl <- attr(x,"true.labels")
   if(is.null(tl)) stop("True labels not found!")
+  if(!is.null(names(tl)) && !is.null(names(x))){
+    if(all(names(x) %in% names(tl))){
+      tl <- tl[names(x)]
+    }else{
+      warning("The names of the clustering vector does not match the names of",
+              " the true labels.")
+    }
+  }
+  if(any(is.na(tl))){
+    w <- which(!is.na(tl))
+    if(length(w)==0) stop("No non-NA true label!")
+    tl <- tl[w]
+    x <- x[w]
+  }
   e <- match_evaluate_multiple(x, tl)
   x <- as.character(x)
   unmatched <- length(x)-sum(e$n_cells_matched)
