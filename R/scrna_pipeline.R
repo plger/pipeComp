@@ -123,7 +123,7 @@ using the `dr` function.",
     },
     filtering=filtfun,
     normalization=function(x, norm){ 
-      get(norm)(x)
+      x <- get(norm)(x)
     },
     selection=selfun,
     dimreduction=DRfun,
@@ -147,12 +147,14 @@ using the `dr` function.",
       dims <- max(dims,2,na.rm=TRUE)
       x <- get(clustmethod)(x, dims=dims, resolution=resolution, k=k, 
                             steps=steps, min.size=min.size)
-      list( x=x, intermediate_return=evaluateClustering(x,tl) )
+      attr(x, "true.labels") <- tl
+      x
     }
   )
   
   eva <- list( doublet=NULL, filtering=NULL, normalization=evaluateNorm,
-               selection=NULL, dimreduction=evaluateDimRed , clustering=NULL )
+               selection=NULL, dimreduction=evaluateDimRed, 
+               clustering=evaluateClustering )
   # functions to aggregate the intermediate_return of the different steps
   agg <- list( doublet=.aggregateExcludedCells,
                filtering=.aggregateExcludedCells,

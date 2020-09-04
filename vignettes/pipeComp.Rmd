@@ -23,8 +23,7 @@ library(BiocStyle)
 `r Rpackage("pipeComp")` is a simple framework to facilitate the comparison of pipelines involving various steps and parameters. It was initially developed to benchmark single-cell RNA sequencing (scRNAseq) pipelines:
 
 _pipeComp, a general framework for the evaluation of computational pipelines, reveals performant single-cell RNA-seq preprocessing tools_<br/>
-Pierre-Luc Germain, Anthony Sonrel & Mark D Robinson, 
-bioRxiv [2020.02.02.930578](https://doi.org/10.1101/2020.02.02.930578)
+Pierre-Luc Germain, Anthony Sonrel & Mark D Robinson, _Genome Biology_ 2020, doi: [10.1186/s13059-020-02136-7](https://doi.org/10.1186/s13059-020-02136-7).
 
 However the framework can be applied to any other context. This vignette introduces the package and framework; for information specifically about the scRNAseq pipeline and evaluation metrics, see the [pipeComp_scRNA](pipeComp_scRNA.html) vignette. For a completely different example, with walkthrough the creating of a new `PipelineDefinition`, see the [pipeComp_dea](pipeComp_dea.html) vignette.
 
@@ -184,26 +183,22 @@ Finally, the `arguments()` method can be used to extract the arguments for each 
 
 ## Merging results of different _runPipeline_ calls
 
-### Merging the same analyses on different datasets
-
 The previous call to `runPipeline` produced one evaluation file for each dataset:
 
 ```{r}
 list.files(tmpdir1, pattern="evaluation\\.rds")
 ```
 
-If we have different such files coming from different runs (using the same `PipelineDefinition` and set of alternative parameters), we simply need to read them all into a list to aggregate them together:
+Their aggregation could be repeated manually by reading those files and calling `aggregatePipelineResults`:
 
 ```{r}
 ds <- list.files(tmpdir1, pattern="evaluation\\.rds", full.names = TRUE)
 names(ds) <- basename(ds)
-res <- readPipelineResults(resfiles=ds)
-res <- aggregatePipelineResults(res)
+res1 <- readPipelineResults(resfiles=ds)
+res <- aggregatePipelineResults(res1)
 ```
 
-### Merging the results of different alternative parameters on the same datsets
-
-We first make another `runPipeline` call using slightly different alternative parameter values:
+In addition, the results of different calls to `runPipeline` (with partially different datasets and/or parameter combinations) can be merged together, provided that the `PipelineDefinition` is the same. To illustrate this, we first make another `runPipeline` call using slightly different alternative parameter values:
 
 ```{r}
 alternatives <- list(meth1=c("log2","sqrt"), meth2="cumsum")
@@ -223,6 +218,47 @@ We can then aggregate the results as we do for a single run:
 res <- aggregatePipelineResults(res)
 res$evaluation$step2
 ```
+
+<br/><br/>
+
+## Handling errors
+
+### Debugging
+
+Errors typically come from the method wrappers, and debugging them from within `runPipeline` can be complicated by multithreading. For this reason `runPipeline` wraps additional information around error messages. This would be an example of the error report:
+
+```
+Error in dataset `mydataset` with parameters:
+filt=lenient, norm=norm.test, k=20
+in step `normalization`, evaluating command:
+`pipDef[["normalization"]](x = x, norm = "norm.test")`
+                Error:
+Error in get(norm)(x): not enough cells!
+```
+
+The offending dataset, pipeline step and exact set of parameters is reported, enabling you to try to repeat the error outside, where it is easier to debug.
+
+### Skipping errors and fixing them afterwards
+
+A useful behavior is for `runPipeline` to continue when encountering errors, so that successful results are not lost. This behavior can be enabled with the `skipErrors=TRUE` argument. We can illustrate this with our above dummy pipeline, by adding an alternative that is bound to give rise to an error:
+
+```{r}
+fragile.fun <- function(x){
+  if(any(x>10)) stop("Too big!")
+  2^x
+}
+alternatives$meth1 <- c(alternatives$meth1, "fragile.fun")
+res <- runPipeline(datasets, alternatives, my_pip, output.prefix=tmpdir1, skipErrors=TRUE)
+
+```
+
+As indicated in the error message, only the analyses successful across all datasets were aggregated:
+
+```{r}
+res$evaluation$step2
+```
+
+However, all successful results (e.g. including 'fragile.fun' on 'ds1') were saved in the non-aggregated files. This means that one can then correct the problematic function, re-run only the analyses that failed (i.e. only on 'ds2' in this case), and merge the results with the first batch (see `?mergePipelineResults`).
 
 <br/><br/>
 

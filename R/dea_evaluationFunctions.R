@@ -62,6 +62,7 @@ evaluateDEA <- function(dea, truth=NULL, th=c(0.01,0.05,0.1)){
 #' @param shapeBy Name of column determining the shape of the points. If 
 #' omitted, the shape will indicate whether the nominal FDR is below or equal 
 #' the real FDR.
+#' @param pointsize Size of the points
 #'
 #' @return A ggplot.
 #' @export
@@ -69,7 +70,8 @@ evaluateDEA <- function(dea, truth=NULL, th=c(0.01,0.05,0.1)){
 #' data("exampleDEAresults", package="pipeComp")
 #' dea_evalPlot_curve(exampleDEAresults, agg.by=c("sva.method"))
 dea_evalPlot_curve <- function(res, scales="free", agg.by=NULL, agg.fn=mean, 
-                               xlim=c(NA,NA), colourBy="method", shapeBy=NULL){
+                               xlim=c(NA,NA), colourBy="method", shapeBy=NULL,
+                               pointsize=4){
   pd <- NULL
   if(is(res,"SimpleList")) pd <- metadata(res)$PipelineDefinition
   if(is(res,"SimpleList") && "evaluation" %in% names(res)) res <- res$evaluation
@@ -87,7 +89,7 @@ dea_evalPlot_curve <- function(res, scales="free", agg.by=NULL, agg.fn=mean,
                             shape=shapeBy)) + 
     geom_vline(xintercept=unique(d$threshold), linetype="dashed", 
                colour="darkgrey") + 
-    geom_line(size=1) + geom_point(size=4)
+    geom_line(size=1) + geom_point(size=pointsize)
   if(is.null(shapeBy)) p <- p + 
     geom_point(data=d[d$FDR>d$threshold,], size=3, colour="white")
   p + facet_wrap(~dataset, scales=scales) + 

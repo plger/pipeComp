@@ -47,9 +47,9 @@ readPipelineResults <- function(path = NULL, resfiles = NULL) {
 #' paths to `evaluation\\.rds` files (`resfiles`).
 #'
 #' @param res A (named) list of results (per dataset), as produced by 
-#' `readPipelineResults` (or `mergePipelineResults`).
-#' @param pipDef An optional `pipelineDefinition` containing the aggregation 
-#' methods. If omitted, that from the results will be used.
+#' \code{\link{readPipelineResults}} (or `mergePipelineResults`).
+#' @param pipDef An optional \code{\link{PipelineDefinition}} containing the 
+#' aggregation methods. If omitted, that from the results will be used.
 #'
 #' @return A list with a slot for each step for which there is an aggregation 
 #' method, or (if no aggregation method available) a list of the 
@@ -150,11 +150,20 @@ aggregatePipelineResults <- function(res, pipDef = NULL) {
 }
 
 #' mergePipelineResults
+#' 
+#' Merges the (non-aggregated) results of any number of runs of `runPipeline`
+#' using the same \code{\link{PipelineDefinition}} (but on different datasets 
+#' and/or using different parameters). First read the different sets of results 
+#' using \code{\link{readPipelineResults}}, and pass them to this function.
+#' 
 #'
-#' @param res1 A list of pipeline results, as produced by `readPipelineResults`
-#' @param res2 A list of pipeline results, as produced by `readPipelineResults`
+#' @param ... Any number of lists of pipeline results, each as produced by 
+#' \code{\link{readPipelineResults}}
+#' @param rr Alternatively, the pipeline results can be passed as a list (in 
+#' which case `...` is ignored)
+#' @param verbose Whether to print processing information
 #'
-#' @return A list of pipeline results.
+#' @return A list of merged pipeline results.
 #' @examples
 #' # we produce 2 mock pipeline results:
 #' pip <- mockPipeline()
@@ -173,22 +182,82 @@ aggregatePipelineResults <- function(res, pipDef = NULL) {
 #' # and we aggregate:
 #' res <- aggregatePipelineResults(res)
 #' @export
-#' @import S4Vectors
-mergePipelineResults <- function(res1, res2) {
-  .checkRes(res1, res2)
-  nn <- intersect(names(res1), names(res2))
-  if (length(nn) != length(res1)) {
-    if (length(nn) == 0) 
-      stop("The results do not share datasets.")
-    warning("The results will be reduced to the datasets they share.")
-    res1 <- res1[nn]
-    res2 <- res2[nn]
-  }
-  names(nn) <- nn
-  lapply(nn, FUN = function(ds) {
-    .dsMergeResults(res1[[ds]], res2[[ds]])
-  })
+mergePipelineResults <- function(..., rr=NULL, verbose=TRUE){
+  if(is.null(rr)) rr <- list(...)
+  if(any(vapply(rr, FUN.VALUE=logical(1L), 
+                FUN=function(x) is.null(x[[1]]$evaluation))))
+    stop("Some of the objects appear not to be pipeline results.")
+  if(is.null(names(rr))) names(rr) <- paste0("res",1:length(rr))
+  for(ds in rr) .checkSameSteps(rr)
+  .checkSameSteps(lapply(rr, FUN=function(x) x[[1]]))
+  if(verbose) print(lapply(rr, FUN=function(res){
+    vapply(res, FUN.VALUE=integer(1L), 
+           FUN=function(x) length(rev(x$evaluation)[[1]]))}))
   
+  # concatenate results
+  names(ds) <- ds <- unique(unlist(lapply(rr, names)))
+  hasdup <- FALSE
+  res <- lapply(ds, FUN=function(dataset){
+    r2 <- lapply(rr, FUN=function(x) x[[dataset]])
+    r2 <- r2[!vapply(r2,is.null,logical(1L))]
+    if(length(r2)==1) return(r2[[1]])
+    if(!hasdup){
+      rn <- unlist(lapply(r2, FUN=function(x) names(rev(x$evaluation)[[1]])))
+      if(any(duplicated(rn))) hasdup <- TRUE
+    }
+    res <- r2[[1]]
+    res$errors <- NULL
+    for(i in seq(2,length(r2))){
+      x <- setdiff(names(r2[[i]]$elapsed$total), names(res$elapsed$total))
+      res$elapsed$total <- c(res$elapsed$total, r2[[i]]$elapsed$total[x])
+      for(step in names(res$evaluation)){
+        x <- setdiff(names(r2[[i]]$evaluation[[step]]), 
+                     names(res$evaluation[[step]]))
+        res$evaluation[[step]] <- c(res$evaluation[[step]], 
+                                    r2[[i]]$evaluation[[step]][x])
+        res$elapsed$stepwise[[step]] <- c(res$elapsed$stepwise[[step]], 
+                                          r2[[i]]$elapsed$stepwise[[step]][x])
+      }
+    }
+    res
+  })
+  rm(rr)
+  if(hasdup && verbose) 
+    message("Some analyses were redundant across results sets, ",
+            "and only the first given was kept.")
+  
+  # retain only complete parameter sets
+  hasmissing <- FALSE
+  for(step in names(res[[1]]$evaluation)){
+    a <- table(unlist(lapply(res,FUN=function(x) names(x$evaluation[[step]]))))
+    if(length(a)>0){
+      if(!all(w <- a==length(res))) hasmissing <- TRUE
+      a <- sort(names(a)[w])
+      if(length(a)==0) stop("No complete parameter set!")
+      res <- lapply(res, FUN=function(x){
+        x$evaluation[[step]] <- x$evaluation[[step]][a]
+        x$elapsed$stepwise[[step]] <- x$elapsed$stepwise[[step]][a]
+        if(step==rev(names(x$evaluation))[1])
+          x$elapsed$total <- x$elapsed$total[a]
+        x
+      })
+    }
+  }
+  if(hasmissing && verbose) 
+    warning("Some parameter combinations were not available for all datasets ",
+            "and were dropped.")
+  
+  if(verbose) print(list(merged=vapply(res, FUN.VALUE=integer(1L), 
+           FUN=function(x) length(rev(x$evaluation)[[1]]))))
+  res
+}
+
+.checkSameSteps <- function(x, stopifnot=TRUE){
+  steps <- table(unlist(lapply(x, FUN=function(x) names(x$evaluation))))
+  if(all(steps==length(x))) return(TRUE)
+  if(stopifnot) stop("Some datasets have different steps - were then run using",
+                      " the same PipelineDefinition?")
+  FALSE
 }
 
 .dsMergeResults <- function(res1, res2) {
@@ -215,7 +284,6 @@ mergePipelineResults <- function(res1, res2) {
   }
   res
 }
-
 
 #' defaultStepAggregation
 #'

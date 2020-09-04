@@ -11,7 +11,8 @@ dea_evalPlot_curve(
   agg.fn = mean,
   xlim = c(NA, NA),
   colourBy = "method",
-  shapeBy = NULL
+  shapeBy = NULL,
+  pointsize = 4
 )
 }
 \arguments{
@@ -30,6 +31,8 @@ dea_evalPlot_curve(
 \item{shapeBy}{Name of column determining the shape of the points. If 
 omitted, the shape will indicate whether the nominal FDR is below or equal 
 the real FDR.}
+
+\item{pointsize}{Size of the points}
 }
 \value{
 A ggplot.

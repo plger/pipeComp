@@ -126,13 +126,13 @@ names(res$evaluation$dimreduction)
 
 ### Subpopulation silhouette
 
-The `silhouette` slot contains information about the silhouettes width of true subpopulations. Depending on the methods used for dimensionality (i.e. fixed vs estimated number of dimensions), there will be a single output or outputs for different sets of dimensions, as is the case in our example:
+The `silhouette` slot contains information about the silhouettes width of true subpopulations. Depending on the methods used for dimensionality (i.e. fixed vs estimated number of dimensions), there will be a single output or outputs for different sets of dimensions, as it is the case in our example:
 
 ```{r}
 names(res$evaluation$dimreduction$silhouette)
 ```
 
-For each of them we have a data.frame including, for each subpopulation in each analysis (i.e. combination of paremeters), the minimum, maximum, median and mean silhouette width:
+For each of them we have a data.frame including, for each subpopulation in each analysis (i.e. combination of parameters), the minimum, maximum, median and mean silhouette width:
 
 ```{r}
 head(res$evaluation$dimreduction$silhouette$top_10_dims)
@@ -159,7 +159,7 @@ res$evaluation$dimreduction$varExpl.subpops[1:5,1:15]
 
 ### Correlation with covariates
 
-The slots following slots track the correlation between principal components (PCs) and predefined cell-level covariates such as library size and number of detected genes:
+The following slots in `res$evaluation$dimreduction` track the correlation between principal components (PCs) and predefined cell-level covariates such as library size and number of detected genes:
 * `corr.covariate` contains the pearson correlation between the covariates and each PC; however, since there are major differences in library sizes between subpopulations, we advise against using this directly.
 * `meanAbsCorr.covariate2` circumvents this bias by computing the mean absolute correlation (among the first 5 components) for each subpopulation, and averaging them.
 * `PC1.covar.adjR2` gives the difference in adjusted _R^2_ between a model fit on PC1 containing the covariate along with subpopulations (PC1~subpopulation+covariate) and one without the covariate (PC1~subpopulation).
@@ -243,6 +243,13 @@ We can also filter the analyses before aggregation. For instance, if we wish to 
 evalHeatmap(res, step = "clustering", what=c("MI","ARI"), agg.by=c("filt","norm")) +
   evalHeatmap(res, step = "clustering", what="ARI", agg.by=c("filt", "norm"),
               filter=n_clus==true.nbClusts, title="ARI at\ntrue k")
+```
+
+Finally, a pipeline-specific plotting function enables overview heatmaps across steps:
+
+```{r, fig.width=8, fig.height=5}
+h <- scrna_evalPlot_overall(res)
+draw(h, heatmap_legend_side="bottom")
 ```
 
 ## Computing time

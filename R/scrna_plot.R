@@ -314,3 +314,182 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
 }
 
 
+#' scrna_evalPlot_overall
+#' 
+#' Plots a multi-level summary heatmap of many analyses of the `scrna_pipeline`.
+#'
+#' @param res Aggregated pipeline results (i.e. the output of `runPipeline` or
+#' `aggregateResults`)
+#' @param agg.by The paramters by which to aggregate.
+#' @param width The width of individual heatmap bodies.
+#' @param datasets_as_columnNames Logical; whether dataset names should be 
+#' printed below the columns (except for silhouette) rather than using a
+#' legend.
+#' @param rowAnnoColors Optional list of colors for the row annotation variables
+#' (passed to `HeatmapAnnotation(col=...)`)
+#' @param column_names_gp Passed to each calls to `Heatmap`
+#' @param column_title_gp Passed to each calls to `Heatmap`
+#' @param heatmap_legend_param Passed to each calls to `Heatmap`
+#' @param ... Passed to each calls to `Heatmap`
+#'
+#' @return A HeatmapList
+#' @importFrom stats hclust
+#' @export
+#'
+#' @examples
+#' data("exampleResults")
+#' h <- scrna_evalPlot_overall(exampleResults)
+#' draw(h, heatmap_legend_side="bottom")
+scrna_evalPlot_overall <- function(res, agg.by=NULL, width=NULL, 
+                              datasets_as_columnNames=TRUE, 
+                              rowAnnoColors=NULL,
+                              column_names_gp=gpar(fontsize=10),
+                              column_title_gp=gpar(fontsize=12),
+                              heatmap_legend_param=list( by_row=TRUE,
+                                                direction="horizontal", nrow=1), 
+                              ... ){
+  a <- arguments(metadata(res)$PipelineDefinition)
+  if(is.null(agg.by)){
+    agg.by <- c(unlist(a[-length(a)]),c("clustmethod", "dims"))
+    agg.by <- agg.by[sapply(agg.by, FUN=function(x) 
+                              length(unique(res$evaluation$clustering[[x]]))>1)]
+  }
+  agg.by <- as.character(agg.by)
+  if(!all(agg.by %in% unlist(a)))
+    stop("`agg.by` should be a vector of pipeline parameters.")
+  
+  # dimred
+  sil <- res$evaluation$dimreduction$silhouette
+  if(is(sil,"list")) sil <- sil[[1]]
+  ll <- lapply(c("minSilWidth", "meanSilWidth"), FUN=function(x){
+    .prepRes( sil, what=x, agg.by=intersect(agg.by, colnames(sil)), 
+              returnParams=TRUE, shortNames=TRUE, 
+              pipDef=metadata(res)$PipelineDefinition )
+  })
+  pp1 <- ll[[1]]$pp
+  pp1$method <- NULL
+  ll1 <- lapply(ll, FUN=function(x) x$res)
+
+  # clustering
+  ll <- lapply(c("ARI", "MI"), FUN=function(x){
+    .prepRes( res$evaluation$clustering, what=x, returnParams=TRUE, 
+              agg.by=agg.by, shortNames=TRUE, 
+              pipDef=metadata(res)$PipelineDefinition )
+  })
+  ll[[3]] <- .prepRes(res$evaluation$clustering, what="ARI", returnParams=TRUE,
+                      agg.by=agg.by, filt=expr(true.nbClusts==n_clus), 
+                      shortNames=TRUE, pipDef=metadata(res)$PipelineDefinition)
+  pp <- ll[[1]]$pp
+  pp$method <- NULL
+  ll2 <- lapply(ll, FUN=function(x){
+    x <- as.data.frame(x$res)
+    x <- as.matrix(colCenterScale(x[row.names(pp),]))
+    row.names(x) <- row.names(pp)
+    x
+  })
+  
+  # merge dimred and clust results
+  tmp <- as.character(apply( pp[,colnames(pp1),drop=FALSE], 1, 
+                             collapse=" > ",FUN=paste ))
+  ll1 <- lapply(ll1, FUN=function(x){
+    x <- x[tmp,]
+    row.names(x) <- row.names(ll2[[1]])
+    x
+  })
+  ll <- c(ll1,ll2)
+
+  # get max % lost
+  pclost <- scrna_evalPlot_filtering(res, returnTable=TRUE)
+  filt.agg.by <- intersect(agg.by,unlist(a[1:2]))
+  pclost <- aggregate( pclost[,"max.lost",drop=FALSE], 
+                        pclost[,c(filt.agg.by,"dataset"),drop=FALSE], FUN=mean)
+  if(length(filt.agg.by)>0){
+    f <- as.formula(paste(paste(filt.agg.by,collapse="+"),"~dataset"))
+    pclost <- reshape2::dcast(pclost, f, value.var="max.lost")
+    row.names(pclost) <- apply( pclost[,seq_along(filt.agg.by),drop=FALSE], 1, 
+                                collapse=" > ",FUN=paste )
+    tmp <- as.character(apply( pp[,filt.agg.by,drop=FALSE], 1, collapse=" > ",
+                               FUN=paste ))
+    pclost <- pclost[tmp,setdiff(colnames(pclost), filt.agg.by),]
+    row.names(pclost) <- row.names(ll2[[1]])
+  }else{
+    pclost <- matrix(pclost$max.lost, nrow=nrow(ll2[[1]]), ncol=nrow(pclost), 
+                     byrow=TRUE, 
+                     dimnames=list(row.names(ll2[[1]])), pclost$dataset)
+  }
+  pclost <- apply(pclost,1,FUN=max)
+  
+  ll2 <- list( list(mat=ll[[1]], title="min silh.\nwidth", 
+                    cluster_columns=TRUE, name="silhouette width"),
+               list(mat=ll[[2]], title="mean silh.\nwidth", 
+                    cluster_columns=TRUE, show_heatmap_legend=FALSE),
+               list(mat=ll[[3]], title="mean ARI", name="ARI (MADs)", 
+                    cluster_columns=FALSE),
+               list(mat=ll[[4]], title="mean MI", name="MI (MADs)", 
+                    cluster_columns=FALSE),
+               list(mat=ll[[5]], title="mean ARI\nat true k", 
+                    name="ARI at true k (MADs)", cluster_columns=FALSE)
+               )
+
+  if("doubletmethod" %in% colnames(pp))
+    pp$doubletmethod <- gsub("^doublet\\.","",pp$doubletmethod)
+  if("clustmethod" %in% colnames(pp))
+    pp$clustmethod <- gsub("^clust\\.","",pp$doubletmethod)
+  for(f in c("filt","sel","norm")){
+    if(f %in% colnames(pp)) pp[[f]] <- gsub(paste0("^",f,"\\."),"",pp[[f]])
+  }
+  if(is.null(rowAnnoColors)){
+    ha <- HeatmapAnnotation( which="row",
+                             "max\n% lost"=anno_barplot( pclost, bar_width=0.85, 
+                                                         border=FALSE,
+                                                         width=unit(1.5,"cm"),
+                                                         gp=gpar(fill="#282828",
+                                                                 col="#282828") ),
+                             df=pp, annotation_legend_param=list("side"="right") )
+  } else {
+    ha <- HeatmapAnnotation( which="row", col=rowAnnoColors,
+                             "max\n% lost"=anno_barplot( pclost, bar_width=0.85, 
+                                                         border=FALSE,
+                                                         width=unit(1.5,"cm"),
+                                                         gp=gpar(fill="#282828",
+                                                                 col="#282828") ),
+                             df=pp, annotation_legend_param=list("side"="right") )
+  }
+  
+  h <- hclust(dist(do.call(cbind, ll)))
+  silhscale <- .silScale(cbind(ll2[[1]]$mat, ll2[[2]]$mat))
+  H <- NULL
+  for(i in seq_along(ll2)){
+    if(i==1){
+      hi <- h
+    }else{
+      hi <- FALSE
+    }
+    if(grepl("silh", ll2[[i]]$title)){
+      col <- silhscale
+      scn <- FALSE
+    }else{
+      col <- .defaultColorMapping(ll2[[i]]$mat, center=TRUE)
+      scn <- datasets_as_columnNames
+    }
+    la <- ra <- NULL
+    if(i==length(ll2)) ra <- ha
+    ba <- .ds_anno(colnames(ll2[[i]]$mat), 
+                   legend=(!datasets_as_columnNames && i==1))
+    name <- ifelse(is.null(ll2[[i]]$name),ll2[[i]]$title,ll2[[i]]$name)
+    wi <- ifelse(is.null(width), unit(ifelse(i<=2,3.2,2.5), "cm"), width)
+    H <- H + Heatmap( ll2[[i]]$mat, name=name, cluster_rows=hi, 
+                      show_row_names=FALSE, show_column_names=scn, 
+                      heatmap_legend_param=heatmap_legend_param, 
+                      column_title=ll2[[i]]$title, col=col, width=wi, 
+                      cluster_columns=ll2[[i]]$cluster_columns, 
+                      show_column_dend=FALSE, bottom_annotation=ba, 
+                      left_annotation=la, right_annotation=ra, 
+                      column_names_gp=column_names_gp,
+                      column_title_gp=column_title_gp,
+                      show_heatmap_legend=ifelse(
+                        is.null(ll2[[i]]$show_heatmap_legend),TRUE,
+                        ll2[[i]]$show_heatmap_legend), ... )
+  }
+  H
+}

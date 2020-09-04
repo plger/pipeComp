@@ -5,8 +5,7 @@
 `pipeComp` is a simple framework to facilitate the comparison of pipelines involving various steps and parameters. It was initially developed to benchmark single-cell RNA sequencing pipelines:
 
 _pipeComp, a general framework for the evaluation of computational pipelines, reveals performant single-cell RNA-seq preprocessing tools_<br/>
-Pierre-Luc Germain, Anthony Sonrel & Mark D Robinson, 
-bioRxiv [2020.02.02.930578](https://doi.org/10.1101/2020.02.02.930578)
+Pierre-Luc Germain, Anthony Sonrel & Mark D Robinson, _Genome Biology_ 2020, doi: [10.1186/s13059-020-02136-7](https://doi.org/10.1186/s13059-020-02136-7)
 
 However the framework can be applied to any other context (see the `pipeComp_dea` vignette for an example). This readme provides an overview of the framework and package. For more detail, please refer to the two vignettes.
 
@@ -29,6 +28,8 @@ This readme gives a very brief overview of the package. For more detailed inform
 
 ### Recent changes
 
+* In `pipeComp` 0.99.43, there is now the possibility to continue runs despite errors (see the `skipErrors` argument of `runPipeline`, and the 'Handling errors' section of the [pipeComp vignette](vignettes/pipeComp.Rmd).).
+
 * In `pipeComp` 0.99.26 on, the plotting functions for the scRNAseq clustering pipeline (`scrna_evalPlot_DR` and `scrna_evalPlot_clust`) have been replaced by more flexible, pipeline-generic functions (`evalHeatmap`) and a silhouette-specific plotting function (`scrna_evalPlot_silh`). The general heatmap coloring scheme has also been changed to make meaningful changes clearer.
 
 * In `pipeComp` 0.99.24, multithreading capacities have been extended (now virtually no limit).
@@ -41,7 +42,7 @@ This readme gives a very brief overview of the package. For more detailed inform
 Install using:
 
 ```{r}
-BiocManager::install("plger/pipeComp")
+BiocManager::install("plger/pipeComp", build_vignettes=TRUE)
 ```
 
 Because `pipeComp` was meant as a general pipeline benchmarking framework, we have tried to restrict the package's dependencies to a minimum. 

@@ -63,7 +63,7 @@ seWrap <- function(sce, min.cells=10, min.features=0){
                             min.features=min.features, 
                             meta.data=as.data.frame(colData(sce)), 
                             project = "scRNAseq" )
-  Misc(se)$rowData <- as.data.frame(rowData(sce))
+  Misc(se, "rowData") <- as.data.frame(rowData(sce))
   if("logcounts" %in%  assayNames(sce)){
     se <- ScaleData(se, verbose = FALSE)
     sce <- sce[row.names(se),]
@@ -92,7 +92,7 @@ sceWrap <- function(seu) {
     sce <- sce[row.names(norm),]
     logcounts(sce) <- norm
   }
-  rowData(sce) <- Misc(seu)$rowData[row.names(sce),]
+  rowData(sce) <- Misc(seu, "rowData")[row.names(sce),]
   if(length(VariableFeatures(seu)))
     metadata(sce)$VariableFeats <- VariableFeatures(seu)
   if(length(Reductions(seu))>0){
