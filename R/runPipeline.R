@@ -315,7 +315,7 @@ Some errors were encountered during the run:")
       ename <- .args2name(newPar[ws], alt[ws])
       # save elapsed time for this step
       elapsed[[step]][[ename]] <- as.numeric(Sys.time()-st)
-      if(is.null(x) || is.na(x)){
+      if(is.null(x) || (length(x)==1 && is.na(x))){
         run.errors <- c(run.errors, ename)
         x <- NA
       }else{
