@@ -1,6 +1,7 @@
 #' evaluateClustering
 #'
-#' Evaluates a clustering using 'true' labels
+#' Evaluates a clustering using 'true' labels. Entries with missing true labels
+#' (i.e. NA) are excluded from calculations.
 #'
 #' @param x The clustering labels
 #' @param tl The true labels

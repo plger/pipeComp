@@ -16,7 +16,8 @@ A numeric vector of metrics (see the `pipeComp_scRNA` vignette for
 details)
 }
 \description{
-Evaluates a clustering using 'true' labels
+Evaluates a clustering using 'true' labels. Entries with missing true labels
+(i.e. NA) are excluded from calculations.
 }
 \examples{
 # random data
