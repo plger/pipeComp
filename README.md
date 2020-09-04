@@ -45,8 +45,9 @@ Install using:
 BiocManager::install("plger/pipeComp", build_vignettes=TRUE)
 ```
 
-Because `pipeComp` was meant as a general pipeline benchmarking framework, we have tried to restrict the package's dependencies to a minimum. 
-To use the scRNA-seq pipeline and wrappers, however, requires further packages to be installed. To check whether these dependencies are met for a given `pipelineDefinition` and set of alternatives, see `?checkPipelinePackages`.
+Due to Bioconductor standards, `pipeComp` requires R>=4, but it is actually compatible with R>=3.6.1 (users who have not yet moved to R4 can use the [R3.6 branch](https://github.com/plger/pipeComp/tree/R3.6)).
+
+Because `pipeComp` was meant as a general pipeline benchmarking framework, we have tried to restrict the package's dependencies to a minimum. To use the scRNA-seq pipeline and wrappers, however, requires further packages to be installed. To check whether these dependencies are met for a given `pipelineDefinition` and set of alternatives, see `?checkPipelinePackages`.
 
 <br/><br/>
 
