@@ -337,6 +337,7 @@ scrna_describeDatasets <- function(sces, pt.size=0.3, ...){
 #' @export
 #'
 #' @examples
+#' library(ComplexHeatmap)
 #' data("exampleResults")
 #' h <- scrna_evalPlot_overall(exampleResults)
 #' draw(h, heatmap_legend_side="bottom")

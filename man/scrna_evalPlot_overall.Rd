@@ -46,6 +46,7 @@ A HeatmapList
 Plots a multi-level summary heatmap of many analyses of the `scrna_pipeline`.
 }
 \examples{
+library(ComplexHeatmap)
 data("exampleResults")
 h <- scrna_evalPlot_overall(exampleResults)
 draw(h, heatmap_legend_side="bottom")
