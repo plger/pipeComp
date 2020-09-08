@@ -416,7 +416,7 @@ scrna_evalPlot_overall <- function(res, agg.by=NULL, width=NULL,
   }else{
     pclost <- matrix(pclost$max.lost, nrow=nrow(ll2[[1]]), ncol=nrow(pclost), 
                      byrow=TRUE, 
-                     dimnames=list(row.names(ll2[[1]])), pclost$dataset)
+                     dimnames=list(row.names(ll2[[1]]), pclost$dataset))
   }
   pclost <- apply(pclost,1,FUN=max)
   
