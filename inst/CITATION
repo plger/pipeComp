@@ -5,8 +5,8 @@ bibentry(bibtype = "article",
 	    person("Mark D.", "Robinson")),
 	year = 2020,
 	note = paste("package version", meta$Version),
-	url = "https://github.com/plger/pipeComp",
-	doi = "10.1101/2020.02.02.930578",
-	journal = "bioRxiv"
+	doi = "10.1186/s13059-020-02136-7",
+	volume = 21,
+	journal = "Genome Biology"
 )
 
