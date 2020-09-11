@@ -131,7 +131,8 @@ evaluateClustering <- function(x, tl=NULL){
 #' to gather statistics (default `c(10,20,50)`). Will use all available 
 #' dimensions if a higher number is given.
 #' @param covars A character vectors containing any additional covariates 
-#' (column names of `colData`) to track during evalutation.
+#' (column names of `colData`) to track during evalutation. If missing, will
+#' attempt to use default covariates. To disable, set `covars=c()`.
 #'
 #' @return A list with the following components:
 #' * silhouettes: a matrix of the silhouette for each cell-cluster pair at each 
@@ -164,12 +165,15 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
     if(is.null(clusters)) clusters <- x$phenoid
     x <- Embeddings(x[["pca"]])
   }else if(is(x, "SingleCellExperiment")){
-    if(is.character(covars)) covars <- as.data.frame(colData(x)[,covars])
+    if(is.character(covars))
+      covars <- as.data.frame(colData(x)[,intersect(covars,colnames(colData(x))])
     if(is.null(clusters)) clusters <- x$phenoid
     x <- reducedDim(x, "PCA")
   }else{
     if(is.null(clusters)) stop("`clusters` must be given!")
+    if(is.character(covars)) covars <- list()
   }
+  if(is.data.frame(covars) && ncol(covars)==0) covars <- list()
   clusters <- as.factor(clusters)
   n <- unique(vapply(n, y=ncol(x), FUN=function(x,y) min(x,y), numeric(1)))
   si <- lapply(n, FUN=function(dims){
@@ -186,17 +190,13 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
     silhouettes <- lapply(si,FUN=function(x) as.numeric(x[,3]))
     silhouettes <- cbind(si[[1]][,seq(1,2)], do.call(cbind, silhouettes))
   }
-  
   # cluster average silhouette width
   csw <- do.call(rbind, lapply(si, FUN=function(x) summary(x)$clus.avg.widths))
   colnames(csw) <- levels(clusters)
-  
   # variance in each component explained by clusters
   R2 <- apply(x[,seq_len(max(n)),drop=FALSE], 2, cl=clusters, FUN=.getVE)
-  
   # correlation of each component with covariates
   covar.cor <- vapply( covars, FUN=function(y) cor(x,y), numeric(ncol(x)) )
-  
   covar.adjR2 <- vapply(covars, FUN=function(co){
     apply(x[,seq_len(min(5,ncol(x)))], 2, FUN=function(x){ 
       tryCatch({
@@ -205,7 +205,6 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
       }, error=function(e) NA)
     })
   }, numeric(min(5,ncol(x))))
-  
   # per-subpopuluation correlation of each component with covariates
   ii <- split(seq_len(nrow(x)), clusters)
   covar.cor2 <- lapply( covars, FUN=function(y){
@@ -215,7 +214,6 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
     row.names(z) <- colnames(x)
     z
   })
-  
   # each cell's distance to the cluster median
   cs <- split(row.names(x),clusters)
   dists <- lapply(n, FUN=function(i){
@@ -225,7 +223,6 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
     })
   })
   names(dists) <- paste0(n,"dims")
-  
   list( silhouettes=silhouettes,
         clust.avg.silwidth=csw,
         cellDistsToMedian=dists,
