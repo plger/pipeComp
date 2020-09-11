@@ -80,7 +80,8 @@ scrna_evalPlot_silh <- function( res, what=c("minSilWidth","meanSilWidth"),
   pp <- res$pp
   res <- as.matrix(res$res)
   ro <- .dosort(res, reorder_rows)
-  if(reorder_columns) res <- res[,order(colMeans(res), decreasing=TRUE)]
+  if(reorder_columns)
+    res <- res[,order(colMeans(res), decreasing=TRUE),drop=FALSE]
   
   cellfn <- .getCellFn(res, res, value_format, value_cols, font_factor)
   if(is.null(title)) title <- gsub("\\.","\n",what)
