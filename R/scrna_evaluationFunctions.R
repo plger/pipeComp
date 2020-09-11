@@ -166,7 +166,8 @@ evaluateDimRed <- function(x, clusters=NULL, n=c(10,20,50), covars){
     x <- Embeddings(x[["pca"]])
   }else if(is(x, "SingleCellExperiment")){
     if(is.character(covars))
-      covars <- as.data.frame(colData(x)[,intersect(covars,colnames(colData(x))])
+      covars <- as.data.frame(colData(x)[,
+                                    intersect(covars,colnames(colData(x)))])
     if(is.null(clusters)) clusters <- x$phenoid
     x <- reducedDim(x, "PCA")
   }else{
