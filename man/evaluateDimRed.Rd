@@ -17,7 +17,8 @@ to gather statistics (default `c(10,20,50)`). Will use all available
 dimensions if a higher number is given.}
 
 \item{covars}{A character vectors containing any additional covariates 
-(column names of `colData`) to track during evalutation.}
+(column names of `colData`) to track during evalutation. If missing, will
+attempt to use default covariates. To disable, set `covars=c()`.}
 }
 \value{
 A list with the following components:
@@ -30,6 +31,8 @@ explained by the clusters (i.e. R-squared of a linear model).
 }
 \description{
 Gathers evaluation statistics on a reduced space using known cell labels.
+If using `evaluteDimRed` in a custom pipeline, you will probably want to use
+`pipeComp:::.aggregateDR` as the corresponding aggregation function.
 }
 \examples{
 # random data

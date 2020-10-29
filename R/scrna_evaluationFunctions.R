@@ -1,7 +1,9 @@
 #' evaluateClustering
 #'
 #' Evaluates a clustering using 'true' labels. Entries with missing true labels
-#' (i.e. NA) are excluded from calculations.
+#' (i.e. NA) are excluded from calculations. If using `evaluteClustering` in a
+#' custom pipeline, you might want to use the corresponding 
+#' `pipeComp:::.aggregateClusterEvaluation` aggregation function.
 #'
 #' @param x The clustering labels
 #' @param tl The true labels
@@ -123,6 +125,8 @@ evaluateClustering <- function(x, tl=NULL){
 #' evaluateDimRed
 #'
 #' Gathers evaluation statistics on a reduced space using known cell labels.
+#' If using `evaluteDimRed` in a custom pipeline, you will probably want to use
+#' `pipeComp:::.aggregateDR` as the corresponding aggregation function.
 #'
 #' @param x The matrix of the reduced space, with cells as rows and components 
 #' as columns

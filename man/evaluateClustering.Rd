@@ -17,7 +17,9 @@ details)
 }
 \description{
 Evaluates a clustering using 'true' labels. Entries with missing true labels
-(i.e. NA) are excluded from calculations.
+(i.e. NA) are excluded from calculations. If using `evaluteClustering` in a
+custom pipeline, you might want to use the corresponding 
+`pipeComp:::.aggregateClusterEvaluation` aggregation function.
 }
 \examples{
 # random data
