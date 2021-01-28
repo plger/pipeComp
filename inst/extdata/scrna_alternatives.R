@@ -40,9 +40,10 @@ add_meta <- function(ds){
   ds$log10_total_counts <- log10(ds$sum+1)
   ds$featcount_ratio <- ds$log10_total_counts/ds$log10_total_features
   ds$featcount_dist <- getFeatCountDist(ds)
-  ds$pct_counts_top_50_features <- ds$percent_top_50
+  ds$pct_counts_top_20_features <- colData(ds)[[intersect(c("percent_top_20","pct_counts_in_top_20_features","percent.top_20"), colnames(colData(ds)))[[1]]]]
+  ds$pct_counts_top_50_features <- colData(ds)[[intersect(c("percent_top_50","pct_counts_in_top_50_features","percent.top_50"), colnames(colData(ds)))[[1]]]]
   for(f in names(fc)) 
-    ds[[paste0("pct_",f)]] <- ds[[paste0("subsets_",f,"_percent")]]
+    ds[[paste0("pct_",f)]] <- ds[[intersect(c(paste0("subsets_",f,"_percent"),paste0("pct_",f)), colnames(colData(ds)))[[1]] ]]
   ds
 }
 
