@@ -45,7 +45,7 @@ evaluateClustering <- function(x, tl=NULL){
   x <- as.character(x)
   unmatched <- length(x)-sum(e$n_cells_matched)
   c( unlist(e), unmatched.cells=unmatched, 
-     unlist(aricode::clustComp(x,tl)) )
+     unlist(aricode::clustComp(factor(x),factor(tl))) )
 }
 
 .compileExcludedCells <- function(before, after){
